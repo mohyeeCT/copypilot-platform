@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme tokens ─────────────────────────────────────────── */
+:root {
+  --bg:             #FAF8F5;
+  --surface:        #FFFFFF;
+  --border:         #E5E2DC;
+  --text:           #1A1714;
+  --muted:          #6B6560;
+  --accent:         #00c9a7;
+  --error:          #dc2626;
+  --warning:        #d97706;
+  --success:        #059669;
+  --scrollbar-track: #F0EDE8;
+  --scrollbar-thumb: #D4D0CA;
+}
+
+[data-theme="dark"] {
+  --bg:             #0f0f17;
+  --surface:        #16161f;
+  --border:         #222230;
+  --text:           #e2e2ee;
+  --muted:          #5a5a72;
+  --accent:         #00c9a7;
+  --error:          #ff4d6d;
+  --warning:        #ffb347;
+  --success:        #00c9a7;
+  --scrollbar-track: #0f0f17;
+  --scrollbar-thumb: #222230;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  ::selection { background: #00c9a730; }
+}
+
+@layer components {
+  .input-base {
+    @apply w-full border rounded-lg px-3 py-2 text-sm font-mono
+    placeholder:text-muted focus:outline-none focus:ring-1 transition-colors;
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+    --tw-ring-color: var(--accent);
+  }
+  .input-base:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    @apply font-sans font-semibold text-sm px-4 py-2 rounded-lg
+    active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed
+    disabled:active:scale-100;
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover { opacity: 0.9; }
+
+  .btn-ghost {
+    @apply text-sm px-4 py-2 rounded-lg transition-all;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  .card {
+    @apply rounded-xl;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+}
+
+/* Row update flash animation */
+@keyframes row-flash {
+  0%   { box-shadow: 0 0 0 2px var(--accent); background-color: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+  60%  { box-shadow: 0 0 0 2px var(--accent); background-color: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+  100% { box-shadow: none; background-color: transparent; }
+}
+.row-flash { animation: row-flash 1.8s ease-out forwards; }

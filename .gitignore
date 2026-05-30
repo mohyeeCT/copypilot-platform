@@ -1,0 +1,8 @@
+.next
+node_modules
+.env
+.env.local
+*.json.key
+secrets.toml
+.vercel
+tsconfig.tsbuildinfo
