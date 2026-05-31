@@ -254,7 +254,10 @@ export default function JobPage() {
                 <p className="text-muted">Waiting for first update...</p>
               ) : (
                 ((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).map((entry, i) => {
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - new Date((job as unknown as {logs?: {ts: string; msg: string}[]}).logs![0].ts).getTime()) / 1000)
+                  const logs = (job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []
+                  const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
+                  const baseTs = chapterStart ? new Date(chapterStart.ts).getTime() : new Date(logs[0]?.ts || entry.ts).getTime()
+                  const elapsed = Math.round((new Date(entry.ts).getTime() - baseTs) / 1000)
                   return (
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
                       <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>

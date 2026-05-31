@@ -212,7 +212,9 @@ export default function MetaJobPage() {
               <div className="card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 200 }}>
                 {(job.logs || []).map((entry, i) => {
                   const logs = job.logs!
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
+                  const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
+                  const baseTs = chapterStart ? new Date(chapterStart.ts).getTime() : new Date(logs[0]?.ts || entry.ts).getTime()
+                  const elapsed = Math.round((new Date(entry.ts).getTime() - baseTs) / 1000)
                   return (
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
                       <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
