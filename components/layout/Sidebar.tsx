@@ -44,7 +44,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   }
 
   return (
-    <aside className="w-56 min-h-screen bg-surface border-r border-border flex flex-col shrink-0">
+    <aside className="w-56 min-h-screen border-r border-border flex flex-col shrink-0" style={{ background: "var(--sidebar-bg)" }}>
       {/* Logo */}
       <div className="p-5 border-b border-border">
         <div className="flex items-center gap-2">
