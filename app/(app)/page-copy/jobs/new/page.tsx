@@ -10,8 +10,12 @@ import { getSettings, getProviderCredentials, listBrandProfiles } from '@/lib/ap
 
 const PROVIDERS    = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 const BIZ_TYPES    = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
-const PAGE_TYPES   = ['blog', 'case_study', 'glossary']
-const PAGE_LABELS: Record<string, string> = { blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary' }
+const PAGE_TYPES   = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']
+const PAGE_LABELS: Record<string, string> = {
+  blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
+  homepage: 'Homepage', service: 'Service Page', local: 'Local Service Page',
+  about: 'About Us', contact: 'Contact Us', product: 'Product Page', collection: 'Collection / Category',
+}
 
 interface Row { url: string; keyword: string; page_type: string; h1: string; template_key: string }
 interface Template { key: string; name: string; description: string }
