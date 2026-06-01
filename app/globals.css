@@ -20,17 +20,19 @@
 }
 
 [data-theme="dark"] {
-  --bg:             #0f0f17;
-  --surface:        #16161f;
-  --border:         #222230;
-  --text:           #e2e2ee;
-  --muted:          #5a5a72;
+  --bg:             #1c1c24;
+  --surface:        #242430;
+  --surface-raised: #2a2a38;
+  --sidebar-bg:     #1f1f2b;
+  --border:         #33334a;
+  --text:           #e8e8f0;
+  --muted:          #7070a0;
   --accent:         #00c9a7;
   --error:          #ff4d6d;
   --warning:        #ffb347;
   --success:        #00c9a7;
-  --scrollbar-track: #0f0f17;
-  --scrollbar-thumb: #222230;
+  --scrollbar-track: #1c1c24;
+  --scrollbar-thumb: #33334a;
 }
 
 @layer base {
