@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
 import { pageCopyApi } from '@/lib/api/page-copy'
 import { getSettings, getProviderCredentials, listBrandProfiles } from '@/lib/api/shared'
@@ -37,6 +38,7 @@ export default function NewPageCopyJob() {
   const [templateMode, setTemplateMode] = useState<'predefined' | 'custom'>('predefined')
   const [jobName, setJobName]         = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
+  const [niche, setNiche] = useState('none')
   const [brandProfiles, setBrandProfiles]   = useState<{id: string; name: string}[]>([])
 
   const [rows, setRows]               = useState<Row[]>([{ url: '', keyword: '', page_type: 'blog', h1: '', template_key: '' }])
@@ -67,6 +69,7 @@ export default function NewPageCopyJob() {
         setBrandTerms(s.branded_terms_input || '')
         setLocationCode(s.location_code || 2840)
         setMinVolume(s.min_volume ?? 10)
+      if (s.niche) setNiche(s.niche)
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
@@ -128,6 +131,7 @@ export default function NewPageCopyJob() {
         page_type: pageType, template_key: templateMode === 'predefined' ? templateKey : '',
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         client_brief: clientBrief, brand_profile_id: brandProfileId,
+        niche,
       },
     }
 
@@ -285,6 +289,11 @@ export default function NewPageCopyJob() {
                   {BIZ_TYPES.map(bt => <option key={bt} value={bt}>{bt.toUpperCase()}</option>)}
                 </select>
               </div>
+              <NicheSelect
+                value={niche}
+                onChange={setNiche}
+                businessType={bizType}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Papa from 'papaparse'
 import AppLayout from '@/components/layout/AppLayout'
+import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
 
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
@@ -84,6 +85,7 @@ export default function NewJobPage() {
 
   // Settings
   const [provider, setProvider] = useState('Claude')
+  const [niche, setNiche] = useState('none')
   const [model, setModel] = useState(PROVIDER_MODELS['Claude'][0].value)
 
   function handleProviderChange(p: string) {
@@ -536,6 +538,11 @@ export default function NewJobPage() {
                   {BIZ_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
+                <NicheSelect
+                  value={niche}
+                  onChange={setNiche}
+                  businessType={businessType}
+                />
               {brandProfiles.length > 0 && (
                 <div>
                   <label className="text-xs text-muted block mb-1">Brand profile</label>

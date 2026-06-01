@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Papa from 'papaparse'
 import AppLayout from '@/components/layout/AppLayout'
+import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
@@ -92,6 +93,7 @@ export default function NewJobPage() {
 
   // AI provider
   const [provider, setProvider] = useState('Claude')
+  const [niche, setNiche] = useState('none')
   const [model, setModel] = useState(PROVIDER_MODELS['Claude'][0].value)
   function handleProviderChange(p: string) {
     setProvider(p)
@@ -515,6 +517,11 @@ export default function NewJobPage() {
                   {BIZ_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
+                <NicheSelect
+                  value={niche}
+                  onChange={setNiche}
+                  businessType={businessType}
+                />
               <div>
                 <label className="text-xs text-muted block mb-1">Default page template</label>
                 <select value={pageTemplate} onChange={e => setPageTemplate(e.target.value)} className="input-base text-xs">

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
@@ -31,6 +32,7 @@ export default function NewMetaJobPage() {
   const [siteUrl, setSiteUrl]           = useState('')
   const [jobName, setJobName]           = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
+  const [niche, setNiche] = useState('none')
 
   // Rows
   const [rows, setRows] = useState<Row[]>([{ url: '', keyword: '', page_type: 'general', h1: '' }])
@@ -64,6 +66,7 @@ export default function NewMetaJobPage() {
         setBrandName(s.brand_name || '')
         setFullBrandName(s.full_brand_name || '')
         setIncludeBrand(s.include_brand ?? true)
+      if (s.niche) setNiche(s.niche)
         setForbiddenPhrases(s.forbidden_phrases || '')
         setBrandedTermsInput(s.branded_terms_input || '')
         setLocationCode(s.location_code || 2840)
@@ -147,6 +150,7 @@ export default function NewMetaJobPage() {
         use_gsc: useGsc,
         site_url: siteUrl,
         brand_profile_id: brandProfileId,
+        niche,
       },
     }
 
@@ -268,6 +272,11 @@ export default function NewMetaJobPage() {
                   {BUSINESS_TYPES.map(bt => <option key={bt} value={bt}>{bt}</option>)}
                 </select>
               </div>
+              <NicheSelect
+                value={niche}
+                onChange={setNiche}
+                businessType={businessType}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -387,6 +396,7 @@ export default function NewMetaJobPage() {
                       forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
                       location_code: locationCode, min_volume: minVolume,
                       use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
+        niche,
                     }, 'meta')
                     if (tmpl?.id) setTemplates(prev => [tmpl, ...prev])
                   }
