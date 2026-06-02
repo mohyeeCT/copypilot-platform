@@ -21,11 +21,8 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
   if (!ready) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <div className="flex flex-col items-center gap-3">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center"
-          style={{ background: 'var(--accent)', boxShadow: 'var(--shadow-accent)' }}
-        >
-          <span style={{ color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: '-0.04em' }}>CP</span>
+        <div className="w-8 h-8 rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
         </div>
         <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
       </div>

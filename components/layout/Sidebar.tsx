@@ -126,11 +126,8 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       {/* Logo */}
       <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div
-            className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--shadow-accent)' }}
-          >
-            <span style={{ color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: '-0.04em' }}>CP</span>
+          <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0" style={{ boxShadow: 'var(--shadow-xs)' }}>
+            <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
           </div>
           <span style={{
             fontSize: '0.9375rem',

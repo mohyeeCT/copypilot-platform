@@ -8,9 +8,9 @@ import { getSettings, saveSettings, deleteGscAccount, getProviderCredentials, sa
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
 const VERSION = 'v1.0 — platform'
-const BACKEND_URL = 'faq-saas-backend-production.up.railway.app'
+const BACKEND_URL = 'copypilot-backends.up.railway.app'
 const FRONTEND_URL = 'copypilot.app'
-const BACKEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
+const BACKEND_REPO = 'https://github.com/mohyeeCT/faq-saas-backend'
 const FRONTEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
 
 export default function SettingsPage() {
@@ -339,11 +339,11 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <a href={BACKEND_REPO} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors font-mono">
-                  faq-saas-backend <ExternalLink size={10} />
+                  Railway backends <ExternalLink size={10} />
                 </a>
                 <a href={FRONTEND_REPO} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors font-mono">
-                  faq-saas-frontend <ExternalLink size={10} />
+                  copypilot-platform <ExternalLink size={10} />
                 </a>
               </div>
             </div>

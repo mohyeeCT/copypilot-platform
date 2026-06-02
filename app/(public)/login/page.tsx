@@ -36,11 +36,8 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col justify-center px-8 py-12 max-w-md">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 mb-12 group w-fit">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--shadow-accent)' }}
-          >
-            <span style={{ color: '#fff', fontSize: 12, fontWeight: 800, letterSpacing: '-0.04em' }}>CP</span>
+          <div className="w-8 h-8 rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+            <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
           </div>
           <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>CopyPilot</span>
         </Link>
