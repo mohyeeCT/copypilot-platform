@@ -3,6 +3,8 @@ import { introApi } from '@/lib/api/intro'
 import JobsListPage from '@/components/ui/JobsListPage'
 import { FileText } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
   return (
     <JobsListPage tool={{

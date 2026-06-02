@@ -8,6 +8,8 @@ import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase'
 import { pageCopyApi } from '@/lib/api/page-copy'
 
+export const dynamic = 'force-dynamic'
+
 interface PageCopyResult {
   url: string
   primary_keyword?: string

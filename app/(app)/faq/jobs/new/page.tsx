@@ -10,6 +10,8 @@ import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lu
 import { getProviderCredentials, listBrandProfiles, listTemplates, saveTemplate, deleteTemplate } from '@/lib/api/shared'
 import { faqApi } from '@/lib/api/faq'
 
+export const dynamic = 'force-dynamic'
+
 type Row = { url: string; keyword: string; page_type: string; h1: string }
 const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'general', h1: '' })
 const PAGE_TYPES = ['general', 'product', 'category', 'service', 'blog', 'local']

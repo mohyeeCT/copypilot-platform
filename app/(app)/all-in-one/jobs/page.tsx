@@ -3,6 +3,8 @@ import { aioApi } from '@/lib/api/all-in-one'
 import JobsListPage from '@/components/ui/JobsListPage'
 import { Layers } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
   return (
     <JobsListPage tool={{

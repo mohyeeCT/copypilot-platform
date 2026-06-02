@@ -7,6 +7,8 @@ import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase'
 import { faqApi } from '@/lib/api/faq'
 
+export const dynamic = 'force-dynamic'
+
 type FAQ = { question: string; answer: string; source: string }
 type RowResult = {
   url: string; keyword: string; selected_keyword?: string; keyword_source: string

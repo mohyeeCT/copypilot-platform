@@ -3,6 +3,8 @@ import { metaApi } from '@/lib/api/meta'
 import JobsListPage from '@/components/ui/JobsListPage'
 import { Tag } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
   return (
     <JobsListPage tool={{

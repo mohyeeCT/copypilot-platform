@@ -9,6 +9,8 @@ import { introApi } from '@/lib/api/intro'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 type Row = { url: string; keyword: string; page_type: string; h1: string }
 const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'service_lp', h1: '' })
 

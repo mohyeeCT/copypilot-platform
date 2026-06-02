@@ -3,6 +3,8 @@ import { pageCopyApi } from '@/lib/api/page-copy'
 import JobsListPage from '@/components/ui/JobsListPage'
 import { BookOpen } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
   return (
     <JobsListPage tool={{

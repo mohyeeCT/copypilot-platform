@@ -8,6 +8,8 @@ import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 
+export const dynamic = 'force-dynamic'
+
 interface MetaResult {
   url: string
   selected_keyword?: string

@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { getSettings, saveSettings, deleteGscAccount, getProviderCredentials, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
+export const dynamic = 'force-dynamic'
+
 const VERSION = 'v1.0 — platform'
 const BACKEND_URL = 'copypilot-backends.up.railway.app'
 const FRONTEND_URL = 'copypilot.app'

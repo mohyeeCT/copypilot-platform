@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 
+export const dynamic = 'force-dynamic'
+
 const PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 const BUSINESS_TYPES = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
 const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']

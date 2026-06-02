@@ -3,6 +3,8 @@ import { faqApi } from '@/lib/api/faq'
 import JobsListPage from '@/components/ui/JobsListPage'
 import { HelpCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
   return (
     <JobsListPage tool={{

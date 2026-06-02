@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
 import { getSettings, getProviderCredentials, listBrandProfiles } from '@/lib/api/shared'
 
+export const dynamic = 'force-dynamic'
+
 const PROVIDERS  = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 const BIZ_TYPES  = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']

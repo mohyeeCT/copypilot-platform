@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Sidebar from './Sidebar'
-import { ToastProvider } from '@/components/ui/Toast'
 import { Menu } from 'lucide-react'
 
 export default function AppLayout({ children, title }: { children: React.ReactNode; title?: string }) {
@@ -30,8 +29,7 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
   )
 
   return (
-    <ToastProvider>
-      <div className="flex min-h-screen">
+    <div className="flex min-h-screen">
         {/* Mobile overlay */}
         {sidebarOpen && (
           <div
@@ -67,7 +65,6 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
 
           <main className="flex-1 p-5 md:p-8 overflow-auto">{children}</main>
         </div>
-      </div>
-    </ToastProvider>
+    </div>
   )
 }

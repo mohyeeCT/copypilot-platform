@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ToastProvider } from '@/components/ui/Toast'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -22,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem('cp-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();` }} />
-      <body className="bg-bg text-text font-sans antialiased">{children}</body>
+      <body className="bg-bg text-text font-sans antialiased"><ToastProvider>{children}</ToastProvider></body>
     </html>
   )
 }

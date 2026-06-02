@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
 import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, Square, ChevronDown, ChevronUp } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 type RowResult = {
   url: string
   intro_copy: string
