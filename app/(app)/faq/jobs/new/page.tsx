@@ -105,7 +105,7 @@ export default function NewJobPage() {
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
   const [scrapePages, setScrapePages] = useState(true)
-  const [batchSize, setBatchSize] = useState(5)
+  const [batchSize, setBatchSize] = useState(1)
   const [forbiddenPhrases, setForbiddenPhrases] = useState('')
   const [brandedTermsInput, setBrandedTermsInput] = useState('')
   const [loadAsyncAiOverview, setLoadAsyncAiOverview] = useState(true)
