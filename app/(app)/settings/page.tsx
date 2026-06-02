@@ -9,8 +9,8 @@ import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
 export const dynamic = 'force-dynamic'
 
-const VERSION = 'v1.0 — platform'
-const BACKEND_URL = 'copypilot-backends.up.railway.app'
+const VERSION = 'v3.0'
+const BACKEND_URL = 'faq-saas-backend-production.up.railway.app'
 const FRONTEND_URL = 'copypilot.app'
 const BACKEND_REPO = 'https://github.com/mohyeeCT/faq-saas-backend'
 const FRONTEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
@@ -286,8 +286,8 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <img src="/favicon-32x32.png" alt="FAQ Production" className="w-6 h-6" />
               <div>
-                <p className="font-semibold text-sm">FAQ Copy Production</p>
-                <p className="text-xs text-muted">AI-powered FAQ generation for SEO teams</p>
+                <p className="font-semibold text-sm">CopyPilot</p>
+                <p className="text-xs text-muted">AI-powered SEO copy production platform</p>
               </div>
             </div>
             <a
