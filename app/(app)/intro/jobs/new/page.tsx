@@ -261,7 +261,7 @@ export default function NewJobPage() {
       }
 
       const result = await introApi.runJob(session.access_token, payload)
-      router.push(`/jobs/${result.job_id}`)
+      router.push(`/intro/jobs/${result.job_id}`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
       setSubmitting(false)

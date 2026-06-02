@@ -253,7 +253,7 @@ export default function NewJobPage() {
           branded_terms_input: brandedTermsInput,
         }
       })
-      router.push(`/jobs/${job_id}`)
+      router.push(`/faq/jobs/${job_id}`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to start job')
       setSubmitting(false)
