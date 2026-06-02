@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap, KeyRound } from 'lucide-react'
+import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap, KeyRound, Key, Globe, Cpu, Info } from 'lucide-react'
+import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
 import { createClient } from '@/lib/supabase'
 import { getSettings, saveSettings, deleteGscAccount, getProviderCredentials, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
@@ -13,6 +14,8 @@ const BACKEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
 const FRONTEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<'credentials' | 'gsc' | 'brand' | 'about'>('credentials')
+  const toast = useToast()
   const [gscConfigured, setGscConfigured] = useState(false)
   const [gscEmail, setGscEmail] = useState('')
   const [saving, setSaving] = useState(false)

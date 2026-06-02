@@ -221,7 +221,7 @@ export default function PageCopyJobPage() {
               <span className="text-muted/50">({(job.logs || []).length} steps)</span>
             </button>
             {!logsCollapsed && (
-              <div className="card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 200 }}>
+              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
                 {(job.logs || []).map((entry, i) => {
                   const logs = job.logs!
                   const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
@@ -386,19 +386,19 @@ export default function PageCopyJobPage() {
                       <div className="space-y-2">
                         <p className="text-xs text-muted uppercase tracking-wider">Meta Copy</p>
                         {row.generated_title && (
-                          <div className="p-3 bg-surface border border-border rounded-lg">
+                          <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
                             <p className="text-xs text-muted mb-1">Title Tag <span className={row.title_length && row.title_length > 60 ? 'text-error' : 'text-success'}>{row.title_length}/60</span></p>
                             <p className="text-sm">{row.generated_title}</p>
                           </div>
                         )}
                         {row.generated_description && (
-                          <div className="p-3 bg-surface border border-border rounded-lg">
+                          <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
                             <p className="text-xs text-muted mb-1">Description <span className={row.description_length && row.description_length > 155 ? 'text-error' : 'text-success'}>{row.description_length}/155</span></p>
                             <p className="text-sm">{row.generated_description}</p>
                           </div>
                         )}
                         {row.optimised_h1 && (
-                          <div className="p-3 bg-surface border border-border rounded-lg">
+                          <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
                             <p className="text-xs text-muted mb-1">Optimised H1</p>
                             <p className="text-sm font-medium">{row.optimised_h1}</p>
                           </div>
@@ -430,7 +430,7 @@ export default function PageCopyJobPage() {
                               <span className="text-xs font-mono text-muted">{name}</span>
                               <span className="text-xs text-muted">{text.split(' ').length}w</span>
                             </div>
-                            <p className="text-xs text-muted px-3 py-2 line-clamp-3">{text.slice(0, 300)}{text.length > 300 ? '...' : ''}</p>
+                            <p className="text-xs px-3 py-2 line-clamp-3 prose-result">{text.slice(0, 300)}{text.length > 300 ? '...' : ''}</p>
                           </div>
                         ))}
                       </div>

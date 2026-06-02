@@ -130,6 +130,7 @@
     border-radius: 8px;
     padding: 7px 11px;
     font-size: 0.875rem;
+    font-family: 'Inter', sans-serif;
     background: var(--surface-raised);
     color: var(--text);
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
@@ -243,7 +244,8 @@
     color: var(--accent);
     font-weight: 600;
   }
-  [data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.05); }
+  [data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.06); }
+  [data-theme="dark"] .btn-ghost:hover:not(:disabled) { background: rgba(18,196,144,0.10); }
 }
 
 /* ── Row flash animation ───────────────────────────────────── */
@@ -256,3 +258,47 @@
 
 /* ── Divider ───────────────────────────────────────────────── */
 .divider { height: 1px; background: var(--border-subtle); }
+
+/* ── Running job pulse ────────────────────────────────────── */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.status-pulse { animation: status-pulse 2s ease-in-out infinite; }
+
+/* ── Prose content ────────────────────────────────────────── */
+.prose-content p { margin-bottom: 0.75rem; line-height: 1.7; }
+.prose-content p:last-child { margin-bottom: 0; }
+
+/* ── Mobile form layout ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .form-grid-4col {
+    grid-template-columns: 1fr !important;
+  }
+  .form-grid-2col {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Prose content (result expanded view) ─────────────────── */
+.prose-result {
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--text);
+}
+.prose-result p + p { margin-top: 0.875rem; }
+.prose-result h2 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.prose-result h3 { font-size: 0.9375rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.4rem; }
+.prose-result ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+.prose-result li { margin-bottom: 0.25rem; }
+
+/* ── Focus-visible keyboard nav ───────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

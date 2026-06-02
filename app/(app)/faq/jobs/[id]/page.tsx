@@ -310,7 +310,7 @@ export default function JobPage() {
               <span className="text-muted/50">({((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).length} steps)</span>
             </button>
             {!logsCollapsed && (
-              <div className="card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 200 }}>
+              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
                 {((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).map((entry, i) => {
                   const logs = (job as unknown as {logs?: {ts: string; msg: string}[]}).logs!
                   const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)

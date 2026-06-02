@@ -209,7 +209,7 @@ export default function MetaJobPage() {
               <span className="text-muted/50">({(job.logs || []).length} steps)</span>
             </button>
             {!logsCollapsed && (
-              <div className="card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 200 }}>
+              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
                 {(job.logs || []).map((entry, i) => {
                   const logs = job.logs!
                   const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
