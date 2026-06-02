@@ -655,15 +655,15 @@ export default function NewJobPage() {
                   <span className="text-xs font-mono text-accent">{batchSize === 1 ? 'Off' : batchSize}</span>
                 </div>
                 <input
-                  type="range" min={1} max={50} value={batchSize}
+                  type="range" min={1} max={10} value={batchSize}
                   onChange={e => setBatchSize(+e.target.value)}
                   className="w-full accent-accent"
                 />
                 <p className="text-xs text-muted mt-1.5 leading-relaxed">
                   {batchSize === 1
                     ? 'Each URL is processed in a separate AI call.'
-                    : batchSize > 20
-                      ? `⚠️ Batch size ${batchSize} exceeds the safe limit of 20. The backend will cap it at 20 pages per AI call to prevent timeouts.`
+                    : batchSize > 10
+                      ? `⚠️ Batch size ${batchSize} exceeds the safe limit of 10.`
                       : `${batchSize} URLs sent to AI in one call. Best for large runs of similar pages.`
                   }
                 </p>
