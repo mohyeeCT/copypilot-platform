@@ -10,10 +10,16 @@ import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 export const dynamic = 'force-dynamic'
 
 const VERSION = 'v3.0'
-const BACKEND_URL = 'faq-saas-backend-production.up.railway.app'
 const FRONTEND_URL = 'copypilot.app'
-const BACKEND_REPO = 'https://github.com/mohyeeCT/faq-saas-backend'
+const BACKEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
 const FRONTEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
+const BACKENDS = [
+  { label: 'FAQ Copy',    url: 'faq-saas-backend-production.up.railway.app' },
+  { label: 'Page Intro',  url: 'intro-saas-backend-production.up.railway.app' },
+  { label: 'Meta Copy',   url: 'meta-saas-backend-production.up.railway.app' },
+  { label: 'Page Copy',   url: 'page-copy-saas-backend-production.up.railway.app' },
+  { label: 'All in One',  url: 'all-in-one-saas-backend-production.up.railway.app' },
+]
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'credentials' | 'gsc' | 'brand' | 'about'>('credentials')
@@ -24,7 +30,9 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking')
+  const [backendStatuses, setBackendStatuses] = useState<Record<string, 'checking' | 'ok' | 'error'>>(
+    Object.fromEntries(BACKENDS.map(b => [b.url, 'checking' as const]))
+  )
 
   // Credentials state
   const [credsConfigured, setCredsConfigured] = useState(false)
@@ -56,16 +64,18 @@ export default function SettingsPage() {
 
       } catch {}
     }
-    async function checkBackend() {
-      try {
-        const res = await fetch(`https://${BACKEND_URL}/health`)
-        setBackendStatus(res.ok ? 'ok' : 'error')
-      } catch {
-        setBackendStatus('error')
-      }
+    async function checkBackends() {
+      await Promise.all(BACKENDS.map(async b => {
+        try {
+          const res = await fetch(`https://${b.url}/health`)
+          setBackendStatuses(prev => ({ ...prev, [b.url]: res.ok ? 'ok' : 'error' }))
+        } catch {
+          setBackendStatuses(prev => ({ ...prev, [b.url]: 'error' }))
+        }
+      }))
     }
     load()
-    checkBackend()
+    checkBackends()
   }, [])
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -301,24 +311,29 @@ export default function SettingsPage() {
           </div>
 
           <div className="divide-y divide-border">
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Server size={14} className="text-muted shrink-0" />
-                <div>
-                  <p className="text-xs font-medium">Backend</p>
-                  <p className="text-xs text-muted font-mono mt-0.5">{BACKEND_URL}</p>
+            {BACKENDS.map(b => {
+              const status = backendStatuses[b.url] ?? 'checking'
+              return (
+                <div key={b.url} className="px-6 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Server size={13} className="text-muted shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium">{b.label}</p>
+                      <p className="text-xs text-muted font-mono mt-0.5">{b.url}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`flex items-center gap-1.5 text-xs ${status === 'ok' ? 'text-accent' : status === 'error' ? 'text-error' : 'text-muted'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${status === 'ok' ? 'bg-accent animate-pulse' : status === 'error' ? 'bg-error' : 'bg-muted animate-pulse'}`} />
+                      {status === 'ok' ? 'Operational' : status === 'error' ? 'Unreachable' : 'Checking...'}
+                    </div>
+                    <a href={`https://${b.url}/health`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent transition-colors">
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className={`flex items-center gap-1.5 text-xs ${backendStatus === 'ok' ? 'text-accent' : backendStatus === 'error' ? 'text-error' : 'text-muted'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${backendStatus === 'ok' ? 'bg-accent animate-pulse' : backendStatus === 'error' ? 'bg-error' : 'bg-muted animate-pulse'}`} />
-                  {backendStatus === 'ok' ? 'Operational' : backendStatus === 'error' ? 'Unreachable' : 'Checking...'}
-                </div>
-                <a href={`https://${BACKEND_URL}/health`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent transition-colors">
-                  <ExternalLink size={12} />
-                </a>
-              </div>
-            </div>
+              )
+            })}
 
             <div className="px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">

@@ -251,6 +251,7 @@ export default function NewJobPage() {
           load_async_ai_overview: loadAsyncAiOverview,
           forbidden_phrases: forbiddenPhrases,
           branded_terms_input: brandedTermsInput,
+          niche,
         }
       })
       router.push(`/faq/jobs/${job_id}`)
