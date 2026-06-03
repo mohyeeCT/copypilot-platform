@@ -60,6 +60,7 @@ export default function PageCopyJobPage() {
   const [rerunningMulti, setRerunningMulti] = useState(false)
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
   const [expanded, setExpanded]         = useState<number | null>(null)
+  const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
   const [logsCollapsed, setLogsCollapsed] = useState(false)
 
   const load = useCallback(async () => {
@@ -426,15 +427,60 @@ export default function PageCopyJobPage() {
                     {row.section_results && Object.keys(row.section_results).length > 0 && (
                       <div className="space-y-3">
                         <p className="text-xs text-muted uppercase tracking-wider">Page Copy Sections</p>
-                        {Object.entries(row.section_results).map(([name, text]) => (
-                          <div key={name} className="border border-border rounded-lg overflow-hidden">
-                            <div className="px-3 py-2 bg-border/20 flex items-center justify-between">
-                              <span className="text-xs font-mono text-muted">{name}</span>
-                              <span className="text-xs text-muted">{text.split(' ').length}w</span>
+                        {Object.entries(row.section_results).map(([name, text]) => {
+                          const sectionKey = `${i}-${name}`
+                          const isRegenerating = rerunningSections.has(sectionKey)
+                          return (
+                            <div key={name} className="border border-border rounded-lg overflow-hidden">
+                              <div className="px-3 py-2 bg-border/20 flex items-center justify-between">
+                                <span className="text-xs font-mono text-muted">{name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted">{text.split(' ').length}w</span>
+                                  <button
+                                    title="Regenerate this section"
+                                    disabled={isRegenerating}
+                                    onClick={async e => {
+                                      e.stopPropagation()
+                                      if (!job) return
+                                      setRerunningSections(prev => new Set([...Array.from(prev), sectionKey]))
+                                      try {
+                                        const sb = createClient()
+                                        const { data: { session } } = await sb.auth.getSession()
+                                        if (!session) return
+                                        await aioApi.rerunSection(session.access_token, job.id, i, name)
+                                        // Poll until current_step changes back from the regenerating message
+                                        const poll = setInterval(async () => {
+                                          const updated = await aioApi.getJob(session.access_token, job.id)
+                                          const step: string = updated.current_step || ''
+                                          if (!step.startsWith(`Regenerating section '${name}'`)) {
+                                            clearInterval(poll)
+                                            setRerunningSections(prev => {
+                                              const next = new Set(prev)
+                                              next.delete(sectionKey)
+                                              return next
+                                            })
+                                            setJob(updated)
+                                          }
+                                        }, 3000)
+                                      } catch {
+                                        setRerunningSections(prev => {
+                                          const next = new Set(prev)
+                                          next.delete(sectionKey)
+                                          return next
+                                        })
+                                      }
+                                    }}
+                                    className="p-1 rounded transition-colors hover:bg-border/40 disabled:opacity-40"
+                                    style={{ color: 'var(--muted)' }}
+                                  >
+                                    <RefreshCw size={11} className={isRegenerating ? 'animate-spin' : ''} />
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-xs px-3 py-2 line-clamp-3 prose-result">{text.slice(0, 300)}{text.length > 300 ? '...' : ''}</p>
                             </div>
-                            <p className="text-xs px-3 py-2 line-clamp-3 prose-result">{text.slice(0, 300)}{text.length > 300 ? '...' : ''}</p>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
 
