@@ -257,6 +257,7 @@ export default function NewJobPage() {
           jina_api_key: scrapePages ? jinaKey : '',
           use_gsc: useGsc,
           site_url: siteUrl,
+          niche,
         },
       }
 

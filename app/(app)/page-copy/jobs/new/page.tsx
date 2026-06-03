@@ -41,6 +41,8 @@ export default function NewPageCopyJob() {
   const [jobName, setJobName]         = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
   const [niche, setNiche] = useState('none')
+  const [includeBrand, setIncludeBrand] = useState(true)
+  const [forbiddenPhrases, setForbiddenPhrases] = useState('')
   const [brandProfiles, setBrandProfiles]   = useState<{id: string; name: string}[]>([])
 
   const [rows, setRows]               = useState<Row[]>([{ url: '', keyword: '', page_type: 'blog', h1: '', template_key: '' }])
@@ -133,7 +135,7 @@ export default function NewPageCopyJob() {
         page_type: pageType, template_key: templateMode === 'predefined' ? templateKey : '',
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         client_brief: clientBrief, brand_profile_id: brandProfileId,
-        niche,
+        niche, include_brand: includeBrand, forbidden_phrases: forbiddenPhrases,
       },
     }
 
@@ -316,6 +318,22 @@ export default function NewPageCopyJob() {
                 onChange={e => setClientBrief(e.target.value)}
                 placeholder="Client specialises in X. Key differentiators: Y, Z. Tone: confident but not boastful. Key claims to include: ..." />
               <p className="text-xs text-muted mt-1">Injected into every section prompt. Include tone notes, key claims, USPs, or anything the AI should know.</p>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div onClick={() => setIncludeBrand(v => !v)}
+                style={{ width: 36, height: 20, borderRadius: 99, position: 'relative', cursor: 'pointer',
+                  background: includeBrand ? 'var(--accent)' : 'var(--border)', transition: 'background .15s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 2, left: includeBrand ? 18 : 2, width: 16, height: 16,
+                  background: '#fff', borderRadius: '50%', boxShadow: 'var(--shadow-xs)', transition: 'left .15s' }} />
+              </div>
+              <span className="text-sm">Include brand name in copy</span>
+            </label>
+            <div>
+              <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Forbidden Phrases (optional)</label>
+              <textarea className="input-base text-xs" rows={2} value={forbiddenPhrases}
+                onChange={e => setForbiddenPhrases(e.target.value)}
+                placeholder="one phrase per line" />
+              <p className="text-xs text-muted mt-1">Phrases the AI must never use. Applied to every section.</p>
             </div>
           </div>
 
