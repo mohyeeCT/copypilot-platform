@@ -21,6 +21,13 @@ const config: Config = {
         error:          'var(--error)',
         warning:        'var(--warning)',
         success:        'var(--success)',
+        // Per-tool accent hues
+        'tool-faq':     'var(--tool-faq)',
+        'tool-intro':   'var(--tool-intro)',
+        'tool-meta':    'var(--tool-meta)',
+        'tool-page':    'var(--tool-page)',
+        'tool-aio':     'var(--tool-aio)',
+        'tool-neutral': 'var(--tool-neutral)',
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

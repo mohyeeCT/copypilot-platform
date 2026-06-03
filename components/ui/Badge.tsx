@@ -1,33 +1,53 @@
-import clsx from 'clsx'
+type BadgeStyle = { bg: string; fg: string; bd: string; dot?: string }
 
-const styles: Record<string, string> = {
-  pending:     'bg-muted/8 text-muted border-muted/15',
-  running:     'bg-warning/10 text-warning border-warning/20',
-  complete:    'bg-accent/10 text-accent border-accent/20',
-  failed:      'bg-error/10 text-error border-error/20',
-  cancelling:  'bg-error/10 text-error border-error/20',
-  cancelled:   'bg-muted/8 text-muted border-muted/15',
-  gsc:         'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  manual:      'bg-muted/8 text-muted border-muted/15',
-  fallback:    'bg-warning/10 text-warning border-warning/20',
-  ai_overview: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  paa:         'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  generated:   'bg-muted/8 text-muted border-muted/15',
-  error:       'bg-error/10 text-error border-error/20',
-  ok:          'bg-accent/10 text-accent border-accent/20',
+const BADGE_STYLES: Record<string, BadgeStyle> = {
+  // Status badges — explicit rgba so opacity works regardless of CSS var format
+  pending:    { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
+  running:    { bg: 'rgba(198,123,0,0.14)',   fg: '#A8690A', bd: 'rgba(198,123,0,0.30)',   dot: '#C67B00' },
+  complete:   { bg: 'rgba(10,155,122,0.12)',  fg: '#0A9B7A', bd: 'rgba(10,155,122,0.24)' },
+  failed:     { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)' },
+  cancelling: { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)',   dot: '#C62828' },
+  cancelled:  { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
+  error:      { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)' },
+  ok:         { bg: 'rgba(10,155,122,0.12)',  fg: '#0A9B7A', bd: 'rgba(10,155,122,0.24)' },
+  // Keyword source badges
+  manual:     { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
+  fallback:   { bg: 'rgba(198,123,0,0.14)',   fg: '#A8690A', bd: 'rgba(198,123,0,0.30)' },
+  generated:  { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
+  // SERP signal badges
+  gsc:        { bg: 'rgba(96,165,250,0.12)',  fg: '#3B82F6', bd: 'rgba(96,165,250,0.22)' },
+  paa:        { bg: 'rgba(96,165,250,0.12)',  fg: '#3B82F6', bd: 'rgba(96,165,250,0.22)' },
+  ai_overview:{ bg: 'rgba(168,85,247,0.12)',  fg: '#9333EA', bd: 'rgba(168,85,247,0.22)' },
+}
+
+const FALLBACK_STYLE: BadgeStyle = {
+  bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)',
 }
 
 export default function Badge({ label }: { label: string }) {
+  const s = BADGE_STYLES[label] ?? FALLBACK_STYLE
   return (
-    <span className={clsx(
-      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border font-medium tracking-tight font-mono',
-      styles[label] || styles.generated
-    )}>
-      {label === 'running' && (
-        <span className="w-1.5 h-1.5 bg-warning rounded-full animate-pulse shrink-0" />
-      )}
-      {label === 'cancelling' && (
-        <span className="w-1.5 h-1.5 bg-error rounded-full animate-pulse shrink-0" />
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 7px',
+        borderRadius: 6,
+        fontSize: '0.6875rem',
+        fontWeight: 500,
+        fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+        border: `1px solid ${s.bd}`,
+        background: s.bg,
+        color: s.fg,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {s.dot && (
+        <span
+          className="status-pulse"
+          style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, flexShrink: 0 }}
+        />
       )}
       {label}
     </span>
