@@ -83,4 +83,3 @@
 - [ ] Run `git diff --check`.
 - [ ] Confirm no backend, API contract, database, route, or unrelated UI files changed.
 - [ ] Document verification results and remaining uncertainty.
-
