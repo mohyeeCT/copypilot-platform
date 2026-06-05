@@ -130,11 +130,12 @@ export default function NewAIOJob() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = '', dfsPassword = ''
+    let apiKey = '', dfsLogin = '', dfsPassword = ''
     try {
       const creds = await getProviderCredentials(session.access_token)
       const ps = (creds?.provider_settings as Record<string, string>) || {}
       apiKey = ps.api_key || ''
+      dfsLogin = ps.dfs_login || ''
       dfsPassword = ps.dfs_password || ''
     } catch {}
 
@@ -142,7 +143,7 @@ export default function NewAIOJob() {
       name: jobName.trim() || `All in One — ${validRows.length} URLs`,
       rows: validRows.map(r => ({ ...r, page_type: r.page_type || pageType })),
       settings: {
-        niche, provider, api_key: apiKey, dfs_login: 'mo@brandvoxx.com', dfs_password: dfsPassword,
+        niche, provider, api_key: apiKey, dfs_login: dfsLogin, dfs_password: dfsPassword,
         business_type: bizType, brand_name: brandName, full_brand_name: fullBrand,
         branded_terms_input: brandTerms, include_brand: includeBrand,
         forbidden_phrases: forbiddenPhrases, location_code: locationCode, min_volume: minVolume,

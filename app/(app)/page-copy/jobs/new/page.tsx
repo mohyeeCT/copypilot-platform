@@ -113,11 +113,12 @@ export default function NewPageCopyJob() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = '', dfsPassword = ''
+    let apiKey = '', dfsLogin = '', dfsPassword = ''
     try {
       const creds = await getProviderCredentials(session.access_token)
       const ps = (creds?.provider_settings as Record<string, string>) || {}
       apiKey = ps.api_key || ''
+      dfsLogin = ps.dfs_login || ''
       dfsPassword = ps.dfs_password || ''
     } catch {}
 
@@ -129,7 +130,7 @@ export default function NewPageCopyJob() {
         template_key: r.template_key || (templateMode === 'predefined' ? templateKey : ''),
       })),
       settings: {
-        provider, api_key: apiKey, dfs_login: 'mo@brandvoxx.com', dfs_password: dfsPassword,
+        provider, api_key: apiKey, dfs_login: dfsLogin, dfs_password: dfsPassword,
         business_type: bizType, brand_name: brandName, full_brand_name: fullBrand,
         branded_terms_input: brandTerms, location_code: locationCode, min_volume: minVolume,
         page_type: pageType, template_key: templateMode === 'predefined' ? templateKey : '',
