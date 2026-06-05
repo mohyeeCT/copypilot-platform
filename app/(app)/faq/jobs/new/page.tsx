@@ -1,9 +1,10 @@
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Papa from 'papaparse'
 import AppLayout from '@/components/layout/AppLayout'
+import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
@@ -74,6 +75,7 @@ export default function NewJobPage() {
     window.addEventListener('mouseup', onUp)
   }, [colWidths])
   const [pasteText, setPasteText] = useState('')
+  const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
   const [jobName, setJobName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -144,79 +146,29 @@ export default function NewJobPage() {
     loadCreds()
   }, [])
 
-  function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function applyImportedText(text: string) {
+    const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'general' }))
+    const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
+    setImportErrors(result.rejectedRows)
+    if (parsed.length) {
+      setRows(parsed)
+      setTab('manual')
+      setSelectedRows(new Set())
+    }
+  }
+
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsed = (results.data as Record<string, string>[]).map(r => ({
-          url: r.url || r.URL || r.Url || r['Page URL'] || r['page url'] || '',
-          keyword: r.keyword || r.Keyword || r.KEYWORD || r['Primary Keyword'] || r['primary keyword'] || '',
-          page_type: (r.page_type || r['Page Type'] || r.type || r.Type || r.PAGE_TYPE || 'general').toLowerCase(),
-          h1: r.h1 || r.H1 || r['h1 tag'] || r['H1 Tag'] || r['H1 tag'] || '',
-        })).filter(r => r.url)
-        if (parsed.length) setRows(parsed)
-      }
-    })
+    try {
+      applyImportedText(await file.text())
+    } catch {
+      setError('Failed to read CSV file')
+    }
   }
 
   function parsePaste() {
-    const lines = pasteText.trim().split('\n').filter(Boolean)
-    const parsed: Row[] = []
-    const PAGE_TYPE_VALUES = ['general', 'product', 'category', 'service', 'blog', 'local']
-
-    for (const line of lines) {
-      const parts = line.split('\t').map(p => p.trim())
-
-      let url = '', keyword = '', page_type = 'general', h1 = ''
-
-      if (parts.length >= 4) {
-        // Detect column order - check which column looks like a page type
-        url = parts[0]
-        keyword = parts[1]
-        const col2 = parts[2].toLowerCase()
-        const col3 = parts[3].toLowerCase()
-        if (PAGE_TYPE_VALUES.includes(col3)) {
-          // url, keyword, h1, page_type
-          h1 = parts[2]
-          page_type = col3
-        } else if (PAGE_TYPE_VALUES.includes(col2)) {
-          // url, keyword, page_type, h1
-          page_type = col2
-          h1 = parts[3]
-        } else {
-          // Neither looks like a type - assume url, keyword, h1, page_type or url, keyword, page_type, h1
-          // Default: treat col2 as h1 since page_type is more likely to be last
-          h1 = parts[2]
-          page_type = 'general'
-        }
-      } else if (parts.length === 3) {
-        // 3 columns - check if middle column looks like a page type
-        url = parts[0]
-        if (PAGE_TYPE_VALUES.includes(parts[1].toLowerCase())) {
-          // url, page_type, h1
-          page_type = parts[1].toLowerCase()
-          h1 = parts[2]
-        } else {
-          // url, keyword, h1 (no page_type) - most common case
-          keyword = parts[1]
-          h1 = parts[2]
-        }
-      } else if (parts.length === 2) {
-        // url, keyword only
-        url = parts[0]
-        keyword = parts[1]
-      } else if (parts.length === 1) {
-        // url only
-        url = parts[0]
-      }
-
-      parsed.push({ url, keyword, page_type, h1 })
-    }
-    const valid = parsed.filter(r => r.url)
-    if (valid.length) { setRows(valid); setTab('manual'); setSelectedRows(new Set()) }
+    applyImportedText(pasteText)
   }
 
   function updateRow(i: number, field: keyof Row, val: string) {
@@ -345,6 +297,8 @@ export default function NewJobPage() {
                 ))}
               </div>
 
+              <ImportErrors rows={importErrors} />
+
               {tab === 'csv' && (
                 <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-8 cursor-pointer hover:border-accent/50 transition-colors">
                   <Upload size={20} className="text-muted mb-2" />
@@ -356,12 +310,12 @@ export default function NewJobPage() {
 
               {tab === 'paste' && (
                 <div>
-                  <p className="text-xs text-muted mb-2">Paste URLs (one per line) or copy rows from Google Sheets</p>
+                  <p className="text-xs text-muted mb-2">Paste URLs or rows ordered as URL, Keyword, Page Type, H1</p>
                   <textarea
                     value={pasteText}
                     onChange={e => setPasteText(e.target.value)}
                     className="input-base h-40 resize-none"
-                    placeholder={"Paste URLs one per line, or copy from Sheets:\n\nurl [tab] keyword [tab] h1\nurl [tab] keyword [tab] type [tab] h1\n\nType column is optional."}
+                    placeholder={"Paste URLs one per line, or copy from Sheets:\n\nurl [tab] keyword [tab] page type [tab] h1\n\nOptional cells may be left blank."}
                   />
                   <button onClick={parsePaste} className="btn-primary mt-2 text-xs px-3 py-1.5">
                     Parse URLs

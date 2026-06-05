@@ -1,10 +1,11 @@
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Papa from 'papaparse'
 import AppLayout from '@/components/layout/AppLayout'
+import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
+import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { introApi } from '@/lib/api/intro'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
@@ -82,6 +83,7 @@ export default function NewJobPage() {
   }, [colWidths])
 
   const [pasteText, setPasteText] = useState('')
+  const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
   const [jobName, setJobName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -153,45 +155,29 @@ export default function NewJobPage() {
     loadCreds()
   }, [])
 
-  function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsed = (results.data as Record<string, string>[]).map(r => ({
-          url: r.url || r.URL || r.Url || r['Page URL'] || r['page url'] || '',
-          keyword: r.keyword || r.Keyword || r.KEYWORD || r['Keyword Seeds'] || r['keyword seeds'] || '',
-          page_type: (r.page_type || r['Page Type'] || r.type || r.Type || 'service_lp').toLowerCase(),
-          h1: r.h1 || r.H1 || r['h1 tag'] || r['H1 Tag'] || '',
-        })).filter(r => r.url)
-        if (parsed.length) setRows(parsed)
-      }
-    })
-  }
-
-  function parsePaste() {
-    const lines = pasteText.trim().split('\n').filter(Boolean)
-    const parsed: Row[] = []
-    const TEMPLATE_VALUES = PAGE_TEMPLATES.map(t => t.value)
-
-    for (const line of lines) {
-      const parts = line.split('\t').map(p => p.trim())
-      if (!parts[0]) continue
-      let page_type = parts[2]?.toLowerCase() || 'service_lp'
-      if (!TEMPLATE_VALUES.includes(page_type)) page_type = 'service_lp'
-      parsed.push({
-        url: parts[0] || '',
-        keyword: parts[1] || '',
-        page_type,
-        h1: parts[3] || '',
-      })
-    }
+  function applyImportedText(text: string) {
+    const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'service_lp' }))
+    const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
+    setImportErrors(result.rejectedRows)
     if (parsed.length) {
       setRows(parsed)
       setTab('manual')
+      setSelectedRows(new Set())
     }
+  }
+
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      applyImportedText(await file.text())
+    } catch {
+      setError('Failed to read CSV file')
+    }
+  }
+
+  function parsePaste() {
+    applyImportedText(pasteText)
   }
 
   function applyTemplate(t: {settings: Record<string, unknown>}) {
@@ -386,6 +372,8 @@ export default function NewJobPage() {
                   </button>
                 ))}
               </div>
+
+              <ImportErrors rows={importErrors} />
 
               {tab === 'paste' && (
                 <div className="space-y-2">
