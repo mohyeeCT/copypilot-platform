@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import Sidebar from './Sidebar'
 import { Menu } from 'lucide-react'
@@ -21,7 +22,7 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
-          <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
+          <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
         </div>
         <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
       </div>

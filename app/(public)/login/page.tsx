@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { HelpCircle, FileText, Tag, BookOpen, Layers, ArrowRight } from 'lucide-react'
 
@@ -37,7 +38,7 @@ export default function LoginPage() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 mb-12 group w-fit">
           <div className="w-8 h-8 rounded-xl overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
-            <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
+            <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
           </div>
           <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>CopyPilot</span>
         </Link>
