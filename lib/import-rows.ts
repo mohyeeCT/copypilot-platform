@@ -87,30 +87,45 @@ function parserErrorMessage(error: Papa.ParseError): string {
   return `Malformed CSV: ${error.message}`
 }
 
+function countLineBreaks(value: string): number {
+  return value.match(/\r\n|\r|\n/g)?.length ?? 0
+}
+
 export function parseImportedRows(text: string, schema: ImportSchema): ImportResult {
-  const parsed = Papa.parse<string[]>(text, {
+  const records: { values: string[]; rowNumber: number; errors: string[] }[] = []
+  let cursor = 0
+  let rowNumber = 1
+
+  Papa.parse<string[]>(text, {
     skipEmptyLines: false,
     transform: value => value.trim(),
+    step: result => {
+      records.push({
+        values: result.data,
+        rowNumber,
+        errors: result.errors
+          .filter(error => error.code !== 'UndetectableDelimiter')
+          .map(parserErrorMessage),
+      })
+      const consumed = text.slice(cursor, result.meta.cursor)
+      rowNumber += countLineBreaks(consumed)
+      cursor = result.meta.cursor
+    },
   })
 
-  const data = parsed.data
-  const firstPopulatedIndex = data.findIndex(row => !isEmptyRow(row))
-  const headerMap = firstPopulatedIndex >= 0 ? getHeaderMap(data[firstPopulatedIndex], schema) : null
-  const parserErrors = new Map<number, string[]>()
-
-  for (const error of parsed.errors) {
-    if (error.code === 'UndetectableDelimiter') continue
-    const rowIndex = error.row ?? 0
-    parserErrors.set(rowIndex, [...(parserErrors.get(rowIndex) ?? []), parserErrorMessage(error)])
-  }
+  const firstPopulatedIndex = records.findIndex(record => !isEmptyRow(record.values))
+  const headerMap = firstPopulatedIndex >= 0
+    ? getHeaderMap(records[firstPopulatedIndex].values, schema)
+    : null
 
   const rows: ImportedRow[] = []
   const rejectedRows: RejectedImportRow[] = []
 
-  data.forEach((values, rowIndex) => {
+  records.forEach((record, rowIndex) => {
+    const { values, rowNumber: sourceRowNumber } = record
     if (isEmptyRow(values) || (headerMap && rowIndex === firstPopulatedIndex)) return
 
-    const errors = [...(parserErrors.get(rowIndex) ?? [])]
+    const errors = [...record.errors]
     const row: ImportedRow = {}
 
     schema.columns.forEach((column, columnIndex) => {
@@ -125,7 +140,7 @@ export function parseImportedRows(text: string, schema: ImportSchema): ImportRes
     }
 
     if (errors.length) {
-      rejectedRows.push({ rowNumber: rowIndex + 1, errors, values })
+      rejectedRows.push({ rowNumber: sourceRowNumber, errors, values })
     } else {
       rows.push(row)
     }

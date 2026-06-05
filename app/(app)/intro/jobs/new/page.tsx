@@ -157,9 +157,10 @@ export default function NewJobPage() {
 
   function applyImportedText(text: string) {
     const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'service_lp' }))
+    const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
     setImportErrors(result.rejectedRows)
-    if (result.rows.length) {
-      setRows(result.rows as Row[])
+    if (parsed.length) {
+      setRows(parsed)
       setTab('manual')
       setSelectedRows(new Set())
     }

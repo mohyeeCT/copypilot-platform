@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
@@ -39,6 +41,7 @@ export default function NewMetaJobPage() {
   // Rows
   const [rows, setRows] = useState<Row[]>([{ url: '', keyword: '', page_type: 'general', h1: '' }])
   const [csvPaste, setCsvPaste]   = useState('')
+  const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
   const [inputMode, setInputMode] = useState<'manual' | 'csv'>('manual')
 
   // Auth / loading
@@ -100,18 +103,9 @@ export default function NewMetaJobPage() {
   }
 
   function parseCsv() {
-    const lines = csvPaste.trim().split('\n').filter(l => l.trim())
-    const parsed: Row[] = []
-    for (const line of lines) {
-      const parts = line.split('\t').map(p => p.trim())
-      if (!parts[0]) continue
-      parsed.push({
-        url: parts[0] || '',
-        keyword: parts[1] || '',
-        page_type: parts[2] || 'general',
-        h1: parts[3] || '',
-      })
-    }
+    const result = parseImportedRows(csvPaste, createCopyRowImportSchema({ page_type: 'general' }))
+    const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
+    setImportErrors(result.rejectedRows)
     if (parsed.length > 0) {
       setRows(parsed)
       setInputMode('manual')
@@ -213,9 +207,11 @@ export default function NewMetaJobPage() {
               </div>
             </div>
 
+            <ImportErrors rows={importErrors} />
+
             {inputMode === 'csv' ? (
               <div>
-                <p className="text-xs text-muted mb-2">Paste tab-separated data: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
+                <p className="text-xs text-muted mb-2">Paste CSV or spreadsheet rows: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
                 <textarea className="input-base font-mono text-xs" rows={6} value={csvPaste}
                   onChange={e => setCsvPaste(e.target.value)} placeholder="https://example.com/page&#9;keyword&#9;category&#9;H1 text" />
                 <button onClick={parseCsv} className="btn-primary mt-2 text-xs">Parse CSV</button>

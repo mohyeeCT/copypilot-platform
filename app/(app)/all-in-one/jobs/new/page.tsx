@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
 import { getSettings, getProviderCredentials, listBrandProfiles } from '@/lib/api/shared'
@@ -57,6 +59,7 @@ export default function NewAIOJob() {
   // Rows
   const [rows, setRows]               = useState<Row[]>([{ url: '', keyword: '', page_type: 'service', h1: '', gen_page_copy: true, gen_meta: true, gen_faqs: true }])
   const [csvPaste, setCsvPaste]       = useState('')
+  const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
   const [inputMode, setInputMode]     = useState<'manual' | 'csv'>('manual')
 
   const [templates, setTemplates]     = useState<Record<string, {key: string; name: string}[]>>({})
@@ -112,11 +115,19 @@ export default function NewAIOJob() {
   }
 
   function parseCsv() {
-    const parsed: Row[] = csvPaste.trim().split('\n').filter(l => l.trim()).map(line => {
-      const p = line.split('\t').map(s => s.trim())
-      return { url: p[0] || '', keyword: p[1] || '', page_type: p[2] || pageType, h1: p[3] || '', gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs }
-    }).filter(r => r.url)
-    if (parsed.length) { setRows(parsed); setInputMode('manual'); setCsvPaste('') }
+    const result = parseImportedRows(csvPaste, createCopyRowImportSchema({ page_type: pageType }))
+    const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({
+      url, keyword, page_type, h1,
+      gen_page_copy: genPageCopy,
+      gen_meta: genMeta,
+      gen_faqs: genFaqs,
+    }))
+    setImportErrors(result.rejectedRows)
+    if (parsed.length) {
+      setRows(parsed)
+      setInputMode('manual')
+      setCsvPaste('')
+    }
   }
 
   async function handleRun() {
@@ -274,9 +285,11 @@ export default function NewAIOJob() {
               </div>
             </div>
 
+            <ImportErrors rows={importErrors} />
+
             {inputMode === 'csv' ? (
               <div>
-                <p className="text-xs text-muted mb-2">Tab-separated: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
+                <p className="text-xs text-muted mb-2">Paste CSV or spreadsheet rows: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
                 <textarea className="input-base font-mono text-xs" rows={5} value={csvPaste} onChange={e => setCsvPaste(e.target.value)} />
                 <button onClick={parseCsv} className="btn-primary mt-2 text-xs">Parse CSV</button>
               </div>
