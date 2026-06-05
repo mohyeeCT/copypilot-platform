@@ -132,10 +132,9 @@ export default function NewMetaJobPage() {
     let apiKey = '', dfsLogin = '', dfsPassword = ''
     try {
       const creds = await getProviderCredentials(session.access_token)
-      const ps = (creds?.provider_settings as Record<string, string>) || {}
-      apiKey = ps.api_key || ''
-      dfsLogin = ps.dfs_login || ''
-      dfsPassword = ps.dfs_password || ''
+      apiKey = creds?.api_key || ''
+      dfsLogin = creds?.dfs_login || ''
+      dfsPassword = creds?.dfs_password || ''
     } catch {}
 
     const payload = {
