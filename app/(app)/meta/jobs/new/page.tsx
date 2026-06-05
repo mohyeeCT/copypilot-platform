@@ -129,10 +129,12 @@ export default function NewMetaJobPage() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = ''
+    let apiKey = '', dfsLogin = '', dfsPassword = ''
     try {
       const creds = await getProviderCredentials(session.access_token)
-      apiKey = (creds?.provider_settings as Record<string, string>)?.api_key || ''
+      apiKey = creds?.api_key || ''
+      dfsLogin = creds?.dfs_login || ''
+      dfsPassword = creds?.dfs_password || ''
     } catch {}
 
     const payload = {
@@ -140,7 +142,8 @@ export default function NewMetaJobPage() {
       rows: validRows,
       settings: {
         provider, api_key: apiKey,
-        dfs_login: 'mo@brandvoxx.com',
+        dfs_login: dfsLogin,
+        dfs_password: dfsPassword,
         business_type: businessType,
         brand_name: brandName,
         full_brand_name: fullBrandName,
@@ -155,12 +158,6 @@ export default function NewMetaJobPage() {
         niche,
       },
     }
-
-    try {
-      const creds2 = await getProviderCredentials(session.access_token)
-      const dfsPass = (creds2?.provider_settings as Record<string, string>)?.dfs_password || ''
-      ;(payload.settings as Record<string, unknown>).dfs_password = dfsPass
-    } catch {}
 
     try {
       const data = await metaApi.runJob(session.access_token, payload)

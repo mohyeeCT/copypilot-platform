@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'CopyPilot - AI-powered SEO copy tools',
@@ -159,7 +160,7 @@ export default function HomePage() {
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>CopyPilot</span>
         </div>
         <div style={{ display: 'flex', gap: 20 }}>
-          <a href="/faq/jobs" className="nav-link">FAQ Copy</a>
+          <Link href="/faq/jobs" className="nav-link">FAQ Copy</Link>
           <a href="/changelog" className="nav-link">Changelog</a>
         </div>
       </footer>
