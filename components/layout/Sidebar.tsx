@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   HelpCircle, FileText, Tag, BookOpen, Layers,
@@ -127,7 +128,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0" style={{ boxShadow: 'var(--shadow-xs)' }}>
-            <img src="/favicon-32x32.png" alt="CopyPilot" className="w-full h-full object-cover" />
+            <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
           </div>
           <span style={{
             fontSize: '0.9375rem',

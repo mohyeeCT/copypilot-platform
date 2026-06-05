@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap, KeyRound, Key, Globe, Cpu, Info } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
@@ -294,7 +295,7 @@ export default function SettingsPage() {
         <div className="card overflow-hidden">
           <div className="px-6 py-5 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/favicon-32x32.png" alt="FAQ Production" className="w-6 h-6" />
+              <Image src="/favicon-32x32.png" alt="FAQ Production" width={24} height={24} className="w-6 h-6" />
               <div>
                 <p className="font-semibold text-sm">CopyPilot</p>
                 <p className="text-xs text-muted">AI-powered SEO copy production platform</p>

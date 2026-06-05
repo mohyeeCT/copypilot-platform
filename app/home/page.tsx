@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export const metadata: Metadata = {
   title: 'CopyPilot - AI-powered SEO copy tools',
@@ -77,7 +78,7 @@ export default function HomePage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb, var(--bg) 92%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/favicon-32x32.png" alt="CopyPilot" style={{ width: 22, height: 22 }} />
+            <Image src="/favicon-32x32.png" alt="CopyPilot" width={22} height={22} />
             <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.03em' }}>CopyPilot</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
@@ -156,7 +157,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer style={{ borderTop: '1px solid var(--border)', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src="/favicon-32x32.png" alt="CopyPilot" style={{ width: 18, height: 18 }} />
+          <Image src="/favicon-32x32.png" alt="CopyPilot" width={18} height={18} />
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>CopyPilot</span>
         </div>
         <div style={{ display: 'flex', gap: 20 }}>

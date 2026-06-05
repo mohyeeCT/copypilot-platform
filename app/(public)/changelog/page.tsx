@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 import { changelog } from './data'
 import type { ChangeType } from './data'
 
@@ -85,7 +86,7 @@ export default function ChangelogPage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb, var(--bg) 92%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <a href="https://copypilot.app" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
-            <img src="/favicon-32x32.png" alt="CopyPilot" style={{ width: 20, height: 20 }} />
+            <Image src="/favicon-32x32.png" alt="CopyPilot" width={20} height={20} />
             <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '-0.02em' }}>CopyPilot</span>
           </a>
           <div style={{ display: 'flex', gap: 20 }}>

@@ -49,7 +49,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
       } catch {}
     }
     load()
-  }, [])
+  }, [listBrandProfiles])
 
   function openNew() {
     setForm({ name: '', ...EMPTY_DATA })

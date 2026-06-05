@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 
 export default function SignupPage() {
@@ -38,7 +39,7 @@ export default function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 mb-6">
-            <img src="/favicon-32x32.png" alt="CopyPilot" className="w-6 h-6" />
+            <Image src="/favicon-32x32.png" alt="CopyPilot" width={24} height={24} className="w-6 h-6" />
             <span className="font-bold text-lg tracking-tight">CopyPilot</span>
           </div>
           <h1 className="text-2xl font-bold mb-1">Create account</h1>
