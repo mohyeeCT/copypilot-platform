@@ -70,9 +70,9 @@ export default function MetaJobPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Poll while running
+  // Poll until running or cancellation reaches a terminal state
   useEffect(() => {
-    if (!job || job.status !== 'running') return
+    if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
     const t = setInterval(load, 2500)
     return () => clearInterval(t)
   }, [job, load])
@@ -101,7 +101,10 @@ export default function MetaJobPage() {
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
-      if (session) await metaApi.cancelJob(session.access_token, job.id)
+      if (session) {
+        await metaApi.cancelJob(session.access_token, job.id)
+        await load()
+      }
     } catch {}
     setCancelling(false)
   }

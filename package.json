@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/import-rows.test.mjs"
+    "test": "node --test --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/*.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.0",
