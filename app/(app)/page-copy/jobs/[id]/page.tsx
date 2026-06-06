@@ -65,7 +65,7 @@ export default function PageCopyJobPage() {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    if (!job || job.status !== 'running') return
+    if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
     const t = setInterval(load, 3000) // 3s poll — page copy is slow
     return () => clearInterval(t)
   }, [job, load])
@@ -94,7 +94,10 @@ export default function PageCopyJobPage() {
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
-      if (session) await pageCopyApi.cancelJob(session.access_token, job.id)
+      if (session) {
+        await pageCopyApi.cancelJob(session.access_token, job.id)
+        await load()
+      }
     } catch {}
     setCancelling(false)
   }

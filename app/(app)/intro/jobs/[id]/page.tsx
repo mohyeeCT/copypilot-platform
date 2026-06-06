@@ -69,7 +69,7 @@ export default function JobPage() {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    if (!job || job.status !== 'running') return
+    if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
     const t = setInterval(load, 3000)
     return () => clearInterval(t)
   }, [job, load])
@@ -103,7 +103,10 @@ export default function JobPage() {
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
-      if (session) await introApi.cancelJob(session.access_token, job.id)
+      if (session) {
+        await introApi.cancelJob(session.access_token, job.id)
+        await load()
+      }
     } catch {}
     setCancelling(false)
   }
