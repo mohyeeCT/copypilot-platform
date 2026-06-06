@@ -18,6 +18,16 @@ const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'general', h1: '
 const PAGE_TYPES = ['general', 'product', 'category', 'service', 'blog', 'local']
 const BIZ_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
+const FAQS_PER_PAGE_MIN = 1
+const FAQS_PER_PAGE_MAX = 7
+const PROCESSING_CHUNK_SIZE_MIN = 1
+const PROCESSING_CHUNK_SIZE_MAX = 5
+
+function clampIntegerSetting(value: unknown, minimum: number, maximum: number, fallback: number) {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(Math.max(Math.trunc(parsed), minimum), maximum)
+}
 
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Claude': [
@@ -114,6 +124,8 @@ export default function NewJobPage() {
   const [locationCode, setLocationCode] = useState(2840)
   const [minVolume, setMinVolume] = useState(10)
   const [restrictedIndustry, setRestrictedIndustry] = useState(false)
+  const effectiveNumFaqs = clampIntegerSetting(numFaqs, FAQS_PER_PAGE_MIN, FAQS_PER_PAGE_MAX, 5)
+  const effectiveBatchSize = clampIntegerSetting(batchSize, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1)
 
   // Load saved credentials on mount
   useEffect(() => {
@@ -194,12 +206,12 @@ export default function NewJobPage() {
         rows: validRows,
         settings: {
           provider, model, api_key: apiKey, business_type: businessType,
-          brand_name: brandName, full_brand_name: fullBrandName, brand_profile_id: selectedBrandProfileId, num_faqs: numFaqs,
+          brand_name: brandName, full_brand_name: fullBrandName, brand_profile_id: selectedBrandProfileId, num_faqs: effectiveNumFaqs,
           dfs_login: dfsLogin, dfs_password: dfsPassword,
           location_code: locationCode, min_volume: minVolume, jina_api_key: jinaKey,
           scrape_pages: scrapePages, use_gsc: useGsc,
           restricted_industry: restrictedIndustry,
-          site_url: siteUrl, batch_size: batchSize,
+          site_url: siteUrl, batch_size: effectiveBatchSize,
           load_async_ai_overview: loadAsyncAiOverview,
           forbidden_phrases: forbiddenPhrases,
           branded_terms_input: brandedTermsInput,
@@ -248,10 +260,10 @@ export default function NewJobPage() {
                                 if (s.business_type) setBusinessType(s.business_type as string)
                                 if (s.brand_name) setBrandName(s.brand_name as string)
                                 if (s.full_brand_name) setFullBrandName(s.full_brand_name as string)
-                                if (s.num_faqs) setNumFaqs(s.num_faqs as number)
+                                if (s.num_faqs) setNumFaqs(clampIntegerSetting(s.num_faqs as number, FAQS_PER_PAGE_MIN, FAQS_PER_PAGE_MAX, 5))
                                 if (s.forbidden_phrases) setForbiddenPhrases(s.forbidden_phrases as string)
                                 if (s.branded_terms_input) setBrandedTermsInput(s.branded_terms_input as string)
-                                if (s.batch_size) setBatchSize(s.batch_size as number)
+                                if (s.batch_size) setBatchSize(clampIntegerSetting(s.batch_size as number, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1))
                                 if (s.use_gsc !== undefined) setUseGsc(s.use_gsc as boolean)
                                 if (s.scrape_pages !== undefined) setScrapePages(s.scrape_pages as boolean)
                                 if (s.site_url) setSiteUrl(s.site_url as string)
@@ -449,9 +461,9 @@ export default function NewJobPage() {
                     if (session) {
                       const tmpl = await saveTemplate(session.access_token, templateName.trim(), {
                         provider, business_type: businessType, brand_name: brandName,
-                        full_brand_name: fullBrandName, num_faqs: numFaqs,
+                        full_brand_name: fullBrandName, num_faqs: effectiveNumFaqs,
                         forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
-                        batch_size: batchSize, use_gsc: useGsc, scrape_pages: scrapePages,
+                        batch_size: effectiveBatchSize, use_gsc: useGsc, scrape_pages: scrapePages,
                         site_url: siteUrl,
                       }, 'faq')
                       if (tmpl?.id) setTemplates(prev => [tmpl, ...prev])
@@ -532,9 +544,10 @@ export default function NewJobPage() {
                   className="input-base text-xs" placeholder="e.g. Dayson Shalabi Burkert for DSB" />
               </div>
               <div>
-                <label className="text-xs text-muted block mb-1">FAQs per page</label>
-                <input type="number" value={numFaqs} onChange={e => setNumFaqs(+e.target.value)}
-                  className="input-base text-xs" min={1} max={10} />
+                <label className="text-xs text-muted block mb-1">Number of FAQs per page</label>
+                <input type="number" value={effectiveNumFaqs} onChange={e => setNumFaqs(clampIntegerSetting(+e.target.value, FAQS_PER_PAGE_MIN, FAQS_PER_PAGE_MAX, 5))}
+                  className="input-base text-xs" min={FAQS_PER_PAGE_MIN} max={FAQS_PER_PAGE_MAX} />
+                <p className="text-xs text-muted/50 mt-1">Max {FAQS_PER_PAGE_MAX} FAQs per page.</p>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Forbidden phrases <span className="text-muted/50">(one per line)</span></label>
@@ -606,20 +619,18 @@ export default function NewJobPage() {
               )}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-muted">Batch size</label>
-                  <span className="text-xs font-mono text-accent">{batchSize === 1 ? 'Off' : batchSize}</span>
+                  <label className="text-xs text-muted">Processing chunk size</label>
+                  <span className="text-xs font-mono text-accent">{effectiveBatchSize === 1 ? 'Off' : effectiveBatchSize}</span>
                 </div>
                 <input
-                  type="range" min={1} max={10} value={batchSize}
-                  onChange={e => setBatchSize(+e.target.value)}
+                  type="range" min={PROCESSING_CHUNK_SIZE_MIN} max={PROCESSING_CHUNK_SIZE_MAX} value={effectiveBatchSize}
+                  onChange={e => setBatchSize(clampIntegerSetting(+e.target.value, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1))}
                   className="w-full accent-accent"
                 />
                 <p className="text-xs text-muted mt-1.5 leading-relaxed">
-                  {batchSize === 1
+                  {effectiveBatchSize === 1
                     ? 'Each URL is processed in a separate AI call.'
-                    : batchSize > 10
-                      ? `⚠️ Batch size ${batchSize} exceeds the safe limit of 10.`
-                      : `${batchSize} URLs sent to AI in one call. Best for large runs of similar pages.`
+                    : `${effectiveBatchSize} URLs sent to AI in one call. Max ${PROCESSING_CHUNK_SIZE_MAX}. Best for similar pages.`
                   }
                 </p>
               </div>
