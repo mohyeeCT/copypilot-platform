@@ -14,6 +14,31 @@ import { getSettings, getProviderCredentials, listTemplates, saveTemplate, delet
 export const dynamic = 'force-dynamic'
 
 const PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
+const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
+  'Claude': [
+    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
+    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
+  ],
+  'OpenAI': [
+    { label: 'GPT-5.5 (latest)', value: 'gpt-5.5' },
+    { label: 'GPT-5.4', value: 'gpt-5.4' },
+    { label: 'GPT-5.4 mini', value: 'gpt-5.4-mini' },
+    { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },
+  ],
+  'Gemini (free)': [
+    { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+  ],
+  'Mistral (free tier)': [
+    { label: 'Mistral Small (default)', value: 'mistral-small-latest' },
+    { label: 'Mistral Large', value: 'mistral-large-latest' },
+  ],
+  'Groq (free tier)': [
+    { label: 'Llama 3 70B (default)', value: 'llama3-70b-8192' },
+    { label: 'Llama 3.1 8B', value: 'llama-3.1-8b-instant' },
+    { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile' },
+  ],
+}
 const BUSINESS_TYPES = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
 const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']
 
@@ -24,6 +49,7 @@ export default function NewMetaJobPage() {
 
   // Settings
   const [provider, setProvider]         = useState('Claude')
+  const [model, setModel]               = useState(PROVIDER_MODELS['Claude'][0].value)
   const [businessType, setBusinessType] = useState('general')
   const [brandName, setBrandName]       = useState('')
   const [fullBrandName, setFullBrandName] = useState('')
@@ -90,6 +116,7 @@ export default function NewMetaJobPage() {
 
   function applyTemplate(t: Record<string, unknown>) {
     if (t.provider)             setProvider(t.provider as string)
+    if (t.model)                setModel(t.model as string)
     if (t.business_type)        setBusinessType(t.business_type as string)
     if (t.brand_name)           setBrandName(t.brand_name as string)
     if (t.full_brand_name)      setFullBrandName(t.full_brand_name as string)
@@ -102,6 +129,11 @@ export default function NewMetaJobPage() {
     if (t.site_url)                  setSiteUrl(t.site_url as string)
     if (t.brand_profile_id)          setBrandProfileId(t.brand_profile_id as string)
     if (t.restricted_industry != null) setRestrictedIndustry(Boolean(t.restricted_industry))
+  }
+
+  function handleProviderChange(p: string) {
+    setProvider(p)
+    setModel(PROVIDER_MODELS[p]?.[0]?.value ?? '')
   }
 
   function parseCsv() {
@@ -137,7 +169,7 @@ export default function NewMetaJobPage() {
       name: jobName.trim() || `Meta job — ${validRows.length} URLs`,
       rows: validRows,
       settings: {
-        provider, api_key: apiKey,
+        provider, model, api_key: apiKey,
         dfs_login: dfsLogin,
         dfs_password: dfsPassword,
         business_type: businessType,
@@ -260,7 +292,7 @@ export default function NewMetaJobPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Provider</label>
-                <select className="input-base" value={provider} onChange={e => setProvider(e.target.value)}>
+                <select className="input-base" value={provider} onChange={e => handleProviderChange(e.target.value)}>
                   {PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -268,6 +300,14 @@ export default function NewMetaJobPage() {
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
                 <select className="input-base" value={businessType} onChange={e => setBusinessType(e.target.value)}>
                   {BUSINESS_TYPES.map(bt => <option key={bt} value={bt}>{bt}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Model</label>
+                <select className="input-base" value={model} onChange={e => setModel(e.target.value)}>
+                  {(PROVIDER_MODELS[provider] ?? []).map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
                 </select>
               </div>
               <NicheSelect
@@ -399,7 +439,7 @@ export default function NewMetaJobPage() {
                   const { data: { session } } = await sb.auth.getSession()
                   if (session) {
                     const tmpl = await saveTemplate(session.access_token, templateName.trim(), {
-                      provider, business_type: businessType, brand_name: brandName,
+                      provider, model, business_type: businessType, brand_name: brandName,
                       full_brand_name: fullBrandName, include_brand: includeBrand,
                       forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
                       location_code: locationCode, min_volume: minVolume,
