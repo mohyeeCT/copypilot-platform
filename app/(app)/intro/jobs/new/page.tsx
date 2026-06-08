@@ -7,7 +7,7 @@ import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
 import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { introApi } from '@/lib/api/intro'
-import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
+import { getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
