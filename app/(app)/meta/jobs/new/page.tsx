@@ -37,6 +37,7 @@ export default function NewMetaJobPage() {
   const [jobName, setJobName]           = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
   const [niche, setNiche] = useState('none')
+  const [restrictedIndustry, setRestrictedIndustry] = useState(false)
 
   // Rows
   const [rows, setRows] = useState<Row[]>([{ url: '', keyword: '', page_type: 'general', h1: '' }])
@@ -97,9 +98,10 @@ export default function NewMetaJobPage() {
     if (t.branded_terms_input)  setBrandedTermsInput(t.branded_terms_input as string)
     if (t.location_code)        setLocationCode(Number(t.location_code))
     if (t.min_volume != null)   setMinVolume(Number(t.min_volume))
-    if (t.use_gsc != null)      setUseGsc(Boolean(t.use_gsc))
-    if (t.site_url)             setSiteUrl(t.site_url as string)
-    if (t.brand_profile_id)     setBrandProfileId(t.brand_profile_id as string)
+    if (t.use_gsc != null)           setUseGsc(Boolean(t.use_gsc))
+    if (t.site_url)                  setSiteUrl(t.site_url as string)
+    if (t.brand_profile_id)          setBrandProfileId(t.brand_profile_id as string)
+    if (t.restricted_industry != null) setRestrictedIndustry(Boolean(t.restricted_industry))
   }
 
   function parseCsv() {
@@ -150,6 +152,7 @@ export default function NewMetaJobPage() {
         site_url: siteUrl,
         brand_profile_id: brandProfileId,
         niche,
+        restricted_industry: restrictedIndustry,
       },
     }
 
@@ -350,6 +353,16 @@ export default function NewMetaJobPage() {
                   <textarea className="input-base text-xs" rows={3} value={brandedTermsInput}
                     onChange={e => setBrandedTermsInput(e.target.value)} placeholder="acme&#10;acme inc" />
                 </div>
+                <label className="flex items-center gap-2.5 cursor-pointer pt-1">
+                  <div onClick={() => setRestrictedIndustry(!restrictedIndustry)}
+                    className={`w-9 h-5 rounded-full transition-colors relative ${restrictedIndustry ? 'bg-accent' : 'bg-border'}`}>
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${restrictedIndustry ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </div>
+                  <div>
+                    <span className="text-sm">Restricted industry mode</span>
+                    <p className="text-xs text-muted mt-0.5">Score keywords on GSC engagement only, ignoring DFS volume. Use for CBD, firearms, dispensaries, or adult industries where DataForSEO suppresses volume data.</p>
+                  </div>
+                </label>
               </div>
             )}
           </div>
@@ -391,7 +404,7 @@ export default function NewMetaJobPage() {
                       forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
                       location_code: locationCode, min_volume: minVolume,
                       use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
-        niche,
+                      niche, restricted_industry: restrictedIndustry,
                     }, 'meta')
                     if (tmpl?.id) setTemplates(prev => [tmpl, ...prev])
                   }
