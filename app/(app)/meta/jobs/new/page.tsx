@@ -56,6 +56,8 @@ export default function NewMetaJobPage() {
   const [includeBrand, setIncludeBrand] = useState(true)
   const [forbiddenPhrases, setForbiddenPhrases] = useState('')
   const [brandedTermsInput, setBrandedTermsInput] = useState('')
+  const [dfsLogin, setDfsLogin]         = useState('')
+  const [dfsPassword, setDfsPassword]   = useState('')
   const [locationCode, setLocationCode] = useState(2840)
   const [minVolume, setMinVolume]       = useState(10)
   const [useGsc, setUseGsc]             = useState(true)
@@ -87,10 +89,11 @@ export default function NewMetaJobPage() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
     try {
-      const [s, bp, tmpl] = await Promise.all([
+      const [s, bp, tmpl, creds] = await Promise.all([
         getSettings(session.access_token),
         listBrandProfiles(session.access_token),
         listTemplates(session.access_token, 'meta'),
+        getProviderCredentials(session.access_token).catch(() => null),
       ])
       if (s) {
         setProvider(s.provider || 'Claude')
@@ -105,6 +108,10 @@ export default function NewMetaJobPage() {
         setMinVolume(s.min_volume ?? 10)
         setUseGsc(s.use_gsc ?? true)
         setSiteUrl(s.site_url || '')
+      }
+      if (creds) {
+        setDfsLogin(creds.dfs_login || '')
+        setDfsPassword(creds.dfs_password || '')
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       setTemplates(Array.isArray(tmpl) ? tmpl : [])
@@ -157,12 +164,10 @@ export default function NewMetaJobPage() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = '', dfsLogin = '', dfsPassword = ''
+    let apiKey = ''
     try {
       const creds = await getProviderCredentials(session.access_token)
       apiKey = creds?.api_key || ''
-      dfsLogin = creds?.dfs_login || ''
-      dfsPassword = creds?.dfs_password || ''
     } catch {}
 
     const payload = {
@@ -360,6 +365,29 @@ export default function NewMetaJobPage() {
             )}
           </div>
 
+          {/* DataForSEO */}
+          <div className="card p-5 space-y-4">
+            <h2 className="font-semibold text-sm">DataForSEO</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Login Email</label>
+                <input className="input-base" value={dfsLogin} onChange={e => setDfsLogin(e.target.value)} placeholder="you@example.com" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Password</label>
+                <input type="password" className="input-base" value={dfsPassword} onChange={e => setDfsPassword(e.target.value)} placeholder="DataForSEO password" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Location Code</label>
+                <input type="number" className="input-base" value={locationCode} onChange={e => setLocationCode(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Min Keyword Volume</label>
+                <input type="number" className="input-base" value={minVolume} onChange={e => setMinVolume(Number(e.target.value))} />
+              </div>
+            </div>
+          </div>
+
           {/* Advanced settings */}
           <div className="card overflow-hidden">
             <button onClick={() => setShowAdvanced(!showAdvanced)}
@@ -368,17 +396,7 @@ export default function NewMetaJobPage() {
               {showAdvanced ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />}
             </button>
             {showAdvanced && (
-              <div className="px-5 pb-5 space-y-4 border-t border-border">
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                  <div>
-                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">DFS Location Code</label>
-                    <input type="number" className="input-base" value={locationCode} onChange={e => setLocationCode(Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Min Keyword Volume</label>
-                    <input type="number" className="input-base" value={minVolume} onChange={e => setMinVolume(Number(e.target.value))} />
-                  </div>
-                </div>
+              <div className="px-5 pb-5 pt-4 space-y-4 border-t border-border">
                 <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Full Brand Name</label>
                   <input className="input-base" value={fullBrandName} onChange={e => setFullBrandName(e.target.value)} placeholder="Dayson Shalabi Burkert" />
