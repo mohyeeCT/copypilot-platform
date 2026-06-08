@@ -122,7 +122,7 @@ export default function MetaJobPage() {
       r.url, r.generated_title || '', r.title_length || '',
       r.generated_description || '', r.description_length || '',
       r.optimised_h1 || '', r.h1_length || '',
-      r.selected_keyword || '', r.kw_volume || '', r.kw_difficulty || '',
+      r.selected_keyword || '', r.kw_volume ?? '', r.kw_difficulty ?? '',
       r.keyword_source || '', r.runner_up || '', r.status || '',
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
