@@ -5,7 +5,7 @@ See `../CLAUDE.md` for full platform context, conventions, and working rules.
 ## What This Repo Is
 
 Next.js 15 App Router frontend for CopyPilot. Deployed on Vercel.
-Default branch: `main`. Current HEAD: `ada6624`.
+Default branch: `main`. Current HEAD: `b750a32`.
 
 ## Key Directories
 
