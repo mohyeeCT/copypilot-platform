@@ -30,7 +30,16 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
   )
 
   return (
-    <div className="flex min-h-screen">
+    <div
+      className="flex"
+      style={{
+        height: '100vh',
+        overflow: 'hidden',
+        padding: '12px',
+        gap: '10px',
+        background: 'var(--bg)',
+      }}
+    >
         {/* Mobile overlay */}
         {sidebarOpen && (
           <div
@@ -64,7 +73,7 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
             <span className="font-semibold text-sm">{title || 'CopyPilot'}</span>
           </div>
 
-          <main className="flex-1 p-5 md:p-8 overflow-auto">{children}</main>
+          <main className="flex-1 p-5 md:p-8" style={{ overflowY: 'auto' }}>{children}</main>
         </div>
     </div>
   )

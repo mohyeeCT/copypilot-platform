@@ -118,10 +118,18 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
   return (
     <aside
-      className="w-56 min-h-screen flex flex-col shrink-0"
       style={{
+        width: 220,
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
         background: 'var(--sidebar-bg)',
-        borderRight: '1px solid var(--border)',
+        border: '1px solid var(--border)',
+        borderTop: '1px solid var(--surface-raised)',
+        borderRadius: 16,
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.10)',
+        alignSelf: 'stretch',
       }}
     >
       {/* Logo */}
