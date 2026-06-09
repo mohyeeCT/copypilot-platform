@@ -59,7 +59,9 @@ export default function PageCopyJobPage() {
     try {
       const data = await pageCopyApi.getJob(session.access_token, id as string)
       setJob(data)
-    } catch {}
+    } catch (e) {
+      console.error('Failed to fetch job:', e)
+    }
   }, [id, router])
 
   useEffect(() => { load() }, [load])
@@ -98,7 +100,9 @@ export default function PageCopyJobPage() {
         await pageCopyApi.cancelJob(session.access_token, job.id)
         await load()
       }
-    } catch {}
+    } catch (e) {
+      console.error('Cancel request failed:', e)
+    }
     setCancelling(false)
   }
 
@@ -254,7 +258,9 @@ export default function PageCopyJobPage() {
                     setSelectedRows(new Set())
                     load()
                   }
-                } catch {}
+                } catch (e) {
+                  console.error('Rerun request failed:', e)
+                }
                 setRerunningMulti(false)
               }} disabled={rerunningMulti} className="btn-primary flex items-center gap-2 text-sm">
                 <RefreshCw size={13} className={rerunningMulti ? 'animate-spin' : ''} />

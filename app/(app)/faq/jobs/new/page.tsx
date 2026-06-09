@@ -153,7 +153,9 @@ export default function NewJobPage() {
         // Load brand profiles
         const bp = await listBrandProfiles(session.access_token)
         if (Array.isArray(bp)) setBrandProfiles(bp)
-      } catch {}
+      } catch (e) {
+        console.error('Failed to load credentials/templates on mount:', e)
+      }
     }
     loadCreds()
   }, [])

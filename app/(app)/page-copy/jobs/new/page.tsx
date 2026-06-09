@@ -80,7 +80,9 @@ export default function NewPageCopyJob() {
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
-    } catch {}
+    } catch (e) {
+      console.error('Failed to load settings on mount:', e)
+    }
     setSettingsLoaded(true)
   }, [router])
 
@@ -127,7 +129,12 @@ export default function NewPageCopyJob() {
       apiKey = creds?.api_key || ''
       dfsLogin = creds?.dfs_login || ''
       dfsPassword = creds?.dfs_password || ''
-    } catch {}
+    } catch (e) {
+      console.error('Failed to fetch credentials at submit time:', e)
+      setError('Failed to load credentials. Please try again.')
+      setRunning(false)
+      return
+    }
 
     const payload = {
       name: jobName.trim() || `Page Copy — ${validRows.length} URLs`,

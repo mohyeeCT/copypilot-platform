@@ -63,7 +63,9 @@ export default function SettingsPage() {
           setCredsProvider(data.provider_settings.provider || '')
         }
 
-      } catch {}
+      } catch (e) {
+        console.error('Failed to load settings on mount:', e)
+      }
     }
     async function checkBackends() {
       await Promise.all(BACKENDS.map(async b => {
@@ -111,7 +113,9 @@ export default function SettingsPage() {
       await deleteGscAccount(session.access_token)
       setGscConfigured(false)
       setGscEmail('')
-    } catch {}
+    } catch (e) {
+      console.error('Failed to delete GSC account:', e)
+    }
     setDeleting(false)
   }
 
@@ -125,7 +129,9 @@ export default function SettingsPage() {
       setCredsConfigured(false)
       setCredsProvider('')
       setShowCredsForm(false)
-    } catch {}
+    } catch (e) {
+      console.error('Failed to delete credentials:', e)
+    }
     setCredsDeleting(false)
   }
 
@@ -231,7 +237,9 @@ export default function SettingsPage() {
                     try {
                       const creds = await getProviderCredentials(session.access_token)
                       if (creds) setCredsForm({ provider: creds.provider || 'Claude', api_key: creds.api_key || '', dfs_login: creds.dfs_login || '', dfs_password: creds.dfs_password || '', jina_api_key: creds.jina_api_key || '', site_url: creds.site_url || '' })
-                    } catch {}
+                    } catch (e) {
+                      console.error('Failed to pre-fill credentials form:', e)
+                    }
                   }
                   setShowCredsForm(true)
                 }} className="text-xs text-muted hover:text-accent transition-colors">Update</button>

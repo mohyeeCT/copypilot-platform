@@ -64,7 +64,9 @@ export default function JobPage() {
     try {
       const data = await introApi.getJob(session.access_token, id)
       setJob(data)
-    } catch {}
+    } catch (e) {
+      console.error('Failed to fetch job:', e)
+    }
   }, [id])
 
   useEffect(() => { load() }, [load])
@@ -108,7 +110,9 @@ export default function JobPage() {
         await introApi.cancelJob(session.access_token, job.id)
         await load()
       }
-    } catch {}
+    } catch (e) {
+      console.error('Cancel request failed:', e)
+    }
     setCancelling(false)
   }
 
@@ -216,7 +220,9 @@ export default function JobPage() {
                         setSelectedRows(new Set())
                         load()
                       }
-                    } catch {}
+                    } catch (e) {
+                      console.error('Rerun request failed:', e)
+                    }
                     setRerunningMulti(false)
                   }}
                   disabled={rerunningMulti}

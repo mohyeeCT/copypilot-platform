@@ -115,7 +115,9 @@ export default function NewMetaJobPage() {
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       setTemplates(Array.isArray(tmpl) ? tmpl : [])
-    } catch {}
+    } catch (e) {
+      console.error('Failed to load settings/credentials on mount:', e)
+    }
     setSettingsLoaded(true)
   }, [router])
 
@@ -168,7 +170,12 @@ export default function NewMetaJobPage() {
     try {
       const creds = await getProviderCredentials(session.access_token)
       apiKey = creds?.api_key || ''
-    } catch {}
+    } catch (e) {
+      console.error('Failed to fetch credentials at submit time:', e)
+      setError('Failed to load credentials. Please try again.')
+      setRunning(false)
+      return
+    }
 
     const payload = {
       name: jobName.trim() || `Meta job — ${validRows.length} URLs`,
