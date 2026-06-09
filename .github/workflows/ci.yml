@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          NEXT_PUBLIC_FAQ_API_URL: https://placeholder.railway.app
+          NEXT_PUBLIC_INTRO_API_URL: https://placeholder.railway.app
+          NEXT_PUBLIC_META_API_URL: https://placeholder.railway.app
+          NEXT_PUBLIC_PAGE_COPY_API_URL: https://placeholder.railway.app
+          NEXT_PUBLIC_AIO_API_URL: https://placeholder.railway.app
