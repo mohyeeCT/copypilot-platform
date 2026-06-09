@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
 import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, Square, ChevronDown, ChevronUp } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -143,6 +144,28 @@ export default function JobPage() {
     a.click()
   }
 
+  function downloadXlsx() {
+    if (!job?.results?.length) return
+    const data = job.results.map((r, i) => ({
+      URL: r.url || '',
+      'Intro Copy': edits[i] ?? r.intro_copy ?? '',
+      'Primary Keyword': r.primary_keyword || '',
+      'Runner Up': r.runner_up || '',
+      'Supporting Keywords': r.supporting_keywords || '',
+      'Word Count': r.word_count ?? '',
+      'Cluster Source': r.cluster_source || '',
+      'Keyword Source': r.keyword_source || '',
+      'Primary Volume': r.primary_volume ?? '',
+      'Primary Difficulty': r.primary_difficulty ?? '',
+      'Scrape Status': r.scrape_status || '',
+      'Intro Status': r.status || (r.error ? 'error' : 'ok'),
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Results')
+    XLSX.writeFile(wb, `${job.name || 'intro-results'}.xlsx`)
+  }
+
   if (!job) return (
     <AppLayout title="Page Intro">
       <div className="flex items-center justify-center py-24">
@@ -234,6 +257,9 @@ export default function JobPage() {
               </div>
               <button onClick={downloadCsv} className="btn-secondary text-xs flex items-center gap-1.5">
                 <Download size={12} /> Export CSV
+              </button>
+              <button onClick={downloadXlsx} className="btn-secondary text-xs flex items-center gap-1.5">
+                <Download size={12} /> Export XLSX
               </button>
             </>
           )}
@@ -331,7 +357,7 @@ export default function JobPage() {
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border">
-                      {['URL', 'Primary Keyword', 'Supporting Keywords', 'Words', 'Source', 'Status'].map(h => (
+                      {['URL', 'Primary Keyword', 'Runner Up', 'Supporting Keywords', 'Words', 'Source', 'Scrape', 'Status'].map(h => (
                         <th key={h} className="text-left py-2 pr-4 text-muted font-normal whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -342,9 +368,11 @@ export default function JobPage() {
                         onClick={() => { setView('cards'); setExpanded(i) }}>
                         <td className="py-2 pr-4 font-mono text-muted max-w-xs truncate">{row.url}</td>
                         <td className="py-2 pr-4 text-accent font-mono">{row.primary_keyword || 'none'}</td>
+                        <td className="py-2 pr-4 text-muted font-mono">{row.runner_up || ''}</td>
                         <td className="py-2 pr-4 text-muted max-w-xs truncate">{row.supporting_keywords || ''}</td>
                         <td className="py-2 pr-4">{row.word_count ?? ''}</td>
                         <td className="py-2 pr-4"><Badge label={row.cluster_source || ''} /></td>
+                        <td className="py-2 pr-4 font-mono text-xs text-muted max-w-[120px] truncate">{row.scrape_status || ''}</td>
                         <td className="py-2 pr-4">
                           <Badge label={row.error ? 'error' : (row.status || 'ok')} />
                         </td>

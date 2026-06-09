@@ -125,7 +125,7 @@ export default function NewJobPage() {
   const [restrictedIndustry, setRestrictedIndustry] = useState(false)
 
   // Options
-  const [scrapePages, setScrapePages] = useState(false)
+  const [scrapePages, setScrapePages] = useState(true)
   const [jinaKey, setJinaKey] = useState('')
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
@@ -341,7 +341,12 @@ export default function NewJobPage() {
               )}
             </div>
 
-            <button onClick={handleSubmit} disabled={submitting} className="btn-primary text-sm px-4 py-2">
+            {(!apiKey || !dfsLogin || !dfsPassword) && (
+              <span className="text-xs text-error">
+                Missing: {[!apiKey && `${provider} key`, !dfsLogin && 'DFS login', !dfsPassword && 'DFS password'].filter(Boolean).join(', ')}
+              </span>
+            )}
+            <button onClick={handleSubmit} disabled={submitting || !apiKey || !dfsLogin || !dfsPassword} className="btn-primary text-sm px-4 py-2">
               {submitting ? 'Starting...' : 'Run job'}
             </button>
           </div>
@@ -496,7 +501,26 @@ export default function NewJobPage() {
                 ))}
               </select>
               <input value={apiKey} onChange={e => setApiKey(e.target.value)}
-                className="input-base text-xs" type="password" placeholder="API key" />
+                className="input-base text-xs" type="password" placeholder="API key"
+                title={{
+                  'Claude': 'Get key: console.anthropic.com',
+                  'OpenAI': 'Get key: platform.openai.com/api-keys',
+                  'Gemini (free)': 'Get key: aistudio.google.com/app/apikey',
+                  'Mistral (free tier)': 'Get key: console.mistral.ai/api-keys',
+                  'Groq (free tier)': 'Get key: console.groq.com/keys',
+                }[provider] || ''}
+              />
+              {!apiKey && (
+                <p className="text-xs text-muted/70">
+                  {{
+                    'Claude': 'console.anthropic.com',
+                    'OpenAI': 'platform.openai.com/api-keys',
+                    'Gemini (free)': 'aistudio.google.com/app/apikey',
+                    'Mistral (free tier)': 'console.mistral.ai/api-keys',
+                    'Groq (free tier)': 'console.groq.com/keys',
+                  }[provider]}
+                </p>
+              )}
             </div>
 
             {/* Copy Settings */}
