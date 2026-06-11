@@ -214,7 +214,7 @@
     background: transparent;
     color: var(--text);
     box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
-    transition: border-color 0.15s ease-in-out, color 0.15s ease-in-out, background 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    transition: border-color 0.15s ease-in-out, color 0.15s ease-in-out, background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -222,8 +222,11 @@
     border-color: var(--accent);
     color: var(--accent);
     background: var(--accent-subtle);
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 10px rgba(0,0,0,.20), -3px -3px 8px rgba(255,255,255,.40);
   }
   .btn-ghost:active:not(:disabled) {
+    transform: scale(.98) translateY(0);
     box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18);
   }
   .btn-ghost:disabled { opacity: 0.42; cursor: not-allowed; }
@@ -260,12 +263,12 @@
     font-size: 0.875rem;
     font-weight: 500;
     box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
-    transition: background 0.12s ease-in-out, color 0.12s ease-in-out, box-shadow 0.15s ease-in-out;
+    transition: background 0.12s ease-in-out, color 0.12s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out;
     color: var(--muted);
     text-decoration: none;
   }
-  .nav-item:hover { background: rgba(0,0,0,0.05); color: var(--text); }
-  .nav-item:active { box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18); }
+  .nav-item:hover { background: rgba(0,0,0,0.05); color: var(--text); transform: translateY(-1px); box-shadow: 4px 4px 10px rgba(0,0,0,.20), -3px -3px 8px rgba(255,255,255,.40); }
+  .nav-item:active { transform: scale(.98) translateY(0); box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18); }
   .nav-item.active {
     background: var(--accent-subtle);
     color: var(--accent);
@@ -273,6 +276,53 @@
   }
   [data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.06); }
   [data-theme="dark"] .btn-ghost:hover:not(:disabled) { background: rgba(18,196,144,0.10); }
+
+  /* Icon button */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    transition: box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out, background 0.12s ease-in-out;
+  }
+  .icon-btn:hover { transform: translateY(-1px); box-shadow: 4px 4px 10px rgba(0,0,0,.20), -3px -3px 8px rgba(255,255,255,.40); }
+  .icon-btn:active { transform: scale(.98) translateY(0); box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18); }
+
+  /* Dropdown panel */
+  .dropdown-menu {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 8px 32px rgba(0,0,0,.10), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    overflow: hidden;
+  }
+
+  /* Dropdown item */
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    transition: background 0.12s ease-in-out, color 0.12s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out;
+  }
+  .dropdown-item:hover { background: rgba(0,0,0,0.04); transform: translateY(-1px); box-shadow: 4px 4px 10px rgba(0,0,0,.20), -3px -3px 8px rgba(255,255,255,.40); }
+  .dropdown-item:active { transform: scale(.98) translateY(0); box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18); }
+  [data-theme="dark"] .dropdown-item:hover { background: rgba(255,255,255,0.05); }
 }
 
 /* ── Row flash animation ───────────────────────────────────── */
