@@ -179,8 +179,8 @@
     border-radius: 8px;
     background: var(--accent);
     color: #fff;
-    box-shadow: var(--shadow-accent);
-    transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+    box-shadow: var(--shadow-accent), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s;
     cursor: pointer;
     border: none;
     white-space: nowrap;
@@ -192,7 +192,7 @@
   }
   .btn-primary:active:not(:disabled) {
     transform: scale(0.98) translateY(0);
-    box-shadow: var(--shadow-accent);
+    box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18);
   }
   .btn-primary:disabled {
     opacity: 0.42;
@@ -213,7 +213,8 @@
     border: 1.5px solid var(--border);
     background: transparent;
     color: var(--text);
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    transition: border-color 0.15s ease-in-out, color 0.15s ease-in-out, background 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -221,6 +222,9 @@
     border-color: var(--accent);
     color: var(--accent);
     background: var(--accent-subtle);
+  }
+  .btn-ghost:active:not(:disabled) {
+    box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18);
   }
   .btn-ghost:disabled { opacity: 0.42; cursor: not-allowed; }
 
@@ -255,11 +259,13 @@
     border-radius: 8px;
     font-size: 0.875rem;
     font-weight: 500;
-    transition: background 0.12s, color 0.12s;
+    box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    transition: background 0.12s ease-in-out, color 0.12s ease-in-out, box-shadow 0.15s ease-in-out;
     color: var(--muted);
     text-decoration: none;
   }
   .nav-item:hover { background: rgba(0,0,0,0.05); color: var(--text); }
+  .nav-item:active { box-shadow: inset 2px 3px 6px rgba(0,0,0,.22), inset -3px -2px 6px rgba(255,255,255,.18); }
   .nav-item.active {
     background: var(--accent-subtle);
     color: var(--accent);
