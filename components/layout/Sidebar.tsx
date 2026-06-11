@@ -154,7 +154,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {/* Tools */}
         <div>
           <p className="px-3 mb-1.5 label-caps">Tools</p>
-          <div className="space-y-0.5">
+          <div className="space-y-1.5">
             {tools.map(t => (
               <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
             ))}
@@ -164,7 +164,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {/* Other */}
         <div>
           <p className="px-3 mb-1.5 label-caps">Other</p>
-          <div className="space-y-0.5">
+          <div className="space-y-1.5">
             {other.map(t => (
               <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
             ))}
@@ -174,7 +174,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
       {/* Footer */}
       <div
-        className="px-3 pt-3 pb-5 space-y-0.5"
+        className="px-3 pt-3 pb-5 space-y-1.5"
         style={{ borderTop: '1px solid var(--border)' }}
       >
         {/* Theme toggle */}
