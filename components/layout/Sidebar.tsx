@@ -56,7 +56,7 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
       target={isExternal ? '_blank' : undefined}
       rel={isExternal ? 'noopener noreferrer' : undefined}
       className={clsx(
-        'nav-item group flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100',
+        'nav-item group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-100',
         active
           ? 'font-semibold'
           : 'font-medium hover:bg-black/5 [data-theme=dark_]:hover:bg-white/5'
@@ -133,7 +133,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       }}
     >
       {/* Logo */}
-      <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="px-4 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0" style={{ boxShadow: 'var(--shadow-xs)' }}>
             <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
@@ -150,10 +150,10 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2.5 py-3 space-y-4 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
         {/* Tools */}
         <div>
-          <p className="px-2.5 mb-1.5 label-caps">Tools</p>
+          <p className="px-3 mb-1.5 label-caps">Tools</p>
           <div className="space-y-0.5">
             {tools.map(t => (
               <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
@@ -163,7 +163,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
         {/* Other */}
         <div>
-          <p className="px-2.5 mb-1.5 label-caps">Other</p>
+          <p className="px-3 mb-1.5 label-caps">Other</p>
           <div className="space-y-0.5">
             {other.map(t => (
               <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
@@ -174,13 +174,13 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
       {/* Footer */}
       <div
-        className="px-2.5 py-3 space-y-0.5"
+        className="px-3 pt-3 pb-5 space-y-0.5"
         style={{ borderTop: '1px solid var(--border)' }}
       >
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
           style={{ color: 'var(--muted)' }}
         >
           {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
@@ -190,7 +190,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {/* Sign out */}
         <button
           onClick={signOut}
-          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
           style={{ color: 'var(--muted)' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
