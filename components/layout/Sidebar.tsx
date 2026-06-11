@@ -56,7 +56,7 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
       target={isExternal ? '_blank' : undefined}
       rel={isExternal ? 'noopener noreferrer' : undefined}
       className={clsx(
-        'group flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100',
+        'nav-item group flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-100',
         active
           ? 'font-semibold'
           : 'font-medium hover:bg-black/5 [data-theme=dark_]:hover:bg-white/5'
