@@ -394,26 +394,34 @@
     transform: translateY(-1px);
   }
 
+  /* CustomSelect — wrapper */
+  .cs-wrap { overflow: visible; }
+
   /* CustomSelect — floating panel */
   .cs-panel {
     position: absolute;
-    z-index: 50;
+    z-index: 9999;
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    border-radius: 12px;
+    border-radius: 14px;
     border: 1px solid var(--border);
-    background: var(--surface-raised);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 8px 32px rgba(0,0,0,.10), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    background: rgba(250,248,244,0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 4px 6px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.11), 5px 5px 14px rgba(0,0,0,.10), -3px -3px 8px rgba(255,255,255,.70);
     overflow: hidden;
     transform-origin: top center;
     animation: cs-open 0.12s ease-out forwards;
   }
   @keyframes cs-open {
-    from { opacity: 0; transform: scaleY(0.92); }
-    to   { opacity: 1; transform: scaleY(1); }
+    from { opacity: 0; transform: translateY(-5px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+  [data-theme="dark"] .cs-panel {
+    background: rgba(28,28,39,.88);
+    border-color: rgba(40,40,58,.8);
+    box-shadow: 0 4px 6px rgba(0,0,0,.20), 0 12px 32px rgba(0,0,0,.35), 5px 5px 14px rgba(0,0,0,.28), -3px -3px 8px rgba(255,255,255,.03);
   }
 
   /* CustomSelect — option row */
@@ -440,6 +448,16 @@
   .cs-option--active {
     color: var(--accent);
     font-weight: 600;
+    background: rgba(10,155,122,0.08);
+  }
+  .cs-option--active:hover {
+    background: rgba(10,155,122,.12);
+  }
+  [data-theme="dark"] .cs-option--active {
+    background: rgba(18,196,144,.10);
+  }
+  [data-theme="dark"] .cs-option--active:hover {
+    background: rgba(18,196,144,.15);
   }
   [data-theme="dark"] .cs-trigger {
     box-shadow: inset 2px 2px 5px rgba(0,0,0,.35), inset -2px -2px 5px rgba(255,255,255,.03);
