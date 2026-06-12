@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
@@ -305,10 +306,9 @@ export default function NewMetaJobPage() {
                     onChange={e => { const r = [...rows]; r[i] = {...r[i], url: e.target.value}; setRows(r) }} />
                   <input className="input-base col-span-3 text-xs" placeholder="keyword" value={row.keyword}
                     onChange={e => { const r = [...rows]; r[i] = {...r[i], keyword: e.target.value}; setRows(r) }} />
-                  <select className="input-base col-span-2 text-xs" value={row.page_type}
-                    onChange={e => { const r = [...rows]; r[i] = {...r[i], page_type: e.target.value}; setRows(r) }}>
-                    {PAGE_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
-                  </select>
+                  <CustomSelect className="col-span-2 text-xs" value={row.page_type}
+                    onChange={value => { const r = [...rows]; r[i] = {...r[i], page_type: value}; setRows(r) }}
+                    options={PAGE_TYPES} />
                   <div className="col-span-2 flex gap-1">
                     <input className="input-base text-xs flex-1" placeholder="H1" value={row.h1}
                       onChange={e => { const r = [...rows]; r[i] = {...r[i], h1: e.target.value}; setRows(r) }} />
