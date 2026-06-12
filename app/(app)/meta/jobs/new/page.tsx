@@ -331,23 +331,15 @@ export default function NewMetaJobPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Provider</label>
-                <select className="input-base" value={provider} onChange={e => handleProviderChange(e.target.value)}>
-                  {PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
-                <select className="input-base" value={businessType} onChange={e => setBusinessType(e.target.value)}>
-                  {BUSINESS_TYPES.map(bt => <option key={bt} value={bt}>{bt}</option>)}
-                </select>
+                <CustomSelect value={businessType} onChange={setBusinessType} options={BUSINESS_TYPES} />
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Model</label>
-                <select className="input-base" value={model} onChange={e => setModel(e.target.value)}>
-                  {(PROVIDER_MODELS[provider] ?? []).map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
               </div>
               <NicheSelect
                 value={niche}
@@ -363,10 +355,11 @@ export default function NewMetaJobPage() {
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Profile</label>
-                <select className="input-base" value={brandProfileId} onChange={e => setBrandProfileId(e.target.value)}>
-                  <option value="">No brand profile</option>
-                  {brandProfiles.map(bp => <option key={bp.id} value={bp.id}>{bp.name}</option>)}
-                </select>
+                <CustomSelect value={brandProfileId} onChange={setBrandProfileId}
+                  options={[
+                    { value: '', label: 'No brand profile' },
+                    ...brandProfiles.map(bp => ({ value: bp.id, label: bp.name })),
+                  ]} />
               </div>
             </div>
 

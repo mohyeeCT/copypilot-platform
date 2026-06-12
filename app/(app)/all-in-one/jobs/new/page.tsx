@@ -247,16 +247,16 @@ export default function NewAIOJob() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Page Type</label>
-                  <select className="input-base" value={pageType} onChange={e => setPageType(e.target.value)}>
-                    {PAGE_TYPES.map(pt => <option key={pt} value={pt}>{PAGE_LABELS[pt] || pt}</option>)}
-                  </select>
+                  <CustomSelect value={pageType} onChange={setPageType}
+                    options={PAGE_TYPES.map(pt => ({ value: pt, label: PAGE_LABELS[pt] || pt }))} />
                 </div>
                 <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Template Mode</label>
-                  <select className="input-base" value={templateMode} onChange={e => setTemplateMode(e.target.value as 'predefined' | 'custom')}>
-                    <option value="predefined">Predefined</option>
-                    <option value="custom">Custom sections</option>
-                  </select>
+                  <CustomSelect value={templateMode} onChange={value => setTemplateMode(value as 'predefined' | 'custom')}
+                    options={[
+                      { value: 'predefined', label: 'Predefined' },
+                      { value: 'custom', label: 'Custom sections' },
+                    ]} />
                 </div>
               </div>
               {templateMode === 'predefined' && availableTemplates.length > 0 && (
@@ -353,15 +353,12 @@ export default function NewAIOJob() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Provider</label>
-                <select className="input-base" value={provider} onChange={e => setProvider(e.target.value)}>
-                  {PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <CustomSelect value={provider} onChange={setProvider} options={PROVIDERS} />
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
-                <select className="input-base" value={bizType} onChange={e => setBizType(e.target.value)}>
-                  {BIZ_TYPES.map(bt => <option key={bt} value={bt}>{bt.toUpperCase()}</option>)}
-                </select>
+                <CustomSelect value={bizType} onChange={setBizType}
+                  options={BIZ_TYPES.map(bt => ({ value: bt, label: bt.toUpperCase() }))} />
                 <NicheSelect value={niche} onChange={setNiche} businessType={bizType} />
               </div>
             </div>
@@ -372,10 +369,11 @@ export default function NewAIOJob() {
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Profile</label>
-                <select className="input-base" value={brandProfileId} onChange={e => setBrandProfileId(e.target.value)}>
-                  <option value="">No brand profile</option>
-                  {brandProfiles.map(bp => <option key={bp.id} value={bp.id}>{bp.name}</option>)}
-                </select>
+                <CustomSelect value={brandProfileId} onChange={setBrandProfileId}
+                  options={[
+                    { value: '', label: 'No brand profile' },
+                    ...brandProfiles.map(bp => ({ value: bp.id, label: bp.name })),
+                  ]} />
               </div>
             </div>
             <label className="flex items-center gap-2.5 cursor-pointer">
