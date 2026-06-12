@@ -65,7 +65,7 @@ export default function CustomSelect({ value, onChange, options, className = '',
   }
 
   return (
-    <div ref={wrapRef} className={`relative ${className}`}>
+    <div ref={wrapRef} className={`cs-wrap relative ${className}`}>
       <button
         ref={triggerRef}
         type="button"
