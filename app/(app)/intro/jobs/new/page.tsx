@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
@@ -452,10 +453,9 @@ export default function NewJobPage() {
                             className="input-base text-xs w-full" placeholder="industrial pumps, centrifugal pump" />
                         </td>
                         <td className="py-1 pr-2">
-                          <select value={row.page_type} onChange={e => setRows(rows.map((r, j) => j === i ? {...r, page_type: e.target.value} : r))}
-                            className="input-base text-xs w-full">
-                            {PAGE_TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                          </select>
+                          <CustomSelect value={row.page_type}
+                            onChange={value => setRows(rows.map((r, j) => j === i ? {...r, page_type: value} : r))}
+                            options={PAGE_TEMPLATES} className="text-xs w-full" />
                         </td>
                         <td className="py-1 pr-2">
                           <input value={row.h1} onChange={e => setRows(rows.map((r, j) => j === i ? {...r, h1: e.target.value} : r))}
