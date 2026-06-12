@@ -1,5 +1,6 @@
 'use client'
 import { useRef, useState, useEffect, useId, KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 
 type OptionObject = { value: string; label: string }
@@ -19,8 +20,10 @@ interface Props {
 
 export default function CustomSelect({ value, onChange, options, className = '', placeholder }: Props) {
   const [open, setOpen] = useState(false)
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
   const wrapRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const id = useId()
 
   const opts = options.map(toObj)
@@ -28,14 +31,48 @@ export default function CustomSelect({ value, onChange, options, className = '',
 
   useEffect(() => {
     if (!open) return
+
+    function positionPanel() {
+      const trigger = triggerRef.current
+      if (!trigger) return
+
+      const rect = trigger.getBoundingClientRect()
+      const gap = 4
+      const viewportGap = 8
+      const desiredHeight = Math.min(opts.length * 40, 320)
+      const spaceBelow = window.innerHeight - rect.bottom - viewportGap
+      const spaceAbove = rect.top - viewportGap
+      const openAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow
+      const maxHeight = Math.max(80, Math.min(desiredHeight, openAbove ? spaceAbove - gap : spaceBelow - gap))
+
+      setPanelStyle({
+        position: 'fixed',
+        top: openAbove ? rect.top - Math.min(desiredHeight, maxHeight) - gap : rect.bottom + gap,
+        left: rect.left,
+        right: 'auto',
+        width: rect.width,
+        maxHeight,
+        overflowY: 'auto',
+      })
+    }
+
     function onDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (!wrapRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         setOpen(false)
       }
     }
+
+    positionPanel()
     document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+    window.addEventListener('resize', positionPanel)
+    window.addEventListener('scroll', positionPanel, true)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('resize', positionPanel)
+      window.removeEventListener('scroll', positionPanel, true)
+    }
+  }, [open, opts.length])
 
   function handleTriggerKey(e: KeyboardEvent<HTMLButtonElement>) {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
@@ -91,8 +128,8 @@ export default function CustomSelect({ value, onChange, options, className = '',
         />
       </button>
 
-      {open && (
-        <div id={`${id}-panel`} role="listbox" className="cs-panel">
+      {open && createPortal(
+        <div ref={panelRef} id={`${id}-panel`} role="listbox" className="cs-panel" style={panelStyle}>
           {opts.map(opt => (
             <button
               key={opt.value}
@@ -107,7 +144,8 @@ export default function CustomSelect({ value, onChange, options, className = '',
               {opt.value === value && <Check size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

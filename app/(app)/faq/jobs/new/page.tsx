@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
@@ -384,10 +385,10 @@ export default function NewJobPage() {
                           className="input-base text-xs py-1.5 shrink-0" style={{ width: colWidths.url }} placeholder="https://..." />
                         <input value={row.keyword} onChange={e => updateRow(i, 'keyword', e.target.value)}
                           className="input-base text-xs py-1.5 shrink-0" style={{ width: colWidths.keyword }} placeholder="optional" />
-                        <select value={row.page_type} onChange={e => updateRow(i, 'page_type', e.target.value)}
-                          className="input-base text-xs py-1.5 shrink-0" style={{ width: colWidths.type }}>
-                          {PAGE_TYPES.map(t => <option key={t}>{t}</option>)}
-                        </select>
+                        <div className="shrink-0" style={{ width: colWidths.type }}>
+                          <CustomSelect value={row.page_type} onChange={value => updateRow(i, 'page_type', value)}
+                            options={PAGE_TYPES} className="text-xs" />
+                        </div>
                         <input value={row.h1} onChange={e => updateRow(i, 'h1', e.target.value)}
                           className="input-base text-xs py-1.5 shrink-0" style={{ width: colWidths.h1 }} placeholder="H1 text" />
                       </div>
