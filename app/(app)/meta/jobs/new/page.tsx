@@ -69,9 +69,9 @@ export default function NewMetaJobPage() {
 
   // Rows
   const [rows, setRows] = useState<Row[]>([{ url: '', keyword: '', page_type: 'general', h1: '' }])
-  const [csvPaste, setCsvPaste]   = useState('')
+  const [pasteText, setPasteText] = useState('')
   const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
-  const [inputMode, setInputMode] = useState<'manual' | 'csv'>('manual')
+  const [inputMode, setInputMode] = useState<'manual' | 'paste' | 'csv'>('manual')
 
   // Auth / loading
   const [running, setRunning]           = useState(false)
@@ -145,15 +145,28 @@ export default function NewMetaJobPage() {
     setModel(PROVIDER_MODELS[p]?.[0]?.value ?? '')
   }
 
-  function parseCsv() {
-    const result = parseImportedRows(csvPaste, createCopyRowImportSchema({ page_type: 'general' }))
+  function applyImportedText(text: string) {
+    const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'general' }))
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
     setImportErrors(result.rejectedRows)
     if (parsed.length > 0) {
       setRows(parsed)
       setInputMode('manual')
-      setCsvPaste('')
     }
+  }
+
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      applyImportedText(await file.text())
+    } catch {
+      setError('Failed to read CSV file')
+    }
+  }
+
+  function parsePaste() {
+    applyImportedText(pasteText)
   }
 
   async function handleRun() {
@@ -242,59 +255,73 @@ export default function NewMetaJobPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-sm">URLs</h2>
-              <div className="flex gap-2">
-                <button onClick={() => setInputMode(inputMode === 'csv' ? 'manual' : 'csv')}
-                  className="text-xs text-muted hover:text-accent transition-colors flex items-center gap-1">
-                  <Upload size={12} /> Paste CSV
+              <button onClick={() => setRows([...rows, { url: '', keyword: '', page_type: 'general', h1: '' }])}
+                className="btn-ghost text-xs flex items-center gap-1">
+                <Plus size={12} /> Add row
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1 border-b border-border mb-3">
+              {(['manual', 'paste', 'csv'] as const).map(t => (
+                <button key={t} onClick={() => setInputMode(t)}
+                  className={`text-xs px-3 py-2 transition-colors border-b-2 -mb-px ${inputMode === t ? 'border-accent text-text' : 'border-transparent text-muted hover:text-text'}`}>
+                  {t === 'manual' ? 'Manual entry' : t === 'paste' ? 'Paste from sheet' : 'Upload CSV'}
                 </button>
-                <button onClick={() => setRows([...rows, { url: '', keyword: '', page_type: 'general', h1: '' }])}
-                  className="btn-ghost text-xs flex items-center gap-1">
-                  <Plus size={12} /> Add row
-                </button>
-              </div>
+              ))}
             </div>
 
             <ImportErrors rows={importErrors} />
 
-            {inputMode === 'csv' ? (
-              <div>
-                <p className="text-xs text-muted mb-2">Paste CSV or spreadsheet rows: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
-                <textarea className="input-base font-mono text-xs" rows={6} value={csvPaste}
-                  onChange={e => setCsvPaste(e.target.value)} placeholder="https://example.com/page&#9;keyword&#9;category&#9;H1 text" />
-                <button onClick={parseCsv} className="btn-primary mt-2 text-xs">Parse CSV</button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-12 gap-2 text-xs text-muted px-1 mb-1">
-                  <span className="col-span-5">URL *</span>
-                  <span className="col-span-3">Keyword</span>
-                  <span className="col-span-2">Page Type</span>
-                  <span className="col-span-2">H1</span>
-                </div>
-                {rows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                    <input className="input-base col-span-5 text-xs" placeholder="https://..." value={row.url}
-                      onChange={e => { const r = [...rows]; r[i] = {...r[i], url: e.target.value}; setRows(r) }} />
-                    <input className="input-base col-span-3 text-xs" placeholder="keyword" value={row.keyword}
-                      onChange={e => { const r = [...rows]; r[i] = {...r[i], keyword: e.target.value}; setRows(r) }} />
-                    <select className="input-base col-span-2 text-xs" value={row.page_type}
-                      onChange={e => { const r = [...rows]; r[i] = {...r[i], page_type: e.target.value}; setRows(r) }}>
-                      {PAGE_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
-                    </select>
-                    <div className="col-span-2 flex gap-1">
-                      <input className="input-base text-xs flex-1" placeholder="H1" value={row.h1}
-                        onChange={e => { const r = [...rows]; r[i] = {...r[i], h1: e.target.value}; setRows(r) }} />
-                      {rows.length > 1 && (
-                        <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-muted hover:text-error transition-colors shrink-0">
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <p className="text-xs text-muted mt-1">{rows.filter(r => r.url.startsWith('http')).length} valid URLs</p>
+            {inputMode === 'paste' && (
+              <div className="space-y-2 mb-3">
+                <p className="text-xs text-muted">Paste tab-separated rows: URL | Keyword (optional) | Page Type | H1</p>
+                <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+                  className="input-base text-xs font-mono resize-none h-32 w-full"
+                  placeholder="https://example.com/page&#9;keyword&#9;category&#9;Page H1" />
+                <button onClick={parsePaste} className="btn-secondary text-xs">Import rows</button>
               </div>
             )}
+
+            {inputMode === 'csv' && (
+              <div className="space-y-2 mb-3">
+                <p className="text-xs text-muted">CSV must have headers: url, keyword (optional), page_type, h1</p>
+                <label className="flex items-center gap-2 btn-secondary text-xs cursor-pointer w-fit">
+                  <Upload size={12} /> Choose CSV file
+                  <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+                </label>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-2 text-xs text-muted px-1 mb-1">
+                <span className="col-span-5">URL *</span>
+                <span className="col-span-3">Keyword</span>
+                <span className="col-span-2">Page Type</span>
+                <span className="col-span-2">H1</span>
+              </div>
+              {rows.map((row, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                  <input className="input-base col-span-5 text-xs" placeholder="https://..." value={row.url}
+                    onChange={e => { const r = [...rows]; r[i] = {...r[i], url: e.target.value}; setRows(r) }} />
+                  <input className="input-base col-span-3 text-xs" placeholder="keyword" value={row.keyword}
+                    onChange={e => { const r = [...rows]; r[i] = {...r[i], keyword: e.target.value}; setRows(r) }} />
+                  <select className="input-base col-span-2 text-xs" value={row.page_type}
+                    onChange={e => { const r = [...rows]; r[i] = {...r[i], page_type: e.target.value}; setRows(r) }}>
+                    {PAGE_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                  </select>
+                  <div className="col-span-2 flex gap-1">
+                    <input className="input-base text-xs flex-1" placeholder="H1" value={row.h1}
+                      onChange={e => { const r = [...rows]; r[i] = {...r[i], h1: e.target.value}; setRows(r) }} />
+                    {rows.length > 1 && (
+                      <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-muted hover:text-error transition-colors shrink-0">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-muted mt-1">{rows.filter(r => r.url.startsWith('http')).length} valid URLs</p>
+            </div>
           </div>
 
           {/* Copy Settings */}
