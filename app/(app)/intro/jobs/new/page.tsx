@@ -494,14 +494,8 @@ export default function NewJobPage() {
             {/* AI Provider */}
             <div className="card p-4 space-y-3">
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
-              <select value={provider} onChange={e => handleProviderChange(e.target.value)} className="input-base text-xs">
-                {PROVIDERS.map(p => <option key={p}>{p}</option>)}
-              </select>
-              <select value={model} onChange={e => setModel(e.target.value)} className="input-base text-xs">
-                {PROVIDER_MODELS[provider].map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+              <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
+              <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} className="text-xs" />
               <input value={apiKey} onChange={e => setApiKey(e.target.value)}
                 className="input-base text-xs" type="password" placeholder="API key"
                 title={{
@@ -530,9 +524,7 @@ export default function NewJobPage() {
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">Copy Settings</h3>
               <div>
                 <label className="text-xs text-muted block mb-1">Business type</label>
-                <select value={businessType} onChange={e => setBusinessType(e.target.value)} className="input-base text-xs">
-                  {BIZ_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
+                <CustomSelect value={businessType} onChange={setBusinessType} options={BIZ_TYPES} className="text-xs" />
               </div>
                 <NicheSelect
                   value={niche}
@@ -541,23 +533,21 @@ export default function NewJobPage() {
                 />
               <div>
                 <label className="text-xs text-muted block mb-1">Default page template</label>
-                <select value={pageTemplate} onChange={e => setPageTemplate(e.target.value)} className="input-base text-xs">
-                  {PAGE_TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                <CustomSelect value={pageTemplate} onChange={setPageTemplate} options={PAGE_TEMPLATES} className="text-xs" />
                 <p className="text-xs text-muted/50 mt-1">Per-row template overrides this</p>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Word count target</label>
-                <select value={wordCount} onChange={e => setWordCount(+e.target.value)} className="input-base text-xs">
-                  {WORD_COUNT_OPTIONS.map(n => <option key={n} value={n}>{n} words</option>)}
-                </select>
+                <CustomSelect value={String(wordCount)} onChange={value => setWordCount(+value)}
+                  options={WORD_COUNT_OPTIONS.map(n => ({ value: String(n), label: `${n} words` }))} className="text-xs" />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Paragraph count</label>
-                <select value={paragraphCount} onChange={e => setParagraphCount(+e.target.value)} className="input-base text-xs">
-                  <option value={1}>1 paragraph</option>
-                  <option value={2}>2 paragraphs</option>
-                </select>
+                <CustomSelect value={String(paragraphCount)} onChange={value => setParagraphCount(+value)}
+                  options={[
+                    { value: '1', label: '1 paragraph' },
+                    { value: '2', label: '2 paragraphs' },
+                  ]} className="text-xs" />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Max supporting keywords</label>
@@ -568,20 +558,19 @@ export default function NewJobPage() {
                 {brandProfiles.length > 0 && (
                   <div className="mb-3">
                     <label className="text-xs text-muted block mb-1">Brand profile</label>
-                    <select
+                    <CustomSelect
                       value={selectedBrandProfileId}
-                      onChange={e => {
-                        setSelectedBrandProfileId(e.target.value)
-                        const profile = brandProfiles.find(p => p.id === e.target.value)
+                      onChange={value => {
+                        setSelectedBrandProfileId(value)
+                        const profile = brandProfiles.find(p => p.id === value)
                         if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
                       }}
-                      className="input-base text-xs w-full"
-                    >
-                      <option value="">No profile selected</option>
-                      {brandProfiles.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'No profile selected' },
+                        ...brandProfiles.map(p => ({ value: p.id, label: p.name })),
+                      ]}
+                      className="text-xs w-full"
+                    />
                   </div>
                 )}
                 <label className="text-xs text-muted block mb-1">

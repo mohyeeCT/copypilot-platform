@@ -490,14 +490,8 @@ export default function NewJobPage() {
           <div className="col-span-2 space-y-4">
             <div className="card p-4 space-y-3">
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
-              <select value={provider} onChange={e => handleProviderChange(e.target.value)} className="input-base text-xs">
-                {PROVIDERS.map(p => <option key={p}>{p}</option>)}
-              </select>
-              <select value={model} onChange={e => setModel(e.target.value)} className="input-base text-xs">
-                {PROVIDER_MODELS[provider].map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+              <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
+              <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} className="text-xs" />
               <input value={apiKey} onChange={e => setApiKey(e.target.value)}
                 className="input-base text-xs" type="password" placeholder="API key" />
             </div>
@@ -506,9 +500,7 @@ export default function NewJobPage() {
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">Copy Settings</h3>
               <div>
                 <label className="text-xs text-muted block mb-1">Business type</label>
-                <select value={businessType} onChange={e => setBusinessType(e.target.value)} className="input-base text-xs">
-                  {BIZ_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
+                <CustomSelect value={businessType} onChange={setBusinessType} options={BIZ_TYPES} className="text-xs" />
               </div>
                 <NicheSelect
                   value={niche}
@@ -518,20 +510,19 @@ export default function NewJobPage() {
               {brandProfiles.length > 0 && (
                 <div>
                   <label className="text-xs text-muted block mb-1">Brand profile</label>
-                  <select
+                  <CustomSelect
                     value={selectedBrandProfileId}
-                    onChange={e => {
-                      setSelectedBrandProfileId(e.target.value)
-                      const profile = brandProfiles.find(p => p.id === e.target.value)
+                    onChange={value => {
+                      setSelectedBrandProfileId(value)
+                      const profile = brandProfiles.find(p => p.id === value)
                       if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
                     }}
-                    className="input-base text-xs w-full"
-                  >
-                    <option value="">No profile selected</option>
-                    {brandProfiles.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: 'No profile selected' },
+                      ...brandProfiles.map(p => ({ value: p.id, label: p.name })),
+                    ]}
+                    className="text-xs w-full"
+                  />
                 </div>
               )}
               <div>
