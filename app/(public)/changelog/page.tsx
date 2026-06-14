@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Image from 'next/image'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { changelog } from './data'
 import type { ChangeType } from './data'
 
@@ -50,25 +51,22 @@ export default function ChangelogPage() {
     }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .filter-select {
-          background: var(--surface);
+        .changelog-filter { width: 118px; }
+        .changelog-filter .cs-trigger {
           border: 1px solid var(--border);
           border-radius: 6px;
-          padding: 5px 28px 5px 10px;
+          padding: 5px 8px 5px 10px;
           font-size: 12px;
-          cursor: pointer;
-          color: #9090a8;
           font-family: inherit;
-          appearance: none;
-          -webkit-appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b6b80' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 9px center;
           transition: border-color 0.15s, color 0.15s;
-          outline: none;
+          box-shadow: none;
+          transform: none;
         }
-        .filter-select:hover, .filter-select:focus { border-color: var(--muted); color: #e8e8f0; }
-        .filter-select.active { border-color: #00c9a7; color: #e8e8f0; }
+        .changelog-filter .cs-trigger > span { color: #9090a8 !important; }
+        .changelog-filter .cs-trigger:hover { border-color: var(--muted); box-shadow: none; transform: none; }
+        .changelog-filter .cs-trigger:focus, .changelog-filter .cs-trigger[data-open="true"] { border-color: var(--muted); box-shadow: none; transform: none; }
+        .changelog-filter.active .cs-trigger { border-color: #00c9a7; }
+        .changelog-filter.active .cs-trigger > span { color: #e8e8f0 !important; }
         .action-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; color: var(--muted); font-family: inherit; }
         .action-btn:hover { border-color: var(--muted); color: #e8e8f0; }
         .entry-row { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 8px; transition: border-color 0.15s; }
@@ -79,7 +77,6 @@ export default function ChangelogPage() {
         .chevron.open { transform: rotate(180deg); }
         .nav-link { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.15s; }
         .nav-link:hover { color: #e8e8f0; }
-        select option { background: var(--surface); color: var(--text); }
       `}</style>
 
       {/* Nav */}
@@ -108,26 +105,25 @@ export default function ChangelogPage() {
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>App</span>
-            <select
-              className={`filter-select ${toolFilter !== 'All' ? 'active' : ''}`}
+            <CustomSelect
+              className={`changelog-filter ${toolFilter !== 'All' ? 'active' : ''}`}
               value={toolFilter}
-              onChange={e => setToolFilter(e.target.value)}
-            >
-              {ALL_TOOLS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+              onChange={setToolFilter}
+              options={ALL_TOOLS}
+            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type</span>
-            <select
-              className={`filter-select ${typeFilter !== 'All' ? 'active' : ''}`}
+            <CustomSelect
+              className={`changelog-filter ${typeFilter !== 'All' ? 'active' : ''}`}
               value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value as ChangeType | 'All')}
-            >
-              {ALL_TYPES.map(t => (
-                <option key={t} value={t}>{t === 'All' ? 'All' : typeStyles[t as ChangeType].label}</option>
-              ))}
-            </select>
+              onChange={value => setTypeFilter(value as ChangeType | 'All')}
+              options={ALL_TYPES.map(t => ({
+                value: t,
+                label: t === 'All' ? 'All' : typeStyles[t as ChangeType].label,
+              }))}
+            />
           </div>
 
           <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
