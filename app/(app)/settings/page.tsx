@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap, KeyRound, Key, Globe, Cpu, Info } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
 import { getSettings, saveSettings, deleteGscAccount, getProviderCredentials, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
@@ -253,9 +254,8 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted block mb-1">AI Provider</label>
-                  <select value={credsForm.provider} onChange={e => setCredsForm(f => ({ ...f, provider: e.target.value }))} className="input-base text-xs w-full">
-                    {['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)'].map(p => <option key={p}>{p}</option>)}
-                  </select>
+                  <CustomSelect value={credsForm.provider} onChange={value => setCredsForm(f => ({ ...f, provider: value }))}
+                    options={['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']} className="text-xs w-full" />
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">API Key</label>
