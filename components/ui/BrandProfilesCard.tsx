@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { CheckCircle, Plus, Pencil, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react'
+import CustomSelect from '@/components/ui/CustomSelect'
 
 type BrandProfile = {
   id: string
@@ -232,12 +233,8 @@ function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = f
         </div>
         <div>
           <label className="text-xs text-muted block mb-1">Tone</label>
-          <select value={form.tone || ''} onChange={e => setForm(p => ({ ...p, tone: e.target.value }))}
-            className="input-base text-xs w-full">
-            {['', 'Professional', 'Conversational', 'Friendly', 'Authoritative', 'Technical', 'Casual'].map(t => (
-              <option key={t} value={t}>{t || 'Select tone'}</option>
-            ))}
-          </select>
+          <CustomSelect value={form.tone || ''} onChange={value => setForm(p => ({ ...p, tone: value }))}
+            options={TONES.map(t => ({ value: t, label: t || 'Select tone' }))} className="text-xs w-full" />
         </div>
       </div>
       <div>

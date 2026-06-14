@@ -1,4 +1,5 @@
 'use client'
+import CustomSelect from './CustomSelect'
 
 interface Niche {
   key: string
@@ -48,29 +49,11 @@ export default function NicheSelect({ value, onChange, businessType = '', label 
     !businessType || n.key === 'none' || n.business_types.includes(businessType)
   )
 
-  // Group niches
-  const groups = filtered.reduce<Record<string, Niche[]>>((acc, n) => {
-    acc[n.group] = acc[n.group] || []
-    acc[n.group].push(n)
-    return acc
-  }, {})
-
   return (
     <div>
       <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">{label}</label>
-      <select
-        className="input-base"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      >
-        {Object.entries(groups).map(([group, niches]) => (
-          <optgroup key={group} label={group}>
-            {niches.map(n => (
-              <option key={n.key} value={n.key}>{n.label}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
+      <CustomSelect value={value} onChange={onChange}
+        options={filtered.map(n => ({ value: n.key, label: n.label, group: n.group }))} />
       {value && value !== 'none' && (
         <p className="text-xs text-muted mt-1">
           Industry-specific context will be injected into every prompt for this job.

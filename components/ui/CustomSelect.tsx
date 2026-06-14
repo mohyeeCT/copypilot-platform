@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useId, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 
-type OptionObject = { value: string; label: string }
+type OptionObject = { value: string; label: string; group?: string }
 type Option = string | OptionObject
 
 function toObj(o: Option): OptionObject {
@@ -130,19 +130,23 @@ export default function CustomSelect({ value, onChange, options, className = '',
 
       {open && createPortal(
         <div ref={panelRef} id={`${id}-panel`} role="listbox" className="cs-panel" style={panelStyle}>
-          {opts.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={opt.value === value}
-              className={`cs-option${opt.value === value ? ' cs-option--active' : ''}`}
-              onClick={() => pick(opt.value)}
-              onKeyDown={e => handleOptionKey(e, opt.value)}
-            >
-              <span>{opt.label}</span>
-              {opt.value === value && <Check size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
-            </button>
+          {opts.map((opt, index) => (
+            <div key={opt.value}>
+              {opt.group && opt.group !== opts[index - 1]?.group && (
+                <div role="presentation" className="cs-option-group">{opt.group}</div>
+              )}
+              <button
+                type="button"
+                role="option"
+                aria-selected={opt.value === value}
+                className={`cs-option${opt.value === value ? ' cs-option--active' : ''}`}
+                onClick={() => pick(opt.value)}
+                onKeyDown={e => handleOptionKey(e, opt.value)}
+              >
+                <span>{opt.label}</span>
+                {opt.value === value && <Check size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
+              </button>
+            </div>
           ))}
         </div>,
         document.body,
