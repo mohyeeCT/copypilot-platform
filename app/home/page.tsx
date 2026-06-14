@@ -83,7 +83,7 @@ export default function HomePage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <a href="/changelog" className="nav-link">Changelog</a>
-            <a href="/signup" className="cta-btn" style={{ padding: '8px 18px', fontSize: 13 }}>Sign up</a>
+            <a href="/signup" className="cta-btn" style={{ padding: '8px 18px', fontSize: 13 }}>Invite-only access</a>
           </div>
         </div>
       </nav>
@@ -106,7 +106,7 @@ export default function HomePage() {
         </p>
 
         <div className="anim-4" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/signup" className="cta-btn">Try FAQ Copy free →</a>
+          <a href="/signup" className="cta-btn">View access details →</a>
           <a href="/changelog" className="ghost-btn">View changelog</a>
         </div>
       </section>
@@ -149,9 +149,9 @@ export default function HomePage() {
       {/* Bottom CTA */}
       <section style={{ borderTop: '1px solid var(--border)', padding: '80px 24px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, rgba(0,201,167,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 16 }}>Start generating copy today.</h2>
-        <p style={{ fontSize: 15, color: 'var(--muted)', marginBottom: 32 }}>FAQ Copy is live and free to try. No credit card required.</p>
-        <a href="/signup" className="cta-btn">Get started →</a>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 16 }}>Built for internal copy production.</h2>
+        <p style={{ fontSize: 15, color: 'var(--muted)', marginBottom: 32 }}>CopyPilot access is currently available by invitation only.</p>
+        <a href="/signup" className="cta-btn">View access details →</a>
       </section>
 
       {/* Footer */}
