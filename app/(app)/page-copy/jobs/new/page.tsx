@@ -10,7 +10,7 @@ import NicheSelect from '@/components/ui/NicheSelect'
 import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { pageCopyApi } from '@/lib/api/page-copy'
-import { getSettings, getProviderCredentials, listBrandProfiles } from '@/lib/api/shared'
+import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -124,12 +124,10 @@ export default function NewPageCopyJob() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = '', dfsLogin = '', dfsPassword = ''
+    let dfsLogin = ''
     try {
-      const creds = await getProviderCredentials(session.access_token)
-      apiKey = creds?.api_key || ''
+      const creds = await getProviderMetadata(session.access_token)
       dfsLogin = creds?.dfs_login || ''
-      dfsPassword = creds?.dfs_password || ''
     } catch (e) {
       console.error('Failed to fetch credentials at submit time:', e)
       setError('Failed to load credentials. Please try again.')
@@ -145,7 +143,7 @@ export default function NewPageCopyJob() {
         template_key: r.template_key || (templateMode === 'predefined' ? templateKey : ''),
       })),
       settings: {
-        provider, api_key: apiKey, dfs_login: dfsLogin, dfs_password: dfsPassword,
+        provider, dfs_login: dfsLogin,
         business_type: bizType, brand_name: brandName, full_brand_name: fullBrand,
         branded_terms_input: brandTerms, location_code: locationCode, min_volume: minVolume,
         page_type: pageType, template_key: templateMode === 'predefined' ? templateKey : '',

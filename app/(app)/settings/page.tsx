@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
-import { getSettings, saveSettings, deleteGscAccount, getProviderCredentials, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
+import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
 export const dynamic = 'force-dynamic'
@@ -139,7 +139,7 @@ export default function SettingsPage() {
 
 
   async function handleSaveCreds() {
-    if (!credsForm.api_key.trim()) { setCredsError('API key is required'); return }
+    if (!credsConfigured && !credsForm.api_key.trim()) { setCredsError('API key is required'); return }
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
     if (!session) return
@@ -217,7 +217,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="font-semibold text-sm">API Credentials</h2>
-              <p className="text-muted text-xs mt-0.5">Save your AI provider key and DataForSEO credentials so they pre-fill on every new job.</p>
+              <p className="text-muted text-xs mt-0.5">Saved credentials are used securely by the backends and are never shown again.</p>
             </div>
           </div>
 
@@ -236,7 +236,7 @@ export default function SettingsPage() {
                   const { data: { session } } = await sb.auth.getSession()
                   if (session) {
                     try {
-                      const creds = await getProviderCredentials(session.access_token)
+                      const creds = await getProviderMetadata(session.access_token)
                       if (creds) setCredsForm({ provider: creds.provider || 'Claude', api_key: creds.api_key || '', dfs_login: creds.dfs_login || '', dfs_password: creds.dfs_password || '', jina_api_key: creds.jina_api_key || '', site_url: creds.site_url || '' })
                     } catch (e) {
                       console.error('Failed to pre-fill credentials form:', e)
@@ -259,7 +259,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">API Key</label>
-                  <input type="password" value={credsForm.api_key} onChange={e => setCredsForm(f => ({ ...f, api_key: e.target.value }))} className="input-base text-xs w-full" placeholder="sk-..." />
+                  <input type="password" value={credsForm.api_key} onChange={e => setCredsForm(f => ({ ...f, api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved key' : 'sk-...'} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -269,12 +269,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">DataForSEO Password</label>
-                  <input type="password" value={credsForm.dfs_password} onChange={e => setCredsForm(f => ({ ...f, dfs_password: e.target.value }))} className="input-base text-xs w-full" />
+                  <input type="password" value={credsForm.dfs_password} onChange={e => setCredsForm(f => ({ ...f, dfs_password: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved password' : ''} />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Jina API Key <span className="text-muted/50">(optional)</span></label>
-                <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" />
+                <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved key' : ''} />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">GSC Site URL <span className="text-muted/50">(pre-fills on every new job)</span></label>

@@ -9,7 +9,7 @@ import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } 
 import { createClient } from '@/lib/supabase'
 
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
-import { getProviderCredentials, listBrandProfiles, listTemplates, saveTemplate, deleteTemplate } from '@/lib/api/shared'
+import { getProviderMetadata, listBrandProfiles, listTemplates, saveTemplate, deleteTemplate } from '@/lib/api/shared'
 import { faqApi } from '@/lib/api/faq'
 
 export const dynamic = 'force-dynamic'
@@ -107,14 +107,11 @@ export default function NewJobPage() {
     setProvider(p)
     setModel(PROVIDER_MODELS[p][0].value)
   }
-  const [apiKey, setApiKey] = useState('')
   const [businessType, setBusinessType] = useState('general')
   const [brandName, setBrandName] = useState('')
   const [fullBrandName, setFullBrandName] = useState('')
   const [numFaqs, setNumFaqs] = useState(5)
   const [dfsLogin, setDfsLogin] = useState('')
-  const [dfsPassword, setDfsPassword] = useState('')
-  const [jinaKey, setJinaKey] = useState('')
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
   const [scrapePages, setScrapePages] = useState(true)
@@ -135,14 +132,9 @@ export default function NewJobPage() {
       const { data: { session } } = await sb.auth.getSession()
       if (!session) return
       try {
-        const creds = await getProviderCredentials(session.access_token)
-        if (creds?.api_key) {
-          if (creds.provider) setProvider(creds.provider)
-          setApiKey(creds.api_key)
-        }
+        const creds = await getProviderMetadata(session.access_token)
+        if (creds?.provider) setProvider(creds.provider)
         if (creds?.dfs_login) setDfsLogin(creds.dfs_login)
-        if (creds?.dfs_password) setDfsPassword(creds.dfs_password)
-        if (creds?.jina_api_key) setJinaKey(creds.jina_api_key)
         if (creds?.site_url) setSiteUrl(creds.site_url)
         // Pre-fill brand name from brand profile if not already set
         if (creds?.brand_name) setBrandName(creds.brand_name)
@@ -194,8 +186,7 @@ export default function NewJobPage() {
     setError('')
     const validRows = rows.filter(r => r.url.trim())
     if (!validRows.length) { setError('Add at least one URL'); return }
-    if (!apiKey.trim()) { setError('API key is required'); return }
-    if (!dfsLogin.trim() || !dfsPassword.trim()) { setError('DataForSEO credentials are required'); return }
+    if (!dfsLogin.trim()) { setError('DataForSEO login is required'); return }
     if (useGsc && !siteUrl.trim()) { setError('GSC is enabled but no site URL provided. Enter your site URL or disable GSC.'); return }
 
     setSubmitting(true)
@@ -208,10 +199,10 @@ export default function NewJobPage() {
         name: jobName || `Job ${new Date().toLocaleDateString()}`,
         rows: validRows,
         settings: {
-          provider, model, api_key: apiKey, business_type: businessType,
+          provider, model, business_type: businessType,
           brand_name: brandName, full_brand_name: fullBrandName, brand_profile_id: selectedBrandProfileId, num_faqs: effectiveNumFaqs,
-          dfs_login: dfsLogin, dfs_password: dfsPassword,
-          location_code: locationCode, min_volume: minVolume, jina_api_key: jinaKey,
+          dfs_login: dfsLogin,
+          location_code: locationCode, min_volume: minVolume,
           scrape_pages: scrapePages, use_gsc: useGsc,
           restricted_industry: restrictedIndustry,
           site_url: siteUrl, batch_size: effectiveBatchSize,
@@ -492,8 +483,7 @@ export default function NewJobPage() {
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
               <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
               <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} className="text-xs" />
-              <input value={apiKey} onChange={e => setApiKey(e.target.value)}
-                className="input-base text-xs" type="password" placeholder="API key" />
+              <p className="text-xs text-muted/70">Saved API credentials are loaded securely from Settings.</p>
             </div>
 
             <div className="card p-4 space-y-3">
@@ -561,8 +551,6 @@ export default function NewJobPage() {
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">DataForSEO</h3>
               <input value={dfsLogin} onChange={e => setDfsLogin(e.target.value)}
                 className="input-base text-xs" placeholder="Login email" />
-              <input value={dfsPassword} onChange={e => setDfsPassword(e.target.value)}
-                className="input-base text-xs" type="password" placeholder="Password" />
               <div>
                 <label className="text-xs text-muted block mb-1">Location code</label>
                 <input type="number" value={locationCode} onChange={e => setLocationCode(+e.target.value)}
@@ -590,10 +578,6 @@ export default function NewJobPage() {
                 <input type="checkbox" checked={scrapePages} onChange={e => setScrapePages(e.target.checked)}
                   className="accent-accent" />
               </label>
-              {scrapePages && (
-                <input value={jinaKey} onChange={e => setJinaKey(e.target.value)}
-                  className="input-base text-xs" type="password" placeholder="Jina API key" />
-              )}
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <span className="text-xs text-muted">Load async AI Overview</span>

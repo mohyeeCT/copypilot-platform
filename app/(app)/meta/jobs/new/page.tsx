@@ -10,7 +10,7 @@ import NicheSelect from '@/components/ui/NicheSelect'
 import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
-import { getSettings, getProviderCredentials, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
+import { getSettings, getProviderMetadata, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +58,6 @@ export default function NewMetaJobPage() {
   const [forbiddenPhrases, setForbiddenPhrases] = useState('')
   const [brandedTermsInput, setBrandedTermsInput] = useState('')
   const [dfsLogin, setDfsLogin]         = useState('')
-  const [dfsPassword, setDfsPassword]   = useState('')
   const [locationCode, setLocationCode] = useState(2840)
   const [minVolume, setMinVolume]       = useState(10)
   const [useGsc, setUseGsc]             = useState(true)
@@ -94,7 +93,7 @@ export default function NewMetaJobPage() {
         getSettings(session.access_token),
         listBrandProfiles(session.access_token),
         listTemplates(session.access_token, 'meta'),
-        getProviderCredentials(session.access_token).catch(() => null),
+        getProviderMetadata(session.access_token).catch(() => null),
       ])
       if (s) {
         setProvider(s.provider || 'Claude')
@@ -112,7 +111,6 @@ export default function NewMetaJobPage() {
       }
       if (creds) {
         setDfsLogin(creds.dfs_login || '')
-        setDfsPassword(creds.dfs_password || '')
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       setTemplates(Array.isArray(tmpl) ? tmpl : [])
@@ -180,24 +178,12 @@ export default function NewMetaJobPage() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    let apiKey = ''
-    try {
-      const creds = await getProviderCredentials(session.access_token)
-      apiKey = creds?.api_key || ''
-    } catch (e) {
-      console.error('Failed to fetch credentials at submit time:', e)
-      setError('Failed to load credentials. Please try again.')
-      setRunning(false)
-      return
-    }
-
     const payload = {
       name: jobName.trim() || `Meta job — ${validRows.length} URLs`,
       rows: validRows,
       settings: {
-        provider, model, api_key: apiKey,
+        provider, model,
         dfs_login: dfsLogin,
-        dfs_password: dfsPassword,
         business_type: businessType,
         brand_name: brandName,
         full_brand_name: fullBrandName,
@@ -399,10 +385,6 @@ export default function NewMetaJobPage() {
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Login Email</label>
                 <input className="input-base" value={dfsLogin} onChange={e => setDfsLogin(e.target.value)} placeholder="you@example.com" />
-              </div>
-              <div>
-                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Password</label>
-                <input type="password" className="input-base" value={dfsPassword} onChange={e => setDfsPassword(e.target.value)} placeholder="DataForSEO password" />
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Location Code</label>

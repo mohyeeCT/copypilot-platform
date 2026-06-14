@@ -36,7 +36,7 @@ export async function saveSettings(token: string, payload: object) {
 export async function deleteGscAccount(token: string) {
   return sf('/api/settings/gsc', token, { method: 'DELETE' })
 }
-export async function getProviderCredentials(token: string) {
+export async function getProviderMetadata(token: string) {
   return sf('/api/settings/provider-credentials', token)
 }
 export async function saveProviderCredentials(token: string, payload: object) {
