@@ -11,6 +11,14 @@ export async function apiFetch(baseUrl: string, path: string, token: string, opt
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
+    if (
+      res.status === 429 &&
+      /(duplicate|rerun-row|rerun-rows|rerun-section)/.test(path) &&
+      typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent('api-rate-limit', { detail: err.detail || 'Too many requests. Please try again shortly.' }))
+      throw new Error('Rate limit displayed')
+    }
     throw new Error(err.detail || 'Request failed')
   }
   return res.json()

@@ -58,6 +58,12 @@ export default function MetaJobPage() {
   const [editingKw, setEditingKw]   = useState<number | null>(null)
   const [kwOverrides, setKwOverrides] = useState<Record<number, string>>({})
 
+  useEffect(() => {
+    const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
+    window.addEventListener('api-rate-limit', resetRateLimitedAction)
+    return () => window.removeEventListener('api-rate-limit', resetRateLimitedAction)
+  }, [])
+
   const load = useCallback(async () => {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()

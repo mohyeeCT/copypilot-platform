@@ -147,7 +147,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
     try {
       const res = await tool.duplicateJob(session.access_token, id)
       if (res?.job_id) router.push(tool.jobHref(res.job_id))
-    } catch { toast.error('Failed to duplicate') }
+    } catch (e) { if (e instanceof Error && e.message !== 'Rate limit displayed') toast.error('Failed to duplicate') }
   }
 
   return (

@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -35,6 +35,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const success = useCallback((m: string) => toast(m, 'success'), [toast])
   const error   = useCallback((m: string) => toast(m, 'error'), [toast])
   const info    = useCallback((m: string) => toast(m, 'info'), [toast])
+
+  useEffect(() => {
+    const showRateLimit = (event: Event) => {
+      if (event instanceof CustomEvent && typeof event.detail === 'string') {
+        toast(event.detail, 'error')
+      }
+    }
+    window.addEventListener('api-rate-limit', showRateLimit)
+    return () => window.removeEventListener('api-rate-limit', showRateLimit)
+  }, [toast])
 
   const icons = { success: CheckCircle, error: AlertCircle, info: Info }
   const colors = {

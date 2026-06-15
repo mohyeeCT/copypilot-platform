@@ -48,6 +48,12 @@ export default function JobPage() {
   const [edits, setEdits] = useState<Record<string, {question: string; answer: string}>>({})
   const [editingFaq, setEditingFaq] = useState<string | null>(null)
 
+  useEffect(() => {
+    const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
+    window.addEventListener('api-rate-limit', resetRateLimitedAction)
+    return () => window.removeEventListener('api-rate-limit', resetRateLimitedAction)
+  }, [])
+
   const load = useCallback(async () => {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()

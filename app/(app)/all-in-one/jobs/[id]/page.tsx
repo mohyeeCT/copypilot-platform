@@ -63,6 +63,12 @@ export default function PageCopyJobPage() {
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
   const [logsCollapsed, setLogsCollapsed] = useState(false)
 
+  useEffect(() => {
+    const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false); setRerunningSections(new Set()) }
+    window.addEventListener('api-rate-limit', resetRateLimitedAction)
+    return () => window.removeEventListener('api-rate-limit', resetRateLimitedAction)
+  }, [])
+
   const load = useCallback(async () => {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
