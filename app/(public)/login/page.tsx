@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
-import { HelpCircle, FileText, Tag, BookOpen, Layers, ArrowRight } from 'lucide-react'
+import { HelpCircle, FileText, Tag, Layers, ArrowRight } from 'lucide-react'
 
 const tools = [
   { icon: HelpCircle, label: 'FAQ Copy',   desc: 'Schema.org JSON-LD at scale', accent: '#818CF8' },
+  { icon: FileText,   label: 'Page Intro', desc: 'Intro copy from search signals', accent: '#60A5FA' },
   { icon: Tag,        label: 'Meta Copy',   desc: 'Title tags and H1s from GSC data', accent: '#F59E0B' },
-  { icon: BookOpen,   label: 'Page Copy',   desc: '13 page templates, section-by-section', accent: '#F472B6' },
   { icon: Layers,     label: 'All in One',  desc: 'Meta + FAQs + full copy, one pipeline', accent: '#0A9B7A' },
 ]
 

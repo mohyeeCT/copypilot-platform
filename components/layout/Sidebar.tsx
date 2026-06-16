@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  HelpCircle, FileText, Tag, BookOpen, Layers,
+  HelpCircle, FileText, Tag, Layers,
   Link2, Settings, LogOut, Plus, Sun, Moon
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -22,7 +22,6 @@ const tools: Tool[] = [
   { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#818CF8' },
   { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#60A5FA' },
   { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#F59E0B' },
-  { href: '/page-copy/jobs',  label: 'Page Copy',  icon: BookOpen,   accent: '#F472B6' },
   { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0A9B7A' },
 ]
 

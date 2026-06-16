@@ -4,7 +4,7 @@ import Image from 'next/image'
 
 export const metadata: Metadata = {
   title: 'CopyPilot - AI-powered SEO copy tools',
-  description: 'Generate FAQ sections, meta copy, page intros and full page copy at scale. Built for SEO teams and agencies.',
+  description: 'Generate FAQ sections, meta copy, page intros, and full copy bundles at scale. Built for SEO teams and agencies.',
 }
 
 const tools = [
@@ -33,12 +33,12 @@ const tools = [
     icon: '📄',
   },
   {
-    name: 'Page Copy',
-    slug: 'page',
-    description: 'Full page copy for blog posts, case studies, and category pages with structured output.',
-    status: 'soon',
-    href: null,
-    icon: '📝',
+    name: 'All in One',
+    slug: 'all-in-one',
+    description: 'Meta copy, FAQs, and full page copy together in one pipeline per URL.',
+    status: 'live',
+    href: '/all-in-one/jobs',
+    icon: '🧩',
   },
 ]
 
