@@ -1,0 +1,180 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
+import { createClient } from '@/lib/supabase'
+import { schemaApi } from '@/lib/api/schema'
+import { getProviderMetadata } from '@/lib/api/shared'
+
+export const dynamic = 'force-dynamic'
+
+const SCHEMA_TYPES = [
+  'LocalBusiness',
+  'Organization',
+  'Product',
+  'Service',
+  'FAQPage',
+  'Article',
+  'BreadcrumbList',
+  'WebSite',
+  'SoftwareApplication',
+]
+
+const PROVIDERS = ['Claude']
+const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
+  Claude: [
+    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
+    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
+  ],
+}
+
+export default function NewSchemaJobPage() {
+  const router = useRouter()
+  const [jobName, setJobName] = useState('')
+  const [url, setUrl] = useState('')
+  const [provider, setProvider] = useState('Claude')
+  const [model, setModel] = useState(PROVIDER_MODELS.Claude[0].value)
+  const [schemaType, setSchemaType] = useState('LocalBusiness')
+  const [dfsLogin, setDfsLogin] = useState('')
+  const [scrapeTarget, setScrapeTarget] = useState(true)
+  const [scrapeHomepage, setScrapeHomepage] = useState(true)
+  const [deepScrape, setDeepScrape] = useState(false)
+  const [serpCheck, setSerpCheck] = useState(false)
+  const [includeScriptTag, setIncludeScriptTag] = useState(true)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      try {
+        const creds = await getProviderMetadata(session.access_token).catch(() => null)
+        if (creds?.provider === 'Claude') setProvider('Claude')
+        if (creds?.dfs_login) setDfsLogin(creds.dfs_login)
+      } finally {
+        setSettingsLoaded(true)
+      }
+    }
+    load()
+  }, [router])
+
+  function handleProviderChange(value: string) {
+    setProvider(value)
+    setModel(PROVIDER_MODELS[value]?.[0]?.value ?? '')
+  }
+
+  async function handleRun() {
+    if (!url.trim().startsWith('http')) { setError('Add a valid URL starting with http'); return }
+    setError('')
+    setRunning(true)
+
+    const sb = createClient()
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session) { router.push('/login'); return }
+
+    try {
+      const data = await schemaApi.runJob(session.access_token, {
+        name: jobName.trim() || 'Schema Generator Job',
+        rows: [{ url: url.trim() }],
+        settings: {
+          provider,
+          model,
+          schema_type: schemaType,
+          dfs_login: dfsLogin,
+          scrape_target: scrapeTarget,
+          scrape_homepage: scrapeHomepage,
+          deep_scrape: deepScrape,
+          serp_check: serpCheck,
+          include_script_tag: includeScriptTag,
+        },
+      })
+      router.push(`/schema/jobs/${data.job_id}`)
+    } catch (e) {
+      setError((e as Error).message || 'Failed to start schema job')
+      setRunning(false)
+    }
+  }
+
+  if (!settingsLoaded) return (
+    <AppLayout title="New Schema Generator Job">
+      <div className="flex items-center justify-center h-48">
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    </AppLayout>
+  )
+
+  return (
+    <AppLayout title="New Schema Generator Job">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 mb-6">
+          <Link href="/schema/jobs" className="text-muted hover:text-text transition-colors">
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold">New Schema Generator Job</h1>
+            <p className="text-muted text-sm">Generate deployable schema.org JSON-LD for one URL</p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <div className="card p-5 space-y-4">
+            <div>
+              <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name</label>
+              <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. LocalBusiness schema" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted uppercase tracking-wider mb-2">Target URL</label>
+              <input className="input-base font-mono text-sm" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/page" />
+            </div>
+          </div>
+
+          <div className="card p-5 space-y-4">
+            <h2 className="font-semibold text-sm">Schema Settings</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-muted mb-1">Schema type</label>
+                <CustomSelect value={schemaType} onChange={setSchemaType} options={SCHEMA_TYPES} />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1">Provider</label>
+                <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-muted mb-1">Model</label>
+                <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-5 space-y-3">
+            <h2 className="font-semibold text-sm">Data Sources</h2>
+            {[
+              ['Scrape target page', scrapeTarget, setScrapeTarget],
+              ['Scrape homepage', scrapeHomepage, setScrapeHomepage],
+              ['Deep scrape About/Contact', deepScrape, setDeepScrape],
+              ['SERP context', serpCheck, setSerpCheck],
+              ['Include script tag', includeScriptTag, setIncludeScriptTag],
+            ].map(([label, value, setter]) => (
+              <label key={label as string} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <span className="text-sm">{label as string}</span>
+                <input type="checkbox" checked={value as boolean} onChange={e => (setter as (next: boolean) => void)(e.target.checked)} />
+              </label>
+            ))}
+          </div>
+
+          {error && <p className="text-error text-sm">{error}</p>}
+          <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
+            {running ? 'Starting job...' : 'Generate Schema'}
+          </button>
+        </div>
+      </div>
+    </AppLayout>
+  )
+}
