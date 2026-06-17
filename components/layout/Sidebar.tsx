@@ -23,10 +23,10 @@ const tools: Tool[] = [
   { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#60A5FA' },
   { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#F59E0B' },
   { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0A9B7A' },
-  { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#4F9EFF' },
 ]
 
 const other: Tool[] = [
+  { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#4F9EFF' },
   { href: 'https://indexer.copypilot.app', label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
   { href: '/settings',                     label: 'Settings', icon: Settings, accent: '#94A3B8' },
 ]
