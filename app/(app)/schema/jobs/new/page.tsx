@@ -179,15 +179,18 @@ export default function NewSchemaJobPage() {
           <div className="card p-5 space-y-3">
             <h2 className="font-semibold text-sm">Data Sources</h2>
             {[
-              ['Scrape target page', scrapeTarget, setScrapeTarget],
-              ['Scrape homepage', scrapeHomepage, setScrapeHomepage],
-              ['Deep scrape About/Contact', deepScrape, setDeepScrape],
-              ['SERP context', serpCheck, setSerpCheck],
-              ['Include script tag', includeScriptTag, setIncludeScriptTag],
-            ].map(([label, value, setter]) => (
-              <label key={label as string} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-sm">{label as string}</span>
-                <input type="checkbox" checked={value as boolean} onChange={e => (setter as (next: boolean) => void)(e.target.checked)} />
+              { label: 'Scrape target page', description: 'Reads content from the URL you entered.', value: scrapeTarget, setter: setScrapeTarget },
+              { label: 'Scrape homepage', description: 'Adds business-wide details from the website homepage.', value: scrapeHomepage, setter: setScrapeHomepage },
+              { label: 'Deep scrape About/Contact', description: 'Checks About and Contact pages for company and location details.', value: deepScrape, setter: setDeepScrape },
+              { label: 'SERP context', description: 'Uses DataForSEO search results. Requires saved credentials.', value: serpCheck, setter: setSerpCheck },
+              { label: 'Include script tag', description: 'Wraps the JSON-LD in a ready-to-paste <script> tag.', value: includeScriptTag, setter: setIncludeScriptTag },
+            ].map(({ label, description, value, setter }) => (
+              <label key={label} className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0">
+                <span className="min-w-0">
+                  <span className="block text-sm">{label}</span>
+                  <span className="block text-xs text-muted mt-0.5">{description}</span>
+                </span>
+                <input className="shrink-0" type="checkbox" checked={value} onChange={e => setter(e.target.checked)} />
               </label>
             ))}
           </div>
