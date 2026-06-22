@@ -135,9 +135,11 @@ export default function SettingsPage() {
       state_invalid: { text: 'Connection could not be verified. Please try again.', isError: true },
       token_failed: { text: 'Could not retrieve access credentials. Please try again.', isError: true },
       identity_failed: { text: 'Could not verify Google account identity. Please try again.', isError: true },
+      failed: { text: 'Google account connection failed. Please try again.', isError: true },
     }
     const msg = messages[gscStatus]
     if (msg) showGscMessage(msg.text, msg.isError)
+    if (gscStatus === 'connected') void loadGscSettings()
     callbackUrl.searchParams.delete('gsc')
     window.history.replaceState({}, '', `${callbackUrl.pathname}${callbackUrl.search}${callbackUrl.hash}`)
   }, [])
