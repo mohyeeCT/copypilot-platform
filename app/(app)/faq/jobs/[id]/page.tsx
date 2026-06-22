@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
 type FAQ = { question: string; answer: string; source: string }
 type RowResult = {
   url: string; keyword: string; selected_keyword?: string; keyword_source: string
+  gsc_auth_method?: 'google_oauth' | 'service_account' | 'disabled' | 'unavailable'
   runner_up?: string; scrape_status?: string
   ai_overview_present?: boolean; ao_question_count?: number
   ai_overview_raw_text?: string; paa_raw_text?: string
@@ -78,6 +79,14 @@ export default function JobPage() {
     navigator.clipboard.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(null), 1500)
+  }
+
+  function gscAuthLabel(method?: RowResult['gsc_auth_method']) {
+    if (method === 'google_oauth') return 'Google OAuth'
+    if (method === 'service_account') return 'Service account'
+    if (method === 'unavailable') return 'GSC unavailable'
+    if (method === 'disabled') return 'GSC disabled'
+    return ''
   }
 
 
@@ -359,7 +368,7 @@ export default function JobPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        {['URL', 'Keyword', 'Source', 'Scrape', 'AO', 'PAA', 'FAQs', 'Status'].map(h => (
+                        {['URL', 'Keyword', 'Source', 'GSC Auth', 'Scrape', 'AO', 'PAA', 'FAQs', 'Status'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                             {h}
                           </th>
@@ -387,6 +396,15 @@ export default function JobPage() {
                             <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--muted)', background: 'var(--border)', borderRadius: 4, padding: '2px 6px' }}>
                               {row.keyword_source || 'manual'}
                             </span>
+                          </td>
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                            {gscAuthLabel(row.gsc_auth_method) ? (
+                              <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--muted)', background: 'var(--border)', borderRadius: 4, padding: '2px 6px' }}>
+                                {gscAuthLabel(row.gsc_auth_method)}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>n/a</span>
+                            )}
                           </td>
                           <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                             <span style={{ fontSize: 11, color: row.scrape_status?.startsWith('ok') ? 'var(--accent)' : 'var(--muted)' }}>
@@ -453,6 +471,7 @@ export default function JobPage() {
                     )}
                   </div>
                   <Badge label={row.keyword_source || 'manual'} />
+                  {gscAuthLabel(row.gsc_auth_method) && <Badge label={gscAuthLabel(row.gsc_auth_method)} />}
                   <span className="text-xs text-muted font-mono shrink-0">{row.faqs?.length || 0} FAQs</span>
                   {newlyUpdated.has(i) && (
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded"
