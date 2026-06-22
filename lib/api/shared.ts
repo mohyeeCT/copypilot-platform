@@ -74,3 +74,44 @@ export async function saveTemplate(token: string, name: string, settings: object
 export async function deleteTemplate(token: string, templateId: string) {
   return sf(`/api/settings/templates/${templateId}`, token, { method: 'DELETE' })
 }
+
+// GSC OAuth types and API wrappers
+export type GscAuthMethod = 'service_account' | 'google_oauth'
+
+export type GscProperty = {
+  site_url: string
+  permission_level: string
+}
+
+export type GscSettings = {
+  active_method: GscAuthMethod
+  service_account: { configured: boolean; client_email?: string }
+  google_oauth: {
+    configured: boolean
+    email: string
+    status: 'connected' | 'reconnect_required' | 'not_connected'
+  }
+  oauth_available: boolean
+}
+
+export async function startGscOAuth(token: string, activateOnSuccess: boolean): Promise<{ authorization_url: string }> {
+  return sf('/api/settings/gsc/oauth/start', token, {
+    method: 'POST',
+    body: JSON.stringify({ activate_on_success: activateOnSuccess }),
+  })
+}
+
+export async function listGscProperties(token: string): Promise<{ properties: GscProperty[] }> {
+  return sf('/api/settings/gsc/oauth/properties', token)
+}
+
+export async function disconnectGscOAuth(token: string) {
+  return sf('/api/settings/gsc/oauth', token, { method: 'DELETE' })
+}
+
+export async function setGscAuthMethod(token: string, method: GscAuthMethod) {
+  return sf('/api/settings/gsc/method', token, {
+    method: 'PUT',
+    body: JSON.stringify({ method }),
+  })
+}

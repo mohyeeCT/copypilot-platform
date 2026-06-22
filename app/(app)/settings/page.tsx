@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
-import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile } from '@/lib/api/shared'
+import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile, startGscOAuth, listGscProperties, disconnectGscOAuth, setGscAuthMethod, type GscAuthMethod, type GscProperty, type GscSettings } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
 export const dynamic = 'force-dynamic'
@@ -26,8 +26,11 @@ const BACKENDS = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'credentials' | 'gsc' | 'brand' | 'about'>('credentials')
   const toast = useToast()
-  const [gscConfigured, setGscConfigured] = useState(false)
-  const [gscEmail, setGscEmail] = useState('')
+  const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
+  const [gscProperties, setGscProperties] = useState<GscProperty[]>([])
+  const [gscBusy, setGscBusy] = useState<'connect' | 'disconnect' | 'method' | 'properties' | null>(null)
+  const [gscMessage, setGscMessage] = useState('')
+  const [gscIsError, setGscIsError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -48,6 +51,41 @@ export default function SettingsPage() {
 
 
 
+  function showGscMessage(message: string, isError = false) {
+    setGscMessage(message)
+    setGscIsError(isError)
+  }
+
+  function clearGscMessage() {
+    setGscMessage('')
+    setGscIsError(false)
+  }
+
+  async function loadGscSettings(): Promise<boolean> {
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return false
+      const data = await getSettings(session.access_token)
+      if (data.gsc) {
+        setGscSettings(data.gsc as GscSettings)
+      } else if (data.gsc_service_account?.configured) {
+        setGscSettings({
+          active_method: 'service_account',
+          service_account: { configured: true, client_email: data.gsc_service_account.client_email },
+          google_oauth: { configured: false, email: '', status: 'not_connected' },
+          oauth_available: false,
+        })
+      } else {
+        setGscSettings(null)
+      }
+      return true
+    } catch (e) {
+      console.error('Failed to load GSC settings:', e)
+      return false
+    }
+  }
+
   useEffect(() => {
     async function load() {
       const sb = createClient()
@@ -55,15 +93,20 @@ export default function SettingsPage() {
       if (!session) return
       try {
         const data = await getSettings(session.access_token)
-        if (data.gsc_service_account?.configured) {
-          setGscConfigured(true)
-          setGscEmail(data.gsc_service_account.client_email || '')
+        if (data.gsc) {
+          setGscSettings(data.gsc as GscSettings)
+        } else if (data.gsc_service_account?.configured) {
+          setGscSettings({
+            active_method: 'service_account',
+            service_account: { configured: true, client_email: data.gsc_service_account.client_email },
+            google_oauth: { configured: false, email: '', status: 'not_connected' },
+            oauth_available: false,
+          })
         }
         if (data.provider_settings?.has_api_key) {
           setCredsConfigured(true)
           setCredsProvider(data.provider_settings.provider || '')
         }
-
       } catch (e) {
         console.error('Failed to load settings on mount:', e)
       }
@@ -82,6 +125,23 @@ export default function SettingsPage() {
     checkBackends()
   }, [])
 
+  useEffect(() => {
+    const callbackUrl = new URL(window.location.href)
+    const gscStatus = callbackUrl.searchParams.get('gsc')
+    if (!gscStatus) return
+    const messages: Record<string, { text: string; isError: boolean }> = {
+      connected: { text: 'Google account connected successfully.', isError: false },
+      cancelled: { text: 'Google account connection was cancelled.', isError: false },
+      state_invalid: { text: 'Connection could not be verified. Please try again.', isError: true },
+      token_failed: { text: 'Could not retrieve access credentials. Please try again.', isError: true },
+      identity_failed: { text: 'Could not verify Google account identity. Please try again.', isError: true },
+    }
+    const msg = messages[gscStatus]
+    if (msg) showGscMessage(msg.text, msg.isError)
+    callbackUrl.searchParams.delete('gsc')
+    window.history.replaceState({}, '', `${callbackUrl.pathname}${callbackUrl.search}${callbackUrl.hash}`)
+  }, [])
+
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -94,8 +154,10 @@ export default function SettingsPage() {
       if (!session) return
       setSaving(true)
       await saveSettings(session.access_token, { gsc_service_account: json })
-      setGscConfigured(true)
-      setGscEmail(json.client_email || '')
+      setGscSettings(prev => prev
+        ? { ...prev, service_account: { configured: true, client_email: json.client_email || '' } }
+        : { active_method: 'service_account', service_account: { configured: true, client_email: json.client_email || '' }, google_oauth: { configured: false, email: '', status: 'not_connected' }, oauth_available: false }
+      )
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
@@ -112,12 +174,105 @@ export default function SettingsPage() {
     setDeleting(true)
     try {
       await deleteGscAccount(session.access_token)
-      setGscConfigured(false)
-      setGscEmail('')
+      const refreshed = await loadGscSettings()
+      if (!refreshed) {
+        setGscSettings(prev => prev ? { ...prev, service_account: { configured: false } } : null)
+        showGscMessage('Service account removed. Could not refresh settings; please reload.', true)
+      } else {
+        showGscMessage('Service account removed.')
+      }
     } catch (e) {
       console.error('Failed to delete GSC account:', e)
+      showGscMessage('Failed to remove service account. Please try again.', true)
+    } finally {
+      setDeleting(false)
     }
-    setDeleting(false)
+  }
+
+  async function handleConnectGoogle() {
+    setGscBusy('connect')
+    clearGscMessage()
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) {
+        showGscMessage('Your session has expired. Please sign in again.', true)
+        return
+      }
+      const result = await startGscOAuth(session.access_token, true)
+      const url = new URL(result.authorization_url)
+      if (url.protocol !== 'https:' || url.hostname !== 'accounts.google.com') {
+        throw new Error('Invalid authorization URL')
+      }
+      window.location.href = result.authorization_url
+    } catch {
+      showGscMessage('Failed to start Google connection. Please try again.', true)
+    } finally {
+      setGscBusy(null)
+    }
+  }
+
+  async function handleDisconnectGoogle() {
+    setGscBusy('disconnect')
+    clearGscMessage()
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) {
+        showGscMessage('Your session has expired. Please sign in again.', true)
+        return
+      }
+      await disconnectGscOAuth(session.access_token)
+    } catch {
+      showGscMessage('Failed to disconnect Google account. Please try again.', true)
+      setGscBusy(null)
+      return
+    }
+
+    const refreshed = await loadGscSettings()
+    if (!refreshed) {
+      setGscSettings(prev => prev ? {
+        ...prev,
+        google_oauth: { configured: false, email: '', status: 'not_connected' },
+      } : null)
+      showGscMessage('Google account disconnected. Could not refresh settings; please reload.', true)
+    } else {
+      showGscMessage('Google account disconnected.')
+    }
+    setGscProperties([])
+    setGscBusy(null)
+  }
+
+  async function handleSetMethod(method: GscAuthMethod) {
+    setGscBusy('method')
+    clearGscMessage()
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      await setGscAuthMethod(session.access_token, method)
+      setGscSettings(prev => prev ? { ...prev, active_method: method } : prev)
+    } catch {
+      showGscMessage('Failed to update active method. Please try again.', true)
+    } finally {
+      setGscBusy(null)
+    }
+  }
+
+  async function handleLoadProperties() {
+    setGscBusy('properties')
+    clearGscMessage()
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      const result = await listGscProperties(session.access_token)
+      setGscProperties(result.properties || [])
+    } catch {
+      showGscMessage('Failed to load Search Console properties.', true)
+    } finally {
+      setGscBusy(null)
+    }
   }
 
   async function handleDeleteCreds() {
@@ -164,6 +319,17 @@ export default function SettingsPage() {
           <p className="text-muted text-sm mt-1">Configure integrations for your account</p>
         </div>
 
+        {gscMessage && (
+          <p
+            role="status"
+            aria-live="polite"
+            className={`text-xs mb-4 ${gscIsError ? 'text-error' : 'text-accent'}`}
+          >
+            {gscMessage}
+          </p>
+        )}
+
+        {/* Google Search Console — Google account */}
         <div className="card p-6 mb-4">
           <div className="flex items-start gap-4 mb-5">
             <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
@@ -172,25 +338,129 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-semibold text-sm">Google Search Console</h2>
+              <h2 className="font-semibold text-sm">Google account</h2>
+              <p className="text-muted text-xs mt-0.5">Connect your Google account to use Search Console data directly.</p>
+            </div>
+          </div>
+
+          {gscSettings && gscSettings.google_oauth.configured ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between bg-accent/5 border border-accent/20 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle size={15} className="text-accent shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">
+                      Connected as {gscSettings.google_oauth.email}
+                    </p>
+                    {gscSettings.google_oauth.status === 'reconnect_required' && (
+                      <p className="text-xs mt-0.5" style={{ color: 'rgb(251 191 36)' }}>Reconnect required</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {gscSettings.active_method === 'google_oauth' ? (
+                    <span className="text-xs text-accent font-medium">Active</span>
+                  ) : (
+                    <button
+                      onClick={() => handleSetMethod('google_oauth')}
+                      disabled={!!gscBusy}
+                      className="text-xs text-muted hover:text-accent transition-colors disabled:opacity-50"
+                    >
+                      Use Google account
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDisconnectGoogle}
+                    disabled={!!gscBusy}
+                    className="flex items-center gap-1.5 text-xs text-muted hover:text-error transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
+                    {gscBusy === 'disconnect' ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                </div>
+              </div>
+              {gscSettings.google_oauth.status === 'reconnect_required' && gscSettings.oauth_available && (
+                <button
+                  onClick={handleConnectGoogle}
+                  disabled={!!gscBusy}
+                  className="btn-primary text-xs px-4 py-2"
+                >
+                  {gscBusy === 'connect' ? 'Connecting...' : 'Reconnect Google'}
+                </button>
+              )}
+              <div>
+                <button
+                  onClick={handleLoadProperties}
+                  disabled={!!gscBusy}
+                  className="text-xs text-muted hover:text-accent transition-colors disabled:opacity-50"
+                >
+                  {gscBusy === 'properties' ? 'Loading...' : 'View accessible properties'}
+                </button>
+                {gscProperties.length > 0 && (
+                  <div className="mt-2 space-y-1 border border-border rounded-lg p-3">
+                    {gscProperties.map(p => (
+                      <div key={p.site_url} className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-text">{p.site_url}</span>
+                        <span className="text-xs text-muted">{p.permission_level}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : gscSettings && gscSettings.oauth_available ? (
+            <button
+              onClick={handleConnectGoogle}
+              disabled={gscBusy === 'connect'}
+              className="btn-primary text-xs px-4 py-2"
+            >
+              {gscBusy === 'connect' ? 'Connecting...' : 'Connect Google'}
+            </button>
+          ) : null}
+
+        </div>
+
+        {/* Google Search Console — Service account */}
+        <div className="card p-6 mb-4">
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-semibold text-sm">Service account</h2>
               <p className="text-muted text-xs mt-0.5">Upload your service account JSON to enable GSC-powered keyword selection.</p>
             </div>
           </div>
 
-          {gscConfigured ? (
+          {gscSettings && gscSettings.service_account.configured ? (
             <div className="flex items-center justify-between bg-accent/5 border border-accent/20 rounded-lg px-4 py-3">
               <div className="flex items-center gap-3">
                 <CheckCircle size={15} className="text-accent shrink-0" />
                 <div>
                   <p className="text-xs font-medium">Service account connected</p>
-                  <p className="text-xs text-muted font-mono mt-0.5">{gscEmail}</p>
+                  <p className="text-xs text-muted font-mono mt-0.5">{gscSettings.service_account.client_email}</p>
                 </div>
               </div>
-              <button onClick={handleDelete} disabled={deleting}
-                className="flex items-center gap-1.5 text-xs text-muted hover:text-error transition-colors">
-                <Trash2 size={12} />
-                {deleting ? 'Removing...' : 'Remove'}
-              </button>
+              <div className="flex items-center gap-3">
+                {gscSettings.active_method === 'service_account' ? (
+                  <span className="text-xs text-accent font-medium">Active</span>
+                ) : (
+                  <button
+                    onClick={() => handleSetMethod('service_account')}
+                    disabled={!!gscBusy}
+                    className="text-xs text-muted hover:text-accent transition-colors disabled:opacity-50"
+                  >
+                    Use service account
+                  </button>
+                )}
+                <button onClick={handleDelete} disabled={!!gscBusy || deleting}
+                  className="flex items-center gap-1.5 text-xs text-muted hover:text-error transition-colors disabled:opacity-50">
+                  <Trash2 size={12} />
+                  {deleting ? 'Removing...' : 'Remove'}
+                </button>
+              </div>
             </div>
           ) : (
             <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-8 cursor-pointer hover:border-accent/50 hover:bg-accent/5 transition-all group">
@@ -207,6 +477,10 @@ export default function SettingsPage() {
 
           {saved && <p className="text-accent text-xs mt-3 flex items-center gap-1.5"><CheckCircle size={11} /> Saved successfully</p>}
           {error && <p className="text-error text-xs mt-3">{error}</p>}
+
+          <p className="text-xs text-muted mt-4">
+            Keep a service account if you use Indexer. Google account connection currently covers Search Console data only.
+          </p>
         </div>
 
         {/* Credentials */}
