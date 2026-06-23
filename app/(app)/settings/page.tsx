@@ -359,9 +359,7 @@ export default function SettingsPage() {
         {/* Google Search Console — Google account */}
         <div className="card p-6 mb-4">
           <div className="flex items-start gap-4 mb-5">
-            <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-              <SearchConsoleIcon />
-            </div>
+            <SearchConsoleIcon className="w-11 h-11 shrink-0" />
             <div>
               <h2 className="font-semibold text-sm">Google account</h2>
               <p className="text-muted text-xs mt-0.5">Preferred for FAQ, Intro, Meta, and All-in-One Search Console data.</p>
