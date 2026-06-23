@@ -18,12 +18,21 @@ type RowResult = {
   word_count: number
   cluster_source: string
   keyword_source: string
+  gsc_auth_method?: 'google_oauth' | 'service_account' | 'disabled' | 'unavailable'
   scrape_status?: string
   runner_up?: string
   primary_volume?: number
   primary_difficulty?: number
   status?: string
   error: string | null
+}
+
+function gscAuthLabel(method?: RowResult['gsc_auth_method']) {
+  if (method === 'google_oauth') return 'Google OAuth'
+  if (method === 'service_account') return 'Service account'
+  if (method === 'unavailable') return 'GSC unavailable'
+  if (method === 'disabled') return 'GSC disabled'
+  return ''
 }
 
 type Job = {
@@ -562,6 +571,9 @@ export default function JobPage() {
                             <p className="text-xs font-mono text-muted bg-border/30 rounded px-3 py-2 leading-relaxed">
                               Cluster source: <span className="text-accent">{row.cluster_source || 'n/a'}</span>
                               {' | '}Keyword source: {row.keyword_source || 'n/a'}
+                              {gscAuthLabel(row.gsc_auth_method) && (
+                                <>{' | '}GSC: {gscAuthLabel(row.gsc_auth_method)}</>
+                              )}
                               {' | '}Volume: {row.primary_volume ?? 'n/a'}
                               {' | '}Difficulty: {row.primary_difficulty ?? 'n/a'}
                               {' | '}Scrape: {row.scrape_status || 'n/a'}
