@@ -14,6 +14,7 @@ interface PageCopyResult {
   url: string
   primary_keyword?: string
   keyword_source?: string
+  gsc_auth_method?: 'google_oauth' | 'service_account' | 'disabled' | 'unavailable'
   kw_volume?: number
   template_name?: string
   word_count?: number
@@ -33,6 +34,14 @@ interface PageCopyResult {
   faq_schema?: string
   status?: string
   error?: string
+}
+
+function gscAuthLabel(method?: PageCopyResult['gsc_auth_method']) {
+  if (method === 'google_oauth') return 'Google OAuth'
+  if (method === 'service_account') return 'Service account'
+  if (method === 'unavailable') return 'GSC unavailable'
+  if (method === 'disabled') return 'GSC disabled'
+  return ''
 }
 
 interface Job {
@@ -383,6 +392,7 @@ export default function PageCopyJobPage() {
                       {row.primary_keyword && <span className="text-xs text-muted">Keyword: <span className="text-accent font-mono">{row.primary_keyword}</span></span>}
                       {row.kw_volume && <span className="text-xs text-muted font-mono">vol: {row.kw_volume}</span>}
                       {row.keyword_source && <span className="text-xs text-muted font-mono">{row.keyword_source}</span>}
+                      {gscAuthLabel(row.gsc_auth_method) && <span className="text-xs text-muted font-mono">GSC: {gscAuthLabel(row.gsc_auth_method)}</span>}
                       {row.word_count && <span className="text-xs text-muted font-mono">{row.word_count} words</span>}
                       {row.template_name && <span className="text-xs text-muted">Template: <span className="text-text">{row.template_name}</span></span>}
                     </div>
