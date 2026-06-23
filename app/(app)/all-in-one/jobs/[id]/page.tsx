@@ -44,6 +44,19 @@ function gscAuthLabel(method?: PageCopyResult['gsc_auth_method']) {
   return ''
 }
 
+function gscErrorMessage(error?: string | null) {
+  if (error === 'Google Search Console reconnect required.') {
+    return 'Reconnect Google in Settings to restore Search Console data.'
+  }
+  if (error === 'Google Search Console OAuth configuration missing.') {
+    return 'Google OAuth is not configured for this backend. Please contact the app owner.'
+  }
+  if (error === 'Selected Google Search Console connection unavailable.') {
+    return 'Choose Google OAuth or service account in Settings, then rerun this job.'
+  }
+  return error || ''
+}
+
 interface Job {
   id: string
   name: string
@@ -264,7 +277,7 @@ export default function PageCopyJobPage() {
           </div>
         ) : null}
 
-        {job.error && <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">{job.error}</div>}
+        {job.error && <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">{gscErrorMessage(job.error)}</div>}
 
         {/* Results toolbar */}
         {job.results && job.results.length > 0 && (
@@ -518,7 +531,7 @@ export default function PageCopyJobPage() {
                       </button>
                     )}
 
-                    {row.error && <p className="text-error text-xs">{row.error}</p>}
+                    {row.error && <p className="text-error text-xs">{gscErrorMessage(row.error)}</p>}
                   </div>
                 )}
               </div>

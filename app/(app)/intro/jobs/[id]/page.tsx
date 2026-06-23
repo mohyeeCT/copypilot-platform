@@ -35,6 +35,19 @@ function gscAuthLabel(method?: RowResult['gsc_auth_method']) {
   return ''
 }
 
+function gscErrorMessage(error?: string | null) {
+  if (error === 'Google Search Console reconnect required.') {
+    return 'Reconnect Google in Settings to restore Search Console data.'
+  }
+  if (error === 'Google Search Console OAuth configuration missing.') {
+    return 'Google OAuth is not configured for this backend. Please contact the app owner.'
+  }
+  if (error === 'Selected Google Search Console connection unavailable.') {
+    return 'Choose Google OAuth or service account in Settings, then rerun this job.'
+  }
+  return error || ''
+}
+
 type Job = {
   id: string
   name: string
@@ -366,7 +379,7 @@ export default function JobPage() {
 
         {job.error && (
           <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">
-            {job.error}
+            {gscErrorMessage(job.error)}
           </div>
         )}
 
@@ -447,7 +460,7 @@ export default function JobPage() {
                     {expanded === i && (
                       <div className="px-4 pb-4 space-y-4 border-t border-border">
                         {row.error && (
-                          <p className="text-xs text-error bg-error/10 rounded px-3 py-2 mt-3 font-mono">{row.error}</p>
+                          <p className="text-xs text-error bg-error/10 rounded px-3 py-2 mt-3 font-mono">{gscErrorMessage(row.error)}</p>
                         )}
 
                         {/* Keyword header row */}

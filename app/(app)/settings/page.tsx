@@ -77,6 +77,13 @@ export default function SettingsPage() {
     setGscIsError(false)
   }
 
+  function gscStatusText(settings: GscSettings | null): string {
+    const oauth = settings?.google_oauth
+    if (!oauth?.configured) return 'Connect Google to use Search Console data.'
+    if (oauth.status === 'reconnect_required') return 'Reconnect to restore Search Console data.'
+    return 'Ready for Search Console keyword data.'
+  }
+
   async function loadGscSettings(): Promise<boolean> {
     try {
       const sb = createClient()
@@ -375,9 +382,12 @@ export default function SettingsPage() {
                     <p className="text-xs font-medium">
                       Connected as {gscSettings.google_oauth.email}
                     </p>
-                    {gscSettings.google_oauth.status === 'reconnect_required' && (
-                      <p className="text-xs mt-0.5" style={{ color: 'rgb(251 191 36)' }}>Reconnect required</p>
-                    )}
+                    <p
+                      className="text-xs mt-0.5"
+                      style={gscSettings.google_oauth.status === 'reconnect_required' ? { color: 'rgb(251 191 36)' } : undefined}
+                    >
+                      {gscStatusText(gscSettings)}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -432,13 +442,16 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : gscSettings && gscSettings.oauth_available ? (
-            <button
-              onClick={handleConnectGoogle}
-              disabled={gscBusy === 'connect'}
-              className="btn-primary text-xs px-4 py-2"
-            >
-              {gscBusy === 'connect' ? 'Connecting...' : 'Connect Google'}
-            </button>
+            <div className="space-y-3">
+              <p className="text-xs text-muted">{gscStatusText(gscSettings)}</p>
+              <button
+                onClick={handleConnectGoogle}
+                disabled={gscBusy === 'connect'}
+                className="btn-primary text-xs px-4 py-2"
+              >
+                {gscBusy === 'connect' ? 'Connecting...' : 'Connect Google'}
+              </button>
+            </div>
           ) : null}
 
         </div>

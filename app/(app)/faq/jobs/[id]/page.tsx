@@ -81,13 +81,26 @@ export default function JobPage() {
     setTimeout(() => setCopied(null), 1500)
   }
 
-  function gscAuthLabel(method?: RowResult['gsc_auth_method']) {
-    if (method === 'google_oauth') return 'Google OAuth'
-    if (method === 'service_account') return 'Service account'
-    if (method === 'unavailable') return 'GSC unavailable'
-    if (method === 'disabled') return 'GSC disabled'
-    return ''
+function gscAuthLabel(method?: RowResult['gsc_auth_method']) {
+  if (method === 'google_oauth') return 'Google OAuth'
+  if (method === 'service_account') return 'Service account'
+  if (method === 'unavailable') return 'GSC unavailable'
+  if (method === 'disabled') return 'GSC disabled'
+  return ''
+}
+
+function gscErrorMessage(error?: string | null) {
+  if (error === 'Google Search Console reconnect required.') {
+    return 'Reconnect Google in Settings to restore Search Console data.'
   }
+  if (error === 'Google Search Console OAuth configuration missing.') {
+    return 'Google OAuth is not configured for this backend. Please contact the app owner.'
+  }
+  if (error === 'Selected Google Search Console connection unavailable.') {
+    return 'Choose Google OAuth or service account in Settings, then rerun this job.'
+  }
+  return error || ''
+}
 
 
   const markUpdated = (indices: number[], results: RowResult[]) => {
@@ -354,7 +367,7 @@ export default function JobPage() {
 
         {job.error && (
           <div className="mb-6 text-error text-sm bg-error/5 border border-error/20 rounded-lg px-4 py-3">
-            {job.error}
+            {gscErrorMessage(job.error)}
           </div>
         )}
 
@@ -514,7 +527,7 @@ export default function JobPage() {
                 {expanded === i && (
                   <div className="px-4 pb-4 space-y-3">
                     {row.error && (
-                      <p className="text-error text-xs bg-error/5 border border-error/20 rounded px-3 py-2">{row.error}</p>
+                      <p className="text-error text-xs bg-error/5 border border-error/20 rounded px-3 py-2">{gscErrorMessage(row.error)}</p>
                     )}
 
                     {/* Keyword override */}
