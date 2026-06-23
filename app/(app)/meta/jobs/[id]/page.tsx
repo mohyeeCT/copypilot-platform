@@ -14,6 +14,7 @@ interface MetaResult {
   url: string
   selected_keyword?: string
   keyword_source?: string
+  gsc_auth_method?: 'google_oauth' | 'service_account' | 'disabled' | 'unavailable'
   runner_up?: string
   kw_volume?: number
   kw_difficulty?: number
@@ -26,6 +27,14 @@ interface MetaResult {
   h1_input?: string
   status?: string
   error?: string
+}
+
+function gscAuthLabel(method?: MetaResult['gsc_auth_method']) {
+  if (method === 'google_oauth') return 'Google OAuth'
+  if (method === 'service_account') return 'Service account'
+  if (method === 'unavailable') return 'GSC unavailable'
+  if (method === 'disabled') return 'GSC disabled'
+  return ''
 }
 
 interface Job {
@@ -398,6 +407,9 @@ export default function MetaJobPage() {
                       </div>
                       {row.kw_volume && <span className="text-xs text-muted font-mono">vol: {row.kw_volume}</span>}
                       {row.keyword_source && <span className="text-xs text-muted font-mono">{row.keyword_source}</span>}
+                      {gscAuthLabel(row.gsc_auth_method) && (
+                        <span className="text-xs text-muted font-mono">GSC: {gscAuthLabel(row.gsc_auth_method)}</span>
+                      )}
                     </div>
 
                     {/* Title tag */}
