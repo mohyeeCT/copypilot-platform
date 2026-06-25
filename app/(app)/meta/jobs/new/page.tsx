@@ -7,7 +7,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
-import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
+import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 import { getSettings, getProviderMetadata, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
@@ -45,6 +45,27 @@ const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'bl
 
 interface Row { url: string; keyword: string; page_type: string; h1: string }
 
+function createMetaRowImportSchema() {
+  return createCopyRowImportSchema(
+    { page_type: 'general' },
+    false,
+    {
+      pageTypeValues: PAGE_TYPES,
+      positionalLayouts: [
+        {
+          keys: ['url', 'page_type', 'h1'],
+          match: [{ index: 1, columnKey: 'page_type' }],
+          notice: 'Keyword column was omitted; mapped the second column as page type.',
+        },
+        {
+          keys: ['url', 'keyword', 'h1'],
+          notice: 'Page type column was omitted; used the default page type.',
+        },
+      ],
+    },
+  )
+}
+
 export default function NewMetaJobPage() {
   const router = useRouter()
 
@@ -71,6 +92,7 @@ export default function NewMetaJobPage() {
   const [rows, setRows] = useState<Row[]>([{ url: '', keyword: '', page_type: 'general', h1: '' }])
   const [pasteText, setPasteText] = useState('')
   const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
+  const [importNotices, setImportNotices] = useState<ImportNotice[]>([])
   const [inputMode, setInputMode] = useState<'manual' | 'paste' | 'csv'>('manual')
 
   // Auth / loading
@@ -145,9 +167,10 @@ export default function NewMetaJobPage() {
   }
 
   function applyImportedText(text: string) {
-    const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'general' }))
+    const result = parseImportedRows(text, createMetaRowImportSchema())
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
     setImportErrors(result.rejectedRows)
+    setImportNotices(result.notices)
     if (parsed.length > 0) {
       setRows(parsed)
       setInputMode('manual')
@@ -257,14 +280,27 @@ export default function NewMetaJobPage() {
               ))}
             </div>
 
-            <ImportErrors rows={importErrors} />
+              <ImportErrors rows={importErrors} />
+
+            {importNotices.length > 0 && (
+              <div role="status" aria-live="polite" className="my-3 border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-muted">
+                <p className="font-medium mb-1 text-text">Import adjusted column mapping</p>
+                <ul className="space-y-0.5 max-h-28 overflow-y-auto">
+                  {importNotices.map(notice => (
+                    <li key={`${notice.rowNumber}-${notice.message}`}>
+                      Row {notice.rowNumber}: {notice.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {inputMode === 'paste' && (
               <div className="space-y-2 mb-3">
-                <p className="text-xs text-muted">Paste tab-separated rows: URL | Keyword (optional) | Page Type | H1</p>
+                <p className="text-xs text-muted">Paste tab-separated rows: URL | Keyword (optional) | Page Type (optional) | H1. Headers are supported.</p>
                 <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
                   className="input-base text-xs font-mono resize-none h-32 w-full"
-                  placeholder="https://example.com/page&#9;keyword&#9;category&#9;Page H1" />
+                  placeholder={"url\tkeyword\tpage type\th1\nhttps://example.com/page\t\tcategory\tPage H1"} />
                 <button onClick={parsePaste} className="btn-secondary text-xs">Import rows</button>
               </div>
             )}

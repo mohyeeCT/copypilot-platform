@@ -7,7 +7,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
-import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
+import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
 import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
@@ -21,6 +21,27 @@ const PAGE_LABELS: Record<string, string> = {
   blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
   homepage: 'Homepage', service: 'Service Page', local: 'Local Service Page',
   about: 'About Us', contact: 'Contact Us', product: 'Product Page', collection: 'Collection / Category',
+}
+
+function createAioRowImportSchema(defaultPageType: string) {
+  return createCopyRowImportSchema(
+    { page_type: defaultPageType },
+    false,
+    {
+      pageTypeValues: PAGE_TYPES,
+      positionalLayouts: [
+        {
+          keys: ['url', 'page_type', 'h1'],
+          match: [{ index: 1, columnKey: 'page_type' }],
+          notice: 'Keyword column was omitted; mapped the second column as page type.',
+        },
+        {
+          keys: ['url', 'keyword', 'h1'],
+          notice: 'Page type column was omitted; used the selected default page type.',
+        },
+      ],
+    },
+  )
 }
 
 interface Row { url: string; keyword: string; page_type: string; h1: string; gen_page_copy: boolean; gen_meta: boolean; gen_faqs: boolean }
@@ -61,6 +82,7 @@ export default function NewAIOJob() {
   const [rows, setRows]               = useState<Row[]>([{ url: '', keyword: '', page_type: 'service', h1: '', gen_page_copy: true, gen_meta: true, gen_faqs: true }])
   const [csvPaste, setCsvPaste]       = useState('')
   const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
+  const [importNotices, setImportNotices] = useState<ImportNotice[]>([])
   const [inputMode, setInputMode]     = useState<'manual' | 'csv'>('manual')
 
   const [templates, setTemplates]     = useState<Record<string, {key: string; name: string}[]>>({})
@@ -118,7 +140,7 @@ export default function NewAIOJob() {
   }
 
   function parseCsv() {
-    const result = parseImportedRows(csvPaste, createCopyRowImportSchema({ page_type: pageType }))
+    const result = parseImportedRows(csvPaste, createAioRowImportSchema(pageType))
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({
       url, keyword, page_type, h1,
       gen_page_copy: genPageCopy,
@@ -126,6 +148,7 @@ export default function NewAIOJob() {
       gen_faqs: genFaqs,
     }))
     setImportErrors(result.rejectedRows)
+    setImportNotices(result.notices)
     if (parsed.length) {
       setRows(parsed)
       setInputMode('manual')
@@ -293,9 +316,22 @@ export default function NewAIOJob() {
 
             <ImportErrors rows={importErrors} />
 
+            {importNotices.length > 0 && (
+              <div role="status" aria-live="polite" className="my-3 border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-muted">
+                <p className="font-medium mb-1 text-text">Import adjusted column mapping</p>
+                <ul className="space-y-0.5 max-h-28 overflow-y-auto">
+                  {importNotices.map(notice => (
+                    <li key={`${notice.rowNumber}-${notice.message}`}>
+                      Row {notice.rowNumber}: {notice.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {inputMode === 'csv' ? (
               <div>
-                <p className="text-xs text-muted mb-2">Paste CSV or spreadsheet rows: URL, Keyword (optional), Page Type (optional), H1 (optional)</p>
+                <p className="text-xs text-muted mb-2">Paste CSV or spreadsheet rows: URL, Keyword (optional), Page Type (optional), H1 (optional). Headers are supported.</p>
                 <textarea className="input-base font-mono text-xs" rows={5} value={csvPaste} onChange={e => setCsvPaste(e.target.value)} />
                 <button onClick={parseCsv} className="btn-primary mt-2 text-xs">Parse CSV</button>
               </div>

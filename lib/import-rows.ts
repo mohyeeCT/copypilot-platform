@@ -12,21 +12,35 @@ type ImportColumn = {
   key: string
   aliases: readonly string[]
   defaultValue: string
+  acceptedValues?: readonly string[]
+}
+
+type PositionalLayout = {
+  keys: readonly string[]
+  match?: readonly { index: number; columnKey: string }[]
+  notice?: string
 }
 
 export type ImportSchema = {
   columns: readonly ImportColumn[]
+  positionalLayouts?: readonly PositionalLayout[]
+}
+
+export type ImportNotice = {
+  rowNumber: number
+  message: string
 }
 
 export type ImportResult = {
   rows: ImportedRow[]
   rejectedRows: RejectedImportRow[]
+  notices: ImportNotice[]
 }
 
 const COPY_ROW_COLUMNS: readonly Omit<ImportColumn, 'defaultValue'>[] = [
   { key: 'url', aliases: ['url', 'page url', 'link'] },
   { key: 'keyword', aliases: ['keyword', 'primary keyword', 'keyword seeds'] },
-  { key: 'page_type', aliases: ['page type', 'page_type', 'type', 'template'] },
+  { key: 'page_type', aliases: ['page type', 'page_type', 'type', 'template', 'page template'] },
   { key: 'h1', aliases: ['h1', 'h1 tag'] },
 ]
 
@@ -42,6 +56,10 @@ function normalizeHeader(value: string): string {
 export function createCopyRowImportSchema(
   defaults: Record<string, string>,
   includeTemplateKey = false,
+  options: {
+    pageTypeValues?: readonly string[]
+    positionalLayouts?: readonly PositionalLayout[]
+  } = {},
 ): ImportSchema {
   const columns = includeTemplateKey
     ? [...COPY_ROW_COLUMNS, TEMPLATE_KEY_COLUMN]
@@ -51,7 +69,9 @@ export function createCopyRowImportSchema(
     columns: columns.map(column => ({
       ...column,
       defaultValue: defaults[column.key] ?? '',
+      acceptedValues: column.key === 'page_type' ? options.pageTypeValues : undefined,
     })),
+    positionalLayouts: options.positionalLayouts,
   }
 }
 
@@ -91,6 +111,44 @@ function countLineBreaks(value: string): number {
   return value.match(/\r\n|\r|\n/g)?.length ?? 0
 }
 
+function withoutTrailingEmptyValues(values: string[]): string[] {
+  let end = values.length
+  while (end > 0 && !values[end - 1].trim()) end -= 1
+  return values.slice(0, end)
+}
+
+function columnAcceptsValue(schema: ImportSchema, columnKey: string, value: string): boolean {
+  const column = schema.columns.find(candidate => candidate.key === columnKey)
+  if (!column?.acceptedValues?.length) return true
+  const normalizedValue = normalizeHeader(value)
+  return column.acceptedValues.some(accepted => normalizeHeader(accepted) === normalizedValue)
+}
+
+function getPositionalLayout(values: string[], schema: ImportSchema): PositionalLayout | null {
+  const populatedValues = withoutTrailingEmptyValues(values)
+
+  for (const layout of schema.positionalLayouts ?? []) {
+    if (layout.keys.length !== populatedValues.length) continue
+    const matches = (layout.match ?? []).every(rule => (
+      columnAcceptsValue(schema, rule.columnKey, populatedValues[rule.index] ?? '')
+    ))
+    if (matches) return layout
+  }
+
+  return null
+}
+
+function buildRowFromPositionalLayout(values: string[], schema: ImportSchema, layout: PositionalLayout): ImportedRow {
+  const row: ImportedRow = {}
+  for (const column of schema.columns) {
+    row[column.key] = column.defaultValue
+  }
+  layout.keys.forEach((key, index) => {
+    row[key] = values[index]?.trim() || schema.columns.find(column => column.key === key)?.defaultValue || ''
+  })
+  return row
+}
+
 export function parseImportedRows(text: string, schema: ImportSchema): ImportResult {
   const records: { values: string[]; rowNumber: number; errors: string[] }[] = []
   let cursor = 0
@@ -120,18 +178,26 @@ export function parseImportedRows(text: string, schema: ImportSchema): ImportRes
 
   const rows: ImportedRow[] = []
   const rejectedRows: RejectedImportRow[] = []
+  const notices: ImportNotice[] = []
 
   records.forEach((record, rowIndex) => {
     const { values, rowNumber: sourceRowNumber } = record
     if (isEmptyRow(values) || (headerMap && rowIndex === firstPopulatedIndex)) return
 
     const errors = [...record.errors]
-    const row: ImportedRow = {}
+    const layout = headerMap ? null : getPositionalLayout(values, schema)
+    const row: ImportedRow = layout
+      ? buildRowFromPositionalLayout(values, schema, layout)
+      : {}
 
-    schema.columns.forEach((column, columnIndex) => {
-      const sourceIndex = headerMap?.get(column.key) ?? columnIndex
-      row[column.key] = values[sourceIndex]?.trim() || column.defaultValue
-    })
+    if (!layout) {
+      schema.columns.forEach((column, columnIndex) => {
+        const sourceIndex = headerMap ? headerMap.get(column.key) : columnIndex
+        row[column.key] = sourceIndex === undefined
+          ? column.defaultValue
+          : values[sourceIndex]?.trim() || column.defaultValue
+      })
+    }
 
     if (!row.url) {
       errors.push('URL is required')
@@ -143,8 +209,11 @@ export function parseImportedRows(text: string, schema: ImportSchema): ImportRes
       rejectedRows.push({ rowNumber: sourceRowNumber, errors, values })
     } else {
       rows.push(row)
+      if (layout?.notice) {
+        notices.push({ rowNumber: sourceRowNumber, message: layout.notice })
+      }
     }
   })
 
-  return { rows, rejectedRows }
+  return { rows, rejectedRows, notices }
 }

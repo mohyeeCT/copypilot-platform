@@ -6,7 +6,7 @@ import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createClient } from '@/lib/supabase'
-import { createCopyRowImportSchema, parseImportedRows, type RejectedImportRow } from '@/lib/import-rows'
+import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { introApi } from '@/lib/api/intro'
 import { getProviderMetadata, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
 import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
@@ -24,6 +24,28 @@ const PAGE_TEMPLATES = [
   { value: 'blog', label: 'Blog / Editorial' },
   { value: 'brand', label: 'Brand / About' },
 ]
+const PAGE_TEMPLATE_VALUES = PAGE_TEMPLATES.map(template => template.value)
+
+function createIntroRowImportSchema(defaultPageType: string) {
+  return createCopyRowImportSchema(
+    { page_type: defaultPageType },
+    false,
+    {
+      pageTypeValues: PAGE_TEMPLATE_VALUES,
+      positionalLayouts: [
+        {
+          keys: ['url', 'page_type', 'h1'],
+          match: [{ index: 1, columnKey: 'page_type' }],
+          notice: 'Keyword column was omitted; mapped the second column as page template.',
+        },
+        {
+          keys: ['url', 'keyword', 'h1'],
+          notice: 'Page template column was omitted; used the selected default template.',
+        },
+      ],
+    },
+  )
+}
 
 const BIZ_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
@@ -87,6 +109,7 @@ export default function NewJobPage() {
 
   const [pasteText, setPasteText] = useState('')
   const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
+  const [importNotices, setImportNotices] = useState<ImportNotice[]>([])
   const [jobName, setJobName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -155,9 +178,10 @@ export default function NewJobPage() {
   }, [])
 
   function applyImportedText(text: string) {
-    const result = parseImportedRows(text, createCopyRowImportSchema({ page_type: 'service_lp' }))
+    const result = parseImportedRows(text, createIntroRowImportSchema(pageTemplate))
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({ url, keyword, page_type, h1 }))
     setImportErrors(result.rejectedRows)
+    setImportNotices(result.notices)
     if (parsed.length) {
       setRows(parsed)
       setTab('manual')
@@ -375,12 +399,25 @@ export default function NewJobPage() {
 
               <ImportErrors rows={importErrors} />
 
+              {importNotices.length > 0 && (
+                <div role="status" aria-live="polite" className="my-3 border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-muted">
+                  <p className="font-medium mb-1 text-text">Import adjusted column mapping</p>
+                  <ul className="space-y-0.5 max-h-28 overflow-y-auto">
+                    {importNotices.map(notice => (
+                      <li key={`${notice.rowNumber}-${notice.message}`}>
+                        Row {notice.rowNumber}: {notice.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {tab === 'paste' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted">Paste tab-separated rows: URL | Keyword seeds (optional) | Page template | H1</p>
+                  <p className="text-xs text-muted">Paste tab-separated rows: URL | Keyword seeds (optional) | Page template (optional) | H1. Headers are supported.</p>
                   <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
                     className="input-base text-xs font-mono resize-none h-32 w-full"
-                    placeholder="https://example.com/service	keyword one, keyword two	service_lp	Our Main Service" />
+                    placeholder={"url\tkeyword\tpage template\th1\nhttps://example.com/service\t\tservice_lp\tOur Main Service"} />
                   <button onClick={parsePaste} className="btn-secondary text-xs">Import rows</button>
                 </div>
               )}
