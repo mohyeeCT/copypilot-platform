@@ -83,6 +83,7 @@ export default function NewMetaJobPage() {
   const [minVolume, setMinVolume]       = useState(10)
   const [useGsc, setUseGsc]             = useState(true)
   const [siteUrl, setSiteUrl]           = useState('')
+  const [scrapePages, setScrapePages]   = useState(true)
   const [jobName, setJobName]           = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
   const [niche, setNiche] = useState('none')
@@ -130,6 +131,7 @@ export default function NewMetaJobPage() {
         setMinVolume(s.min_volume ?? 10)
         setUseGsc(s.use_gsc ?? true)
         setSiteUrl(s.site_url || '')
+        setScrapePages(s.scrape_pages ?? true)
       }
       if (creds) {
         setDfsLogin(creds.dfs_login || '')
@@ -157,6 +159,7 @@ export default function NewMetaJobPage() {
     if (t.min_volume != null)   setMinVolume(Number(t.min_volume))
     if (t.use_gsc != null)           setUseGsc(Boolean(t.use_gsc))
     if (t.site_url)                  setSiteUrl(t.site_url as string)
+    if (t.scrape_pages != null)      setScrapePages(Boolean(t.scrape_pages))
     if (t.brand_profile_id)          setBrandProfileId(t.brand_profile_id as string)
     if (t.restricted_industry != null) setRestrictedIndustry(Boolean(t.restricted_industry))
   }
@@ -217,6 +220,7 @@ export default function NewMetaJobPage() {
         min_volume: minVolume,
         use_gsc: useGsc,
         site_url: siteUrl,
+        scrape_pages: scrapePages,
         brand_profile_id: brandProfileId,
         niche,
         restricted_industry: restrictedIndustry,
@@ -392,6 +396,14 @@ export default function NewMetaJobPage() {
               </div>
               <span className="text-sm">Include brand name in title and description</span>
             </label>
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <div onClick={() => setScrapePages(!scrapePages)}
+                className={`w-9 h-5 rounded-full transition-colors relative ${scrapePages ? 'bg-accent' : 'bg-border'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${scrapePages ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+              <span className="text-sm">Scrape pages for context</span>
+            </label>
           </div>
 
           {/* GSC Settings */}
@@ -506,7 +518,7 @@ export default function NewMetaJobPage() {
                       full_brand_name: fullBrandName, include_brand: includeBrand,
                       forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
                       location_code: locationCode, min_volume: minVolume,
-                      use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
+                      use_gsc: useGsc, site_url: siteUrl, scrape_pages: scrapePages, brand_profile_id: brandProfileId,
                       niche, restricted_industry: restrictedIndustry,
                     }, 'meta')
                     if (tmpl?.id) setTemplates(prev => [tmpl, ...prev])
