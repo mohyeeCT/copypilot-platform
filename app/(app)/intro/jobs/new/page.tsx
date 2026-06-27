@@ -150,6 +150,7 @@ export default function NewJobPage() {
 
   // Options
   const [scrapePages, setScrapePages] = useState(true)
+  const [includeAiOverviewContext, setIncludeAiOverviewContext] = useState(true)
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
 
@@ -218,6 +219,7 @@ export default function NewJobPage() {
     if (s.branded_terms_input) setBrandedTermsInput(s.branded_terms_input as string)
     if (typeof s.use_gsc === 'boolean') setUseGsc(s.use_gsc)
     if (typeof s.scrape_pages === 'boolean') setScrapePages(s.scrape_pages)
+    if (typeof s.include_ai_overview_context === 'boolean') setIncludeAiOverviewContext(s.include_ai_overview_context)
     if (s.site_url) setSiteUrl(s.site_url as string)
     setShowTemplates(false)
   }
@@ -260,6 +262,7 @@ export default function NewJobPage() {
           min_volume: minVolume,
           restricted_industry: restrictedIndustry,
           scrape_pages: scrapePages,
+          include_ai_overview_context: includeAiOverviewContext,
           use_gsc: useGsc,
           site_url: siteUrl,
           niche,
@@ -344,7 +347,9 @@ export default function NewJobPage() {
                           brand_name: brandName, brand_profile_id: selectedBrandProfileId, full_brand_name: fullBrandName,
                           include_brand: includeBrand, forbidden_phrases: forbiddenPhrases,
                           branded_terms_input: brandedTermsInput,
-                          use_gsc: useGsc, scrape_pages: scrapePages, site_url: siteUrl,
+                          use_gsc: useGsc, scrape_pages: scrapePages,
+                          include_ai_overview_context: includeAiOverviewContext,
+                          site_url: siteUrl,
                         }, 'intro')
                         if (tmpl?.id) setTemplates(prev => [tmpl, ...prev])
                       }
@@ -644,6 +649,14 @@ export default function NewJobPage() {
                 <span className="text-xs text-muted">Scrape pages (Jina)</span>
                 <input type="checkbox" checked={scrapePages} onChange={e => setScrapePages(e.target.checked)}
                   className="accent-accent" />
+              </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <span className="text-xs text-muted">Use AI Overview context</span>
+                  <p className="text-xs text-muted mt-0.5">Adds search intent context; disable for faster jobs</p>
+                </div>
+                <input type="checkbox" checked={includeAiOverviewContext} onChange={e => setIncludeAiOverviewContext(e.target.checked)}
+                  className="accent-accent shrink-0 ml-3" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Use GSC data</span>
