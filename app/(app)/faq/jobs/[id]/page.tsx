@@ -21,6 +21,7 @@ type RowResult = {
   paa_count?: number; faq_count?: number
   faq_combined?: string; faq_sources?: string
   faq_schema_json?: string; faq_schema_script?: string
+  qa_flags?: string[]
   status?: string
   faqs: FAQ[]; schema_json: string; schema_script: string; error: string | null
 }
@@ -153,6 +154,7 @@ function gscErrorMessage(error?: string | null) {
       'FAQs Generated',
       'FAQ Schema JSON-LD',
       'FAQ Status',
+      'QA Flags',
       'FAQ Content',
       'FAQ Sources',
       'FAQ Schema Script',  // bonus column not in Streamlit
@@ -182,6 +184,7 @@ function gscErrorMessage(error?: string | null) {
         r.faq_count ?? (r.faqs?.length ?? ''),
         r.faq_schema_json || r.schema_json || '',
         r.status || (r.error ? 'error' : 'ok'),
+        (r.qa_flags || []).join('; '),
         faqCombined,
         faqSources,
         r.faq_schema_script || r.schema_script || '',
@@ -381,7 +384,7 @@ function gscErrorMessage(error?: string | null) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        {['URL', 'Keyword', 'Source', 'GSC Auth', 'Scrape', 'AO', 'PAA', 'FAQs', 'Status'].map(h => (
+                        {['URL', 'Keyword', 'Source', 'GSC Auth', 'Scrape', 'AO', 'PAA', 'FAQs', 'Status', 'QA Flags'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                             {h}
                           </th>
@@ -439,8 +442,11 @@ function gscErrorMessage(error?: string | null) {
                           </td>
                           <td style={{ padding: '10px 14px' }}>
                             <span style={{ fontSize: 10, fontWeight: 500, color: row.error ? 'var(--error)' : 'var(--accent)', background: row.error ? 'rgba(255,77,109,0.08)' : 'rgba(0,201,167,0.08)', borderRadius: 4, padding: '2px 6px' }}>
-                              {row.error ? 'error' : 'ok'}
+                              {row.error ? 'error' : (row.status || 'ok')}
                             </span>
+                          </td>
+                          <td style={{ padding: '10px 14px', maxWidth: 260 }}>
+                            <p className="font-mono truncate" style={{ fontSize: 11, color: 'var(--muted)' }}>{(row.qa_flags || []).join('; ')}</p>
                           </td>
                         </tr>
                       ))}
@@ -493,6 +499,7 @@ function gscErrorMessage(error?: string | null) {
                     </span>
                   )}
                   {row.error && <Badge label="failed" />}
+                  {!!row.qa_flags?.length && !row.error && <Badge label={row.status || 'review'} />}
                   {job.status === 'complete' && (
                     <button
                       onClick={async e => {
@@ -528,6 +535,9 @@ function gscErrorMessage(error?: string | null) {
                   <div className="px-4 pb-4 space-y-3">
                     {row.error && (
                       <p className="text-error text-xs bg-error/5 border border-error/20 rounded px-3 py-2">{gscErrorMessage(row.error)}</p>
+                    )}
+                    {!!row.qa_flags?.length && !row.error && (
+                      <p className="text-xs text-accent bg-accent/10 rounded px-3 py-2 font-mono">{row.qa_flags.join('; ')}</p>
                     )}
 
                     {/* Keyword override */}

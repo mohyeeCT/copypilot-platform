@@ -24,6 +24,7 @@ type RowResult = {
   primary_volume?: number
   primary_difficulty?: number
   status?: string
+  qa_flags?: string[]
   error: string | null
 }
 
@@ -149,7 +150,7 @@ export default function JobPage() {
     const headers = [
       'URL', 'Intro Copy', 'Primary Keyword', 'Supporting Keywords',
       'Word Count', 'Cluster Source', 'Keyword Source', 'Runner Up',
-      'Primary Volume', 'Primary Difficulty', 'Scrape Status', 'Intro Status',
+      'Primary Volume', 'Primary Difficulty', 'Scrape Status', 'Intro Status', 'QA Flags',
     ]
     const csvRows = job.results.map(r => {
       const introCopy = edits[job.results.indexOf(r)] ?? r.intro_copy
@@ -166,6 +167,7 @@ export default function JobPage() {
         r.primary_difficulty ?? '',
         r.scrape_status || '',
         r.status || (r.error ? 'error' : 'ok'),
+        (r.qa_flags || []).join('; '),
       ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
     })
     const csv = [headers, ...csvRows].map(r => r.join(',')).join('\n')
@@ -191,6 +193,7 @@ export default function JobPage() {
       'Primary Difficulty': r.primary_difficulty ?? '',
       'Scrape Status': r.scrape_status || '',
       'Intro Status': r.status || (r.error ? 'error' : 'ok'),
+      'QA Flags': (r.qa_flags || []).join('; '),
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
@@ -391,7 +394,7 @@ export default function JobPage() {
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border">
-                      {['URL', 'Primary Keyword', 'Runner Up', 'Supporting Keywords', 'Words', 'Source', 'Scrape', 'Status'].map(h => (
+                      {['URL', 'Primary Keyword', 'Runner Up', 'Supporting Keywords', 'Words', 'Source', 'Scrape', 'Status', 'QA Flags'].map(h => (
                         <th key={h} className="text-left py-2 pr-4 text-muted font-normal whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -410,6 +413,7 @@ export default function JobPage() {
                         <td className="py-2 pr-4">
                           <Badge label={row.error ? 'error' : (row.status || 'ok')} />
                         </td>
+                        <td className="py-2 pr-4 text-muted max-w-xs truncate">{(row.qa_flags || []).join('; ')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -461,6 +465,9 @@ export default function JobPage() {
                       <div className="px-4 pb-4 space-y-4 border-t border-border">
                         {row.error && (
                           <p className="text-xs text-error bg-error/10 rounded px-3 py-2 mt-3 font-mono">{gscErrorMessage(row.error)}</p>
+                        )}
+                        {!!row.qa_flags?.length && !row.error && (
+                          <p className="text-xs text-accent bg-accent/10 rounded px-3 py-2 mt-3 font-mono">{row.qa_flags.join('; ')}</p>
                         )}
 
                         {/* Keyword header row */}

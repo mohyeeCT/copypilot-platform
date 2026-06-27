@@ -25,6 +25,7 @@ interface MetaResult {
   description_length?: number
   h1_length?: number
   h1_input?: string
+  qa_flags?: string[]
   status?: string
   error?: string
 }
@@ -149,13 +150,13 @@ export default function MetaJobPage() {
 
   function downloadCsv() {
     if (!job?.results?.length) return
-    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status']
+    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
     const rows = job.results.map(r => [
       r.url, r.generated_title || '', r.title_length || '',
       r.generated_description || '', r.description_length || '',
       r.optimised_h1 || '', r.h1_length || '',
       r.selected_keyword || '', r.kw_volume ?? '', r.kw_difficulty ?? '',
-      r.keyword_source || '', r.runner_up || '', r.status || '',
+      r.keyword_source || '', r.runner_up || '', r.status || '', (r.qa_flags || []).join('; '),
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -424,6 +425,11 @@ export default function MetaJobPage() {
                         <span className="text-xs text-muted font-mono">GSC: {gscAuthLabel(row.gsc_auth_method)}</span>
                       )}
                     </div>
+
+                    {/* Title tag */}
+                    {!!row.qa_flags?.length && !row.error && (
+                      <p className="text-xs text-accent bg-accent/10 rounded px-3 py-2 font-mono">{row.qa_flags.join('; ')}</p>
+                    )}
 
                     {/* Title tag */}
                     {row.generated_title && (
