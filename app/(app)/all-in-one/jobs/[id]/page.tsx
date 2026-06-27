@@ -428,13 +428,13 @@ export default function PageCopyJobPage() {
                         <p className="text-xs text-muted uppercase tracking-wider">Meta Copy</p>
                         {row.generated_title && (
                           <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                            <p className="text-xs text-muted mb-1">Title Tag <span className={row.title_length && row.title_length > 60 ? 'text-error' : 'text-success'}>{row.title_length}/60</span></p>
+                            <p className="text-xs text-muted mb-1">Title Tag <span className={row.title_length && row.title_length > 90 ? 'text-error' : 'text-success'}>{row.title_length}/90</span></p>
                             <p className="text-sm">{row.generated_title}</p>
                           </div>
                         )}
                         {row.generated_description && (
                           <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                            <p className="text-xs text-muted mb-1">Description <span className={row.description_length && row.description_length > 155 ? 'text-error' : 'text-success'}>{row.description_length}/155</span></p>
+                            <p className="text-xs text-muted mb-1">Description <span className={row.description_length && row.description_length > 200 ? 'text-error' : 'text-success'}>{row.description_length}/200</span></p>
                             <p className="text-sm">{row.generated_description}</p>
                           </div>
                         )}
