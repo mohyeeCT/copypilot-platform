@@ -12,7 +12,7 @@ export default function Page() {
       newHref:     '/all-in-one/jobs/new',
       jobHref:     (id) => `/all-in-one/jobs/${id}`,
       icon:        Layers,
-      accent:      '#0A9B7A',
+      accent:      '#0B7A5C',
       emptyTitle:  'No All in One jobs yet',
       emptyDesc:   'Run the full pipeline — meta copy, FAQs, and page copy from a single job per URL.',
       listJobs:    (token) => aioApi.listJobs(token),

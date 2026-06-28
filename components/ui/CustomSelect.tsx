@@ -2,12 +2,13 @@
 import { useRef, useState, useEffect, useId, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
+import { displayOptionLabel } from '@/lib/option-labels'
 
 type OptionObject = { value: string; label: string; group?: string }
 type Option = string | OptionObject
 
 function toObj(o: Option): OptionObject {
-  return typeof o === 'string' ? { value: o, label: o } : o
+  return typeof o === 'string' ? { value: o, label: displayOptionLabel(o) } : o
 }
 
 interface Props {

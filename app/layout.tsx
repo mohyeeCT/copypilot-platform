@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { ToastProvider } from '@/components/ui/Toast'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Inter, JetBrains_Mono, Sora } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', weight: ['400','500','600','700'], display: 'swap' })
+const sora = Sora({ subsets: ['latin'], variable: '--font-display', weight: ['400','500'], display: 'swap' })
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans', weight: ['400','500','600','700'], display: 'swap' })
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' })
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${sora.variable} ${inter.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="bg-bg text-text font-sans antialiased">
         <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem('cp-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();` }} />
         <ToastProvider>{children}</ToastProvider>

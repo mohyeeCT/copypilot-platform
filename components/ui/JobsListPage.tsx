@@ -38,7 +38,7 @@ interface ToolConfig {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  complete:   '#0A9B7A',
+  complete:   '#0B7A5C',
   running:    '#D97706',
   pending:    '#8080A8',
   failed:     '#C62828',

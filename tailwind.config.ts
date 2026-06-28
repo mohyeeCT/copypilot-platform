@@ -30,8 +30,9 @@ const config: Config = {
         'tool-neutral': 'var(--tool-neutral)',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        display: ['var(--font-display)', 'Sora', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Inter', 'sans-serif'],
+        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
       },
       boxShadow: {
         xs:     'var(--shadow-xs)',
@@ -42,7 +43,7 @@ const config: Config = {
       },
       borderRadius: {
         DEFAULT: '8px',
-        lg: '12px',
+        lg: '14px',
         xl: '16px',
       },
     },

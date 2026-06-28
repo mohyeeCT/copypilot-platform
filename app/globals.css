@@ -3,8 +3,6 @@
 @tailwind utilities;
 
 /* ── Google Fonts ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 /* ── Theme tokens ─────────────────────────────────────────── */
 :root {
   /* Cream layer system — each step is clearly different */
@@ -22,27 +20,29 @@
   --muted:          #7C766F;   /* muted — still readable on cream */
 
   /* Brand */
-  --accent:         #0A9B7A;   /* deep forest green — authority over mint */
-  --accent-hover:   #088060;   /* darker on hover */
-  --accent-subtle:  rgba(10, 155, 122, 0.10);
-  --accent-ring:    rgba(10, 155, 122, 0.18);
+  --accent:         #0B7A5C;   /* forest green */
+  --accent-hover:   #096A50;
+  --accent-deep:    #075440;
+  --accent-tint:    #D2EDE4;
+  --accent-subtle:  rgba(11, 122, 92, 0.10);
+  --accent-ring:    rgba(11, 122, 92, 0.18);
 
   /* Semantic */
   --error:          #C62828;
   --warning:        #C67B00;
-  --success:        #0A9B7A;
+  --success:        #0B7A5C;
 
   /* Tool accents — per-tool identity hue */
   --tool-faq:       #818CF8;   /* indigo  — FAQ Copy    */
   --tool-intro:     #60A5FA;   /* blue    — Page Intro  */
   --tool-meta:      #F59E0B;   /* amber   — Meta Copy   */
   --tool-page:      #F472B6;   /* pink    — Page Copy   */
-  --tool-aio:       #0A9B7A;   /* green   — All in One  */
+  --tool-aio:       #0B7A5C;   /* green   — All in One  */
   --tool-neutral:   #94A3B8;   /* slate   — Indexer / Settings */
 
   /* Corner radii */
   --radius:         8px;    /* inputs, buttons, nav items */
-  --radius-lg:      12px;   /* cards */
+  --radius-lg:      14px;   /* cards */
   --radius-xl:      16px;   /* hero panels, dropzones */
   --radius-badge:   6px;    /* badges, chips */
 
@@ -51,7 +51,7 @@
   --shadow-sm:  0 1px 2px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
   --shadow-md:  0 1px 3px rgba(0,0,0,0.07), 0 4px 14px rgba(0,0,0,0.05);
   --shadow-lg:  0 2px 6px rgba(0,0,0,0.08), 0 8px 28px rgba(0,0,0,0.07);
-  --shadow-accent: 0 1px 3px rgba(10,155,122,0.20), 0 3px 10px rgba(10,155,122,0.14);
+  --shadow-accent: 0 1px 3px rgba(11,122,92,0.20), 0 3px 10px rgba(11,122,92,0.14);
 
   /* Scrollbar */
   --scrollbar-track: #D8D3CB;
@@ -70,20 +70,22 @@
   --text:           #EEECF4;
   --muted:          #8080A8;
 
-  --accent:         #12C490;   /* brighter for dark bg contrast */
-  --accent-hover:   #0FA87A;
-  --accent-subtle:  rgba(18, 196, 144, 0.10);
-  --accent-ring:    rgba(18, 196, 144, 0.18);
+  --accent:         #16B286;   /* brighter for dark bg contrast */
+  --accent-hover:   #119A74;
+  --accent-deep:    #D2EDE4;
+  --accent-tint:    rgba(22, 178, 134, 0.16);
+  --accent-subtle:  rgba(22, 178, 134, 0.10);
+  --accent-ring:    rgba(22, 178, 134, 0.18);
 
   --error:          #FF4D6D;
   --warning:        #FFB347;
-  --success:        #12C490;
+  --success:        #16B286;
 
   --shadow-xs:  0 1px 2px rgba(0,0,0,0.30);
   --shadow-sm:  0 1px 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
   --shadow-md:  0 1px 3px rgba(0,0,0,0.40), 0 4px 14px rgba(0,0,0,0.30);
   --shadow-lg:  0 2px 6px rgba(0,0,0,0.45), 0 8px 28px rgba(0,0,0,0.35);
-  --shadow-accent: 0 1px 3px rgba(18,196,144,0.20), 0 3px 10px rgba(18,196,144,0.14);
+  --shadow-accent: 0 1px 3px rgba(22,178,134,0.20), 0 3px 10px rgba(22,178,134,0.14);
 
   --scrollbar-track: #15151E;
   --scrollbar-thumb: #28283A;
@@ -98,16 +100,20 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans), Inter, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     transition: background-color 0.15s ease, color 0.15s ease;
   }
 
   /* Typography hierarchy */
-  h1 { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.25; }
-  h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; }
-  h3 { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; }
+  h1, h2, h3 {
+    font-family: var(--font-display), Sora, sans-serif;
+    font-weight: 500;
+  }
+  h1 { font-size: 1.375rem; letter-spacing: -0.02em; line-height: 1.25; }
+  h2 { font-size: 1.125rem; letter-spacing: -0.02em; line-height: 1.3; }
+  h3 { font-size: 0.9375rem; letter-spacing: -0.01em; }
   h4 { font-size: 0.875rem; font-weight: 600; }
 
   /* Scrollbar */
@@ -125,14 +131,14 @@
 
   /* Card — real shadow, not just border */
   .card {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--surface-raised);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
   }
 
   .card-flat {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--surface);
     border: 1px solid var(--border-subtle);
   }
@@ -144,7 +150,7 @@
     border-radius: 8px;
     padding: 7px 11px;
     font-size: 0.875rem;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans), Inter, sans-serif;
     background: var(--surface);
     color: var(--text);
     box-shadow: inset 2px 2px 5px rgba(0,0,0,.09), inset -2px -2px 5px rgba(255,255,255,.65);
@@ -224,7 +230,7 @@
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--accent-hover);
-    box-shadow: 0 2px 6px rgba(10,155,122,0.28), 0 6px 18px rgba(10,155,122,0.18);
+    box-shadow: 0 2px 6px rgba(11,122,92,0.28), 0 6px 18px rgba(11,122,92,0.18);
     transform: translateY(-1px);
   }
   .btn-primary:active:not(:disabled) {
@@ -288,7 +294,7 @@
     border-radius: 6px;
     font-size: 0.6875rem;
     font-weight: 500;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono), 'JetBrains Mono', monospace;
     border: 1px solid transparent;
   }
 
@@ -314,7 +320,7 @@
   }
   [data-theme="dark"] .nav-item:hover { background: rgba(255,255,255,0.06); box-shadow: 2px 2px 6px rgba(0,0,0,.30), -1px -1px 4px rgba(255,255,255,.05); }
   [data-theme="dark"] .nav-item:active { box-shadow: inset 1px 2px 4px rgba(0,0,0,.35), inset -2px -1px 4px rgba(255,255,255,.04); }
-  [data-theme="dark"] .btn-ghost:hover:not(:disabled) { background: rgba(18,196,144,0.10); }
+  [data-theme="dark"] .btn-ghost:hover:not(:disabled) { background: rgba(22,178,134,0.10); }
 
   /* Icon button */
   .icon-btn {
@@ -374,7 +380,7 @@
     border-radius: 8px;
     padding: 7px 11px;
     font-size: 0.875rem;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans), Inter, sans-serif;
     background: var(--surface);
     color: var(--text);
     cursor: pointer;
@@ -456,16 +462,16 @@
   .cs-option--active {
     color: var(--accent);
     font-weight: 600;
-    background: rgba(10,155,122,0.08);
+    background: rgba(11,122,92,0.08);
   }
   .cs-option--active:hover {
-    background: rgba(10,155,122,.12);
+    background: rgba(11,122,92,.12);
   }
   [data-theme="dark"] .cs-option--active {
-    background: rgba(18,196,144,.10);
+    background: rgba(22,178,134,.10);
   }
   [data-theme="dark"] .cs-option--active:hover {
-    background: rgba(18,196,144,.15);
+    background: rgba(22,178,134,.15);
   }
   [data-theme="dark"] .cs-trigger {
     box-shadow: inset 2px 2px 5px rgba(0,0,0,.35), inset -2px -2px 5px rgba(255,255,255,.03);

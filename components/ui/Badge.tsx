@@ -4,12 +4,12 @@ const BADGE_STYLES: Record<string, BadgeStyle> = {
   // Status badges — explicit rgba so opacity works regardless of CSS var format
   pending:    { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
   running:    { bg: 'rgba(198,123,0,0.14)',   fg: '#A8690A', bd: 'rgba(198,123,0,0.30)',   dot: '#C67B00' },
-  complete:   { bg: 'rgba(10,155,122,0.12)',  fg: '#0A9B7A', bd: 'rgba(10,155,122,0.24)' },
+  complete:   { bg: 'rgba(11,122,92,0.12)',   fg: '#0B7A5C', bd: 'rgba(11,122,92,0.24)' },
   failed:     { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)' },
   cancelling: { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)',   dot: '#C62828' },
   cancelled:  { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
   error:      { bg: 'rgba(198,40,40,0.10)',   fg: '#C62828', bd: 'rgba(198,40,40,0.20)' },
-  ok:         { bg: 'rgba(10,155,122,0.12)',  fg: '#0A9B7A', bd: 'rgba(10,155,122,0.24)' },
+  ok:         { bg: 'rgba(11,122,92,0.12)',   fg: '#0B7A5C', bd: 'rgba(11,122,92,0.24)' },
   // Keyword source badges
   manual:     { bg: 'rgba(124,118,111,0.10)', fg: '#7C766F', bd: 'rgba(124,118,111,0.18)' },
   fallback:   { bg: 'rgba(198,123,0,0.14)',   fg: '#A8690A', bd: 'rgba(198,123,0,0.30)' },
@@ -36,7 +36,7 @@ export default function Badge({ label }: { label: string }) {
         borderRadius: 6,
         fontSize: '0.6875rem',
         fontWeight: 500,
-        fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+        fontFamily: 'var(--font-mono), "JetBrains Mono", ui-monospace, monospace',
         border: `1px solid ${s.bd}`,
         background: s.bg,
         color: s.fg,

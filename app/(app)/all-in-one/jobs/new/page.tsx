@@ -8,6 +8,7 @@ import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
+import { toDisplayOptions } from '@/lib/option-labels'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
 import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
@@ -31,7 +32,7 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Mistral (free tier)': [{ label: 'Mistral Small Latest', value: 'mistral-small-latest' }],
   'Groq (free tier)': [{ label: 'Llama 3.3 70B Versatile', value: 'llama-3.3-70b-versatile' }],
 }
-const BIZ_TYPES  = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
+const BIZ_TYPES  = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']
 const PAGE_LABELS: Record<string, string> = {
   blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
@@ -424,7 +425,7 @@ export default function NewAIOJob() {
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
                 <CustomSelect value={bizType} onChange={setBizType}
-                  options={BIZ_TYPES.map(bt => ({ value: bt, label: bt.toUpperCase() }))} />
+                  options={toDisplayOptions(BIZ_TYPES)} />
                 <NicheSelect value={niche} onChange={setNiche} businessType={bizType} />
               </div>
             </div>

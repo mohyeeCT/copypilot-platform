@@ -441,7 +441,7 @@ function gscErrorMessage(error?: string | null) {
                             </span>
                           </td>
                           <td style={{ padding: '10px 14px' }}>
-                            <span style={{ fontSize: 10, fontWeight: 500, color: row.error ? 'var(--error)' : 'var(--accent)', background: row.error ? 'rgba(255,77,109,0.08)' : 'rgba(0,201,167,0.08)', borderRadius: 4, padding: '2px 6px' }}>
+                            <span style={{ fontSize: 10, fontWeight: 500, color: row.error ? 'var(--error)' : 'var(--accent)', background: row.error ? 'rgba(255,77,109,0.08)' : 'var(--accent-subtle)', borderRadius: 4, padding: '2px 6px' }}>
                               {row.error ? 'error' : (row.status || 'ok')}
                             </span>
                           </td>

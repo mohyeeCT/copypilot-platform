@@ -40,7 +40,7 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile' },
   ],
 }
-const BUSINESS_TYPES = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
+const BUSINESS_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']
 
 interface Row { url: string; keyword: string; page_type: string; h1: string }
