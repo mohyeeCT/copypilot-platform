@@ -15,6 +15,22 @@ import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/s
 export const dynamic = 'force-dynamic'
 
 const PROVIDERS  = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
+const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
+  'Claude': [
+    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
+    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
+  ],
+  'OpenAI': [
+    { label: 'GPT-5.5 (latest)', value: 'gpt-5.5' },
+    { label: 'GPT-5.4', value: 'gpt-5.4' },
+    { label: 'GPT-5.4 mini', value: 'gpt-5.4-mini' },
+    { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },
+  ],
+  'Gemini (free)': [{ label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' }],
+  'Mistral (free tier)': [{ label: 'Mistral Small Latest', value: 'mistral-small-latest' }],
+  'Groq (free tier)': [{ label: 'Llama 3.3 70B Versatile', value: 'llama-3.3-70b-versatile' }],
+}
 const BIZ_TYPES  = ['b2b', 'b2c', 'ecommerce', 'service', 'local', 'general']
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']
 const PAGE_LABELS: Record<string, string> = {
@@ -51,6 +67,7 @@ export default function NewAIOJob() {
 
   // Core settings
   const [provider, setProvider]       = useState('Claude')
+  const [model, setModel]             = useState(PROVIDER_MODELS['Claude'][0].value)
   const [bizType, setBizType]         = useState('general')
   const [niche, setNiche]             = useState('none')
   const [brandName, setBrandName]     = useState('')
@@ -103,7 +120,9 @@ export default function NewAIOJob() {
         aioApi.getTemplates(session.access_token),
       ])
       if (s) {
-        setProvider(s.provider || 'Claude')
+        const savedProvider = s.provider || 'Claude'
+        setProvider(savedProvider)
+        setModel(s.model || PROVIDER_MODELS[savedProvider]?.[0]?.value || '')
         setBizType(s.business_type || 'general')
         setBrandName(s.brand_name || '')
         setFullBrand(s.full_brand_name || '')
@@ -137,6 +156,11 @@ export default function NewAIOJob() {
     const r = [...rows]
     r[i] = { ...r[i], [field]: !r[i][field] }
     setRows(r)
+  }
+
+  function handleProviderChange(value: string) {
+    setProvider(value)
+    setModel(PROVIDER_MODELS[value]?.[0]?.value || '')
   }
 
   function parseCsv() {
@@ -182,7 +206,7 @@ export default function NewAIOJob() {
       name: jobName.trim() || `All in One — ${validRows.length} URLs`,
       rows: validRows.map(r => ({ ...r, page_type: r.page_type || pageType })),
       settings: {
-        niche, provider, dfs_login: dfsLogin,
+        niche, provider, model, dfs_login: dfsLogin,
         business_type: bizType, brand_name: brandName, full_brand_name: fullBrand,
         branded_terms_input: brandTerms, include_brand: includeBrand,
         forbidden_phrases: forbiddenPhrases, location_code: locationCode, min_volume: minVolume,
@@ -387,8 +411,14 @@ export default function NewAIOJob() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Provider</label>
-                <CustomSelect value={provider} onChange={setProvider} options={PROVIDERS} />
+                <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
               </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Model</label>
+                <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
                 <CustomSelect value={bizType} onChange={setBizType}
