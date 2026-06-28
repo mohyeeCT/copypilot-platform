@@ -22,6 +22,7 @@ const BACKENDS = [
   { label: 'All in One',  url: 'all-in-one-saas-backend-production.up.railway.app' },
   { label: 'Schema Generator', url: 'schema-saas-backend-production.up.railway.app' },
 ]
+const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 
 function SearchConsoleIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   // Credentials state
   const [credsConfigured, setCredsConfigured] = useState(false)
   const [credsProvider, setCredsProvider] = useState('')
+  const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({})
   const [credsSaving, setCredsSaving] = useState(false)
   const [credsDeleting, setCredsDeleting] = useState(false)
   const [credsSaved, setCredsSaved] = useState(false)
@@ -126,8 +128,10 @@ export default function SettingsPage() {
             oauth_available: false,
           })
         }
-        if (data.provider_settings?.has_api_key) {
-          setCredsConfigured(true)
+        if (data.provider_settings) {
+          const status = data.provider_settings.api_key_status || {}
+          setProviderKeyStatus(status)
+          setCredsConfigured(Boolean(data.provider_settings.has_api_key || Object.values(status).some(Boolean)))
           setCredsProvider(data.provider_settings.provider || '')
         }
       } catch (e) {
@@ -318,6 +322,7 @@ export default function SettingsPage() {
       await deleteCredentials(session.access_token)
       setCredsConfigured(false)
       setCredsProvider('')
+      setProviderKeyStatus({})
       setShowCredsForm(false)
     } catch (e) {
       console.error('Failed to delete credentials:', e)
@@ -328,7 +333,11 @@ export default function SettingsPage() {
 
 
   async function handleSaveCreds() {
-    if (!credsConfigured && !credsForm.api_key.trim()) { setCredsError('API key is required'); return }
+    const selectedProviderHasKey = Boolean(providerKeyStatus[credsForm.provider])
+    if (!selectedProviderHasKey && !credsForm.api_key.trim()) {
+      setCredsError(`${credsForm.provider} API key is required`)
+      return
+    }
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
     if (!session) return
@@ -336,8 +345,13 @@ export default function SettingsPage() {
     setCredsError('')
     try {
       await saveProviderCredentials(session.access_token, credsForm)
-      setCredsConfigured(true)
+      const nextStatus = credsForm.api_key.trim()
+        ? { ...providerKeyStatus, [credsForm.provider]: true }
+        : providerKeyStatus
+      setProviderKeyStatus(nextStatus)
+      setCredsConfigured(Object.values(nextStatus).some(Boolean))
       setCredsProvider(credsForm.provider)
+      setCredsForm(f => ({ ...f, api_key: '', dfs_password: '', jina_api_key: '' }))
       setShowCredsForm(false)
       setCredsSaved(true)
       setTimeout(() => setCredsSaved(false), 2000)
@@ -537,7 +551,9 @@ export default function SettingsPage() {
                 <CheckCircle size={15} className="text-accent shrink-0" />
                 <div>
                   <p className="text-xs font-medium">Credentials saved</p>
-                  <p className="text-xs text-muted mt-0.5">{credsProvider} API key + DataForSEO{credsForm.site_url ? ` · ${credsForm.site_url}` : ''}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {AI_PROVIDERS.filter(p => providerKeyStatus[p]).join(', ') || credsProvider || 'AI provider'} API key{AI_PROVIDERS.filter(p => providerKeyStatus[p]).length === 1 ? '' : 's'} + DataForSEO{credsForm.site_url ? ` · ${credsForm.site_url}` : ''}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -547,7 +563,10 @@ export default function SettingsPage() {
                   if (session) {
                     try {
                       const creds = await getProviderMetadata(session.access_token)
-                      if (creds) setCredsForm({ provider: creds.provider || 'Claude', api_key: creds.api_key || '', dfs_login: creds.dfs_login || '', dfs_password: creds.dfs_password || '', jina_api_key: creds.jina_api_key || '', site_url: creds.site_url || '' })
+                      if (creds) {
+                        setProviderKeyStatus(creds.api_key_status || {})
+                        setCredsForm({ provider: creds.provider || 'Claude', api_key: '', dfs_login: creds.dfs_login || '', dfs_password: '', jina_api_key: '', site_url: creds.site_url || '' })
+                      }
                     } catch (e) {
                       console.error('Failed to pre-fill credentials form:', e)
                     }
@@ -564,13 +583,20 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted block mb-1">AI Provider</label>
-                  <CustomSelect value={credsForm.provider} onChange={value => setCredsForm(f => ({ ...f, provider: value }))}
-                    options={['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']} className="text-xs w-full" />
+                  <CustomSelect value={credsForm.provider} onChange={value => setCredsForm(f => ({ ...f, provider: value, api_key: '' }))}
+                    options={AI_PROVIDERS} className="text-xs w-full" />
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">API Key</label>
-                  <input type="password" value={credsForm.api_key} onChange={e => setCredsForm(f => ({ ...f, api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved key' : 'sk-...'} />
+                  <input type="password" value={credsForm.api_key} onChange={e => setCredsForm(f => ({ ...f, api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={providerKeyStatus[credsForm.provider] ? `Leave blank to keep saved ${credsForm.provider} key` : 'sk-...'} />
                 </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {AI_PROVIDERS.map(provider => (
+                  <span key={provider} className={`text-xs px-2 py-1 rounded border ${providerKeyStatus[provider] ? 'border-accent/30 bg-accent/5 text-text' : 'border-border text-muted'}`}>
+                    {provider}: {providerKeyStatus[provider] ? 'saved' : 'not saved'}
+                  </span>
+                ))}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
