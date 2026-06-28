@@ -38,6 +38,14 @@ interface PageCopyResult {
   error?: string
 }
 
+interface InternalLinkSuggestion {
+  source_url: string
+  target_url: string
+  anchor_text: string
+  confidence?: number
+  reason?: string
+}
+
 function gscAuthLabel(method?: PageCopyResult['gsc_auth_method']) {
   if (method === 'google_oauth') return 'Google OAuth'
   if (method === 'service_account') return 'Service account'
@@ -69,6 +77,7 @@ interface Job {
   current_step?: string
   error?: string
   results?: PageCopyResult[]
+  internal_link_suggestions?: InternalLinkSuggestion[]
   rows?: unknown[]
   settings?: Record<string, unknown>
   logs?: {ts: string; msg: string}[]
@@ -183,6 +192,23 @@ export default function PageCopyJobPage() {
     a.click()
   }
 
+  function downloadInternalLinksCsv() {
+    if (!job?.internal_link_suggestions?.length) return
+    const headers = ['Source URL', 'Target URL', 'Suggested Anchor', 'Confidence', 'Reason']
+    const rows = job.internal_link_suggestions.map(s => [
+      s.source_url || '',
+      s.target_url || '',
+      s.anchor_text || '',
+      s.confidence ?? '',
+      s.reason || '',
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
+    a.click()
+  }
+
   if (!job) return (
     <AppLayout title="All in One">
       <div className="flex items-center justify-center h-48">
@@ -281,6 +307,36 @@ export default function PageCopyJobPage() {
         ) : null}
 
         {job.error && <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">{gscErrorMessage(job.error)}</div>}
+
+        {job.internal_link_suggestions && job.internal_link_suggestions.length > 0 && (
+          <div className="mb-6 rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-semibold">Internal link suggestions</h2>
+                <p className="text-xs text-muted">{job.internal_link_suggestions.length} opportunities found across this job</p>
+              </div>
+              <button onClick={downloadInternalLinksCsv} className="btn-ghost text-xs flex items-center gap-1.5">
+                <Download size={12} /> Export CSV
+              </button>
+            </div>
+            <div className="space-y-2">
+              {job.internal_link_suggestions.slice(0, 6).map((suggestion, si) => (
+                <div key={`${suggestion.source_url}-${suggestion.target_url}-${si}`} className="border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3 mb-1">
+                    <span className="text-xs font-mono text-accent truncate">{suggestion.anchor_text}</span>
+                    {suggestion.confidence !== undefined && <span className="text-xs text-muted">{Math.round(suggestion.confidence * 100)}%</span>}
+                  </div>
+                  <p className="text-xs text-muted truncate">From: {suggestion.source_url}</p>
+                  <p className="text-xs text-muted truncate">To: {suggestion.target_url}</p>
+                  {suggestion.reason && <p className="text-xs text-muted mt-1">{suggestion.reason}</p>}
+                </div>
+              ))}
+              {job.internal_link_suggestions.length > 6 && (
+                <p className="text-xs text-muted">+{job.internal_link_suggestions.length - 6} more suggestions in CSV export</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Results toolbar */}
         {job.results && job.results.length > 0 && (
