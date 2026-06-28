@@ -22,6 +22,8 @@ interface PageCopyResult {
   docx_b64?: string
   full_page?: string
   section_results?: Record<string, string>
+  content_gap_summary?: {section: string; missing_topics: string[]; summary?: string}[]
+  brand_consistency?: {score?: number; reason?: string}
   // Meta fields
   generated_title?: string
   generated_description?: string
@@ -83,6 +85,7 @@ export default function PageCopyJobPage() {
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
   const [expanded, setExpanded]         = useState<number | null>(null)
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
+  const [reviewerInstruction, setReviewerInstruction] = useState<Record<string, string>>({})
   const [logsCollapsed, setLogsCollapsed] = useState(false)
 
   useEffect(() => {
@@ -422,6 +425,30 @@ export default function PageCopyJobPage() {
                       </div>
                     )}
 
+                    {row.brand_consistency?.score !== undefined && (
+                      <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <p className="text-xs text-muted mb-1 uppercase tracking-wider">Brand match</p>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${(row.brand_consistency.score || 0) < 70 ? 'text-error' : 'text-success'}`}>
+                            {row.brand_consistency.score}/100
+                          </span>
+                          {row.brand_consistency.reason && <span className="text-xs text-muted">{row.brand_consistency.reason}</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {row.content_gap_summary && row.content_gap_summary.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted uppercase tracking-wider">Content gaps</p>
+                        {row.content_gap_summary.map((gap, gi) => (
+                          <div key={`${gap.section}-${gi}`} className="border border-border rounded-lg p-3">
+                            <p className="text-xs font-mono text-muted mb-1">{gap.section}</p>
+                            <p className="text-xs text-text">{gap.summary || gap.missing_topics.join(', ')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Meta copy */}
                     {(row.generated_title || row.generated_description) && (
                       <div className="space-y-2">
@@ -472,49 +499,56 @@ export default function PageCopyJobPage() {
                             <div key={name} className="border border-border rounded-lg overflow-hidden">
                               <div className="px-3 py-2 bg-border/20 flex items-center justify-between">
                                 <span className="text-xs font-mono text-muted">{name}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted">{text.split(' ').length}w</span>
-                                  <button
-                                    title="Regenerate this section"
-                                    disabled={isRegenerating}
-                                    onClick={async e => {
-                                      e.stopPropagation()
-                                      if (!job) return
-                                      setRerunningSections(prev => new Set([...Array.from(prev), sectionKey]))
-                                      try {
-                                        const sb = createClient()
-                                        const { data: { session } } = await sb.auth.getSession()
-                                        if (!session) return
-                                        await aioApi.rerunSection(session.access_token, job.id, i, name)
-                                        // Poll until current_step changes back from the regenerating message
-                                        const poll = setInterval(async () => {
-                                          const updated = await aioApi.getJob(session.access_token, job.id)
-                                          const step: string = updated.current_step || ''
-                                          if (!step.startsWith(`Regenerating section '${name}'`)) {
-                                            clearInterval(poll)
-                                            setRerunningSections(prev => {
-                                              const next = new Set(prev)
-                                              next.delete(sectionKey)
-                                              return next
-                                            })
-                                            setJob(updated)
-                                          }
-                                        }, 3000)
-                                      } catch (e) {
-                                        console.error('Section rerun request failed:', e)
-                                        setRerunningSections(prev => {
-                                          const next = new Set(prev)
-                                          next.delete(sectionKey)
-                                          return next
-                                        })
-                                      }
-                                    }}
-                                    className="p-1 rounded transition-colors hover:bg-border/40 disabled:opacity-40"
-                                    style={{ color: 'var(--muted)' }}
-                                  >
-                                    <RefreshCw size={11} className={isRegenerating ? 'animate-spin' : ''} />
-                                  </button>
-                                </div>
+                                <span className="text-xs text-muted">{text.split(' ').length}w</span>
+                              </div>
+                              <div className="px-3 py-2 border-b border-border/60 flex flex-col sm:flex-row gap-2">
+                                <input
+                                  className="input-base text-xs flex-1 py-1.5"
+                                  placeholder="Optional rerun note"
+                                  value={reviewerInstruction[sectionKey] || ''}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={e => setReviewerInstruction(prev => ({ ...prev, [sectionKey]: e.target.value }))}
+                                />
+                                <button
+                                  title="Regenerate this section"
+                                  disabled={isRegenerating}
+                                  onClick={async e => {
+                                    e.stopPropagation()
+                                    if (!job) return
+                                    setRerunningSections(prev => new Set([...Array.from(prev), sectionKey]))
+                                    try {
+                                      const sb = createClient()
+                                      const { data: { session } } = await sb.auth.getSession()
+                                      if (!session) return
+                                      await aioApi.rerunSection(session.access_token, job.id, i, name, reviewerInstruction[sectionKey] || '')
+                                      const poll = setInterval(async () => {
+                                        const updated = await aioApi.getJob(session.access_token, job.id)
+                                        const step: string = updated.current_step || ''
+                                        if (!step.startsWith(`Regenerating section '${name}'`)) {
+                                          clearInterval(poll)
+                                          setRerunningSections(prev => {
+                                            const next = new Set(prev)
+                                            next.delete(sectionKey)
+                                            return next
+                                          })
+                                          setReviewerInstruction(prev => ({ ...prev, [sectionKey]: '' }))
+                                          setJob(updated)
+                                        }
+                                      }, 3000)
+                                    } catch (e) {
+                                      console.error('Section rerun request failed:', e)
+                                      setRerunningSections(prev => {
+                                        const next = new Set(prev)
+                                        next.delete(sectionKey)
+                                        return next
+                                      })
+                                    }
+                                  }}
+                                  className="btn-ghost text-xs flex items-center justify-center gap-1.5 disabled:opacity-40"
+                                >
+                                  <RefreshCw size={11} className={isRegenerating ? 'animate-spin' : ''} />
+                                  Re-run
+                                </button>
                               </div>
                               <p className="text-xs px-3 py-2 line-clamp-3 prose-result">{text.slice(0, 300)}{text.length > 300 ? '...' : ''}</p>
                             </div>

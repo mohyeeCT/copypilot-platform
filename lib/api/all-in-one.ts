@@ -16,8 +16,8 @@ export const aioApi = {
     f(`/api/jobs/${id}/rerun-row/${index}`, token, { method: 'POST', body: JSON.stringify({}) }),
   rerunRows:    (token: string, id: string, indices: number[]) =>
     f(`/api/jobs/${id}/rerun-rows`, token, { method: 'POST', body: JSON.stringify({ row_indices: indices }) }),
-  rerunSection: (token: string, id: string, rowIndex: number, sectionName: string) =>
-    f(`/api/jobs/${id}/rerun-section`, token, { method: 'POST', body: JSON.stringify({ row_index: rowIndex, section_name: sectionName }) }),
+  rerunSection: (token: string, id: string, rowIndex: number, sectionName: string, reviewerInstruction = '') =>
+    f(`/api/jobs/${id}/rerun-section`, token, { method: 'POST', body: JSON.stringify({ row_index: rowIndex, section_name: sectionName, reviewer_instruction: reviewerInstruction }) }),
   cancelJob:    (token: string, id: string)               => f(`/api/jobs/${id}/cancel`, token, { method: 'POST' }),
   duplicateJob: (token: string, id: string)               => f(`/api/jobs/${id}/duplicate`, token, { method: 'POST' }),
   renameJob:    (token: string, id: string, name: string) =>
