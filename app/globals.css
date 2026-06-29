@@ -616,6 +616,122 @@
     color: var(--text);
     box-shadow: var(--shadow-xs);
   }
+
+  /* Job launcher layout */
+  .job-launcher {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .job-launcher-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+    gap: 18px;
+    align-items: stretch;
+    padding: 18px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 94%, var(--accent) 6%), var(--surface));
+    box-shadow: var(--shadow-sm);
+  }
+  .job-launcher-eyebrow,
+  .job-section-kicker {
+    margin: 0 0 7px;
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .job-launcher-title {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(1.3rem, 2vw, 1.75rem);
+    line-height: 1.15;
+    font-weight: 750;
+    letter-spacing: 0;
+  }
+  .job-launcher-description {
+    max-width: 680px;
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .job-launcher-hero-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
+  }
+  .job-launcher-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .job-launcher-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .job-section {
+    padding: 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+  }
+  .job-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .job-section-title {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .job-section-description {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+  .job-summary-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+  .job-summary-item {
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+  }
+  .job-summary-item dt {
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .job-summary-item dd {
+    margin: 3px 0 0;
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* ── Row flash animation ───────────────────────────────────── */
@@ -642,6 +758,13 @@
 
 /* ── Mobile form layout ───────────────────────────────────── */
 @media (max-width: 640px) {
+  .job-launcher-hero {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .job-summary-bar {
+    grid-template-columns: 1fr;
+  }
   .form-grid-4col {
     grid-template-columns: 1fr !important;
   }

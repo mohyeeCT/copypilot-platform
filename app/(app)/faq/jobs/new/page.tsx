@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
+import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -246,17 +247,30 @@ export default function NewJobPage() {
     }
   }
 
+  const validUrlCount = rows.filter(r => r.url).length
+
   return (
     <AppLayout title="New FAQ Job">
       <div className="max-w-full">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">New Job</h1>
-          <p className="text-muted text-sm mt-1">Add URLs and configure generation settings</p>
-        </div>
-
+        <JobLauncherShell
+          eyebrow="FAQ"
+          title="New FAQ Job"
+          description="Add URLs, choose FAQ generation settings, and keep data/source controls visible for this run."
+          summary={
+            <JobSummaryBar
+              summaryItems={[
+                { label: 'URLs', value: validUrlCount },
+                { label: 'FAQs/page', value: effectiveNumFaqs },
+                { label: 'AI', value: `${provider} / ${model || 'default'}` },
+                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${useGsc ? ' + GSC' : ''}` },
+              ]}
+            />
+          }
+        >
         <div className="grid grid-cols-7 gap-6">
           {/* Left: URL input */}
           <div className="col-span-5 space-y-4">
+            <JobSection title="Inputs" description="Paste, upload, or manually edit URL rows. Existing URL-only behavior and import mapping stay unchanged.">
             <div className="card p-4">
               {/* Template bar */}
               {templates.length > 0 && (
@@ -455,6 +469,7 @@ export default function NewJobPage() {
                 </div>
               )}
             </div>
+            </JobSection>
 
             {error && (
               <div className="flex items-start gap-2 text-error text-xs bg-error/5 border border-error/20 rounded-lg px-3 py-2">
@@ -519,6 +534,7 @@ export default function NewJobPage() {
 
           {/* Right: Settings */}
           <div className="col-span-2 space-y-4">
+            <JobSection title="Configuration" description="Generation, brand, data, and context controls for the FAQ run.">
             <div className="card p-4 space-y-3">
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
               <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
@@ -650,8 +666,10 @@ export default function NewJobPage() {
                 </p>
               </div>
             </div>
+            </JobSection>
           </div>
         </div>
+        </JobLauncherShell>
       </div>
     </AppLayout>
   )

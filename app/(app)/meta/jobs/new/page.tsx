@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
+import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Switch from '@/components/ui/Switch'
@@ -253,29 +254,37 @@ export default function NewMetaJobPage() {
     </AppLayout>
   )
 
+  const validUrlCount = rows.filter(r => r.url.startsWith('http')).length
+
   return (
     <AppLayout title="New Meta Job">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/meta/jobs" className="text-muted hover:text-text transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold">New Meta Copy Job</h1>
-            <p className="text-muted text-sm">Generate title tags, meta descriptions, and H1s at scale</p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
+      <div className="max-w-4xl mx-auto">
+        <Link href="/meta/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
+          <ArrowLeft size={16} /> Back to Meta jobs
+        </Link>
+        <JobLauncherShell
+          eyebrow="Meta"
+          title="New Meta Copy Job"
+          description="Generate title tags, meta descriptions, and H1s at scale without changing your saved job settings."
+          summary={
+            <JobSummaryBar
+              summaryItems={[
+                { label: 'URLs', value: validUrlCount },
+                { label: 'AI', value: `${provider} / ${model || 'default'}` },
+                { label: 'Business', value: businessType },
+                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${useGsc ? ' + GSC' : ''}` },
+              ]}
+            />
+          }
+        >
           {/* Job name */}
-          <div className="card p-5">
+          <JobSection title="Inputs" description="Name the job and add the URL rows for this run. Keywords and H1s stay optional where the tool already allows them.">
             <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name (optional)</label>
             <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. Client X — Category Pages" />
-          </div>
+          </JobSection>
 
           {/* URLs */}
-          <div className="card p-5">
+          <JobSection title="URL rows" description="Use manual entry, paste from a sheet, or upload CSV with the same import behavior as before.">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-sm">URLs</h2>
               <button onClick={() => setRows([...rows, { url: '', keyword: '', page_type: 'general', h1: '' }])}
@@ -354,12 +363,12 @@ export default function NewMetaJobPage() {
                   </div>
                 </div>
               ))}
-              <p className="text-xs text-muted mt-1">{rows.filter(r => r.url.startsWith('http')).length} valid URLs</p>
+              <p className="text-xs text-muted mt-1">{validUrlCount} valid URLs</p>
             </div>
-          </div>
+          </JobSection>
 
           {/* Copy Settings */}
-          <div className="card p-5 space-y-4">
+          <JobSection title="Configuration" description="Core generation, business, and brand controls for this job." className="space-y-4">
             <h2 className="font-semibold text-sm">Copy Settings</h2>
 
             <div className="grid grid-cols-2 gap-4">
@@ -412,10 +421,10 @@ export default function NewMetaJobPage() {
               </div>
               <span className="text-sm">Scrape pages for context</span>
             </label>
-          </div>
+          </JobSection>
 
           {/* GSC Settings */}
-          <div className="card p-5 space-y-4">
+          <JobSection title="Data & context" description="Search Console context remains visible and editable." className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm">GSC Settings</h2>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -432,10 +441,10 @@ export default function NewMetaJobPage() {
                 <input className="input-base" value={siteUrl} onChange={e => setSiteUrl(e.target.value)} placeholder="https://example.com/" />
               </div>
             )}
-          </div>
+          </JobSection>
 
           {/* DataForSEO */}
-          <div className="card p-5 space-y-4">
+          <JobSection title="Keyword data" description="DataForSEO fields and thresholds are unchanged." className="space-y-4">
             <h2 className="font-semibold text-sm">DataForSEO</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -451,7 +460,7 @@ export default function NewMetaJobPage() {
                 <input type="number" className="input-base" value={minVolume} onChange={e => setMinVolume(Number(e.target.value))} />
               </div>
             </div>
-          </div>
+          </JobSection>
 
           {/* Advanced settings */}
           <div className="card overflow-hidden">
@@ -542,9 +551,9 @@ export default function NewMetaJobPage() {
           )}
 
           <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
-            {running ? 'Starting job...' : `Generate Meta Copy — ${rows.filter(r => r.url.startsWith('http')).length} URLs`}
+            {running ? 'Starting job...' : `Generate Meta Copy — ${validUrlCount} URLs`}
           </button>
-        </div>
+        </JobLauncherShell>
       </div>
     </AppLayout>
   )

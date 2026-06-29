@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
+import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -242,26 +243,42 @@ export default function NewAIOJob() {
     </AppLayout>
   )
 
+  const validUrlCount = rows.filter(r => r.url.startsWith('http')).length
+  const enabledOutputs = [
+    genPageCopy ? 'Page Copy' : '',
+    genMeta ? 'Meta' : '',
+    genFaqs ? 'FAQs' : '',
+  ].filter(Boolean).join(', ') || 'None'
+
   return (
     <AppLayout title="All in One">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/all-in-one/jobs" className="text-muted hover:text-text transition-colors"><ArrowLeft size={18} /></Link>
-          <div>
-            <h1 className="text-xl font-bold">New All in One Job</h1>
-            <p className="text-muted text-sm">Meta copy, FAQs, and full page copy in a single pipeline per URL</p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
+      <div className="max-w-5xl mx-auto">
+        <Link href="/all-in-one/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
+          <ArrowLeft size={16} /> Back to All in One jobs
+        </Link>
+        <JobLauncherShell
+          eyebrow="All in One"
+          title="New All in One Job"
+          description="Create meta copy, FAQs, and page copy from one coordinated run while keeping every output control visible."
+          summary={
+            <JobSummaryBar
+              summaryItems={[
+                { label: 'URLs', value: validUrlCount },
+                { label: 'Outputs', value: enabledOutputs },
+                { label: 'AI', value: `${provider} / ${model || 'default'}` },
+                { label: 'Data', value: useGsc ? 'GSC enabled' : 'GSC off' },
+              ]}
+            />
+          }
+        >
           {/* Job name */}
-          <div className="card p-5">
+          <JobSection title="Inputs" description="Name the run before adding URL rows. All defaults and row behavior are unchanged.">
             <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name (optional)</label>
             <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. Client X — Service Pages" />
-          </div>
+          </JobSection>
 
           {/* Output toggles */}
-          <div className="card p-5">
+          <JobSection title="Outputs" description="Choose which deliverables this run should create.">
             <h2 className="font-semibold text-sm mb-4">What to generate</h2>
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -288,11 +305,11 @@ export default function NewAIOJob() {
               </div>
             )}
             <p className="text-xs text-muted mt-3">All outputs share a single DFS, SERP, and competitor scrape per URL — no redundant API calls.</p>
-          </div>
+          </JobSection>
 
           {/* Template (only if page copy enabled) */}
           {genPageCopy && (
-            <div className="card p-5 space-y-4">
+            <JobSection title="Page copy plan" description="Template selection is only shown when page copy is enabled." className="space-y-4">
               <h2 className="font-semibold text-sm">Page Copy Template</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -325,11 +342,11 @@ export default function NewAIOJob() {
                   <textarea className="input-base font-mono text-xs" rows={4} value={customTemplate} onChange={e => setCustomTemplate(e.target.value)} placeholder="Introduction | 100-160&#10;How It Works | 200-300&#10;FAQ | 150-250" />
                 </div>
               )}
-            </div>
+            </JobSection>
           )}
 
           {/* URLs */}
-          <div className="card p-5">
+          <JobSection title="URL rows" description="Paste or manually edit rows. Per-row output toggles stay attached to each URL.">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-sm">URLs</h2>
               <div className="flex gap-2">
@@ -414,13 +431,13 @@ export default function NewAIOJob() {
                     </div>
                   </div>
                 ))}
-                <p className="text-xs text-muted mt-1">{rows.filter(r => r.url.startsWith('http')).length} valid URLs</p>
+                <p className="text-xs text-muted mt-1">{validUrlCount} valid URLs</p>
               </div>
             )}
-          </div>
+          </JobSection>
 
           {/* Copy Settings */}
-          <div className="card p-5 space-y-4">
+          <JobSection title="Configuration" description="AI, business, brand, and client brief controls." className="space-y-4">
             <h2 className="font-semibold text-sm">Copy Settings</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -474,10 +491,10 @@ export default function NewAIOJob() {
                 placeholder="Key differentiators, tone, claims to include, USPs..." />
               <p className="text-xs text-muted mt-1">Injected into every prompt across all outputs.</p>
             </div>
-          </div>
+          </JobSection>
 
           {/* GSC */}
-          <div className="card p-5 space-y-4">
+          <JobSection title="Data & context" description="Optional Search Console context remains explicit." className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm">GSC (optional)</h2>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -494,7 +511,7 @@ export default function NewAIOJob() {
                 <input className="input-base" value={siteUrl} onChange={e => setSiteUrl(e.target.value)} placeholder="https://example.com/" />
               </div>
             )}
-          </div>
+          </JobSection>
 
           {/* Advanced */}
           <div className="card overflow-hidden">
@@ -534,7 +551,7 @@ export default function NewAIOJob() {
           {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
 
           <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
-            {running ? 'Starting job...' : `Run All in One — ${rows.filter(r => r.url.startsWith('http')).length} URLs`}
+            {running ? 'Starting job...' : `Run All in One — ${validUrlCount} URLs`}
           </button>
 
           <div className="card p-4 bg-warning/5 border-warning/20">
@@ -542,7 +559,7 @@ export default function NewAIOJob() {
               <span className="text-warning font-medium">Note:</span> All in One jobs are the longest-running jobs in the platform. A single URL with all three outputs enabled can take 5-15 minutes. For a 10-URL job, budget 1-2 hours. Run overnight for large batches.
             </p>
           </div>
-        </div>
+        </JobLauncherShell>
       </div>
     </AppLayout>
   )

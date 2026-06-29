@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
+import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -280,15 +281,27 @@ export default function NewJobPage() {
     }
   }
 
+  const validUrlCount = rows.filter(r => r.url).length
+
   return (
     <AppLayout title="New Intro Job">
       <div className="max-w-7xl">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">New intro job</h1>
-            <p className="text-muted text-sm mt-1">Generate SEO-optimised intro paragraphs at scale</p>
-          </div>
-          <div className="flex items-center gap-2">
+        <JobLauncherShell
+          eyebrow="Intro"
+          title="New intro job"
+          description="Generate SEO-optimised intro paragraphs at scale while keeping template, word count, and context controls in view."
+          summary={
+            <JobSummaryBar
+              summaryItems={[
+                { label: 'URLs', value: validUrlCount },
+                { label: 'Target', value: `${wordCount} words / ${paragraphCount}p` },
+                { label: 'Template', value: pageTemplate },
+                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${includeAiOverviewContext ? ' + AIO' : ''}` },
+              ]}
+            />
+          }
+          actions={
+            <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Templates */}
             <div className="relative">
               <button onClick={() => setShowTemplates(v => !v)}
@@ -377,7 +390,8 @@ export default function NewJobPage() {
               {submitting ? 'Starting...' : 'Run job'}
             </button>
           </div>
-        </div>
+          }
+        >
 
         {error && (
           <div className="flex items-center gap-2 text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">
@@ -388,6 +402,7 @@ export default function NewJobPage() {
         <div className="grid grid-cols-7 gap-4">
           {/* Left: rows + job name */}
           <div className="col-span-5 space-y-4">
+            <JobSection title="Inputs" description="Add URL rows and optional keyword seeds. Paste, CSV, and manual entry keep the same parsing rules.">
             <div className="card p-4 space-y-3">
               <div>
                 <label className="text-xs text-muted block mb-1">Job name</label>
@@ -529,10 +544,12 @@ export default function NewJobPage() {
                 <span className="text-xs text-muted ml-auto">{rows.filter(r => r.url).length} URLs</span>
               </div>
             </div>
+            </JobSection>
           </div>
 
           {/* Right: settings */}
           <div className="col-span-2 space-y-4">
+            <JobSection title="Configuration" description="Intro-specific output controls stay visible because they directly shape the generated copy.">
             {/* AI Provider */}
             <div className="card p-4 space-y-3">
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
@@ -671,8 +688,10 @@ export default function NewJobPage() {
                   className="input-base text-xs" placeholder="https://yoursite.com" />
               )}
             </div>
+            </JobSection>
           </div>
         </div>
+        </JobLauncherShell>
       </div>
     </AppLayout>
   )
