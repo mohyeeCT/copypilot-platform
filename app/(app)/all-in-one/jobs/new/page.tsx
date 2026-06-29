@@ -252,7 +252,7 @@ export default function NewAIOJob() {
 
   return (
     <AppLayout title="All in One">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-full">
         <Link href="/all-in-one/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
           <ArrowLeft size={16} /> Back to All in One jobs
         </Link>
@@ -270,7 +270,14 @@ export default function NewAIOJob() {
               ]}
             />
           }
+          actions={
+            <button onClick={handleRun} disabled={running} className="btn-primary text-sm px-4 py-2">
+              {running ? 'Starting job...' : `Run All in One — ${validUrlCount} URLs`}
+            </button>
+          }
         >
+          <div className="grid grid-cols-7 gap-6">
+            <div className="col-span-5 space-y-4">
           {/* Job name */}
           <JobSection title="Inputs" description="Name the run before adding URL rows. All defaults and row behavior are unchanged.">
             <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name (optional)</label>
@@ -435,6 +442,9 @@ export default function NewAIOJob() {
               </div>
             )}
           </JobSection>
+            </div>
+
+            <div className="col-span-2 space-y-4">
 
           {/* Copy Settings */}
           <JobSection title="Configuration" description="AI, business, brand, and client brief controls." className="space-y-4">
@@ -548,16 +558,18 @@ export default function NewAIOJob() {
             )}
           </div>
 
-          {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
+            </div>
 
-          <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
-            {running ? 'Starting job...' : `Run All in One — ${validUrlCount} URLs`}
-          </button>
+            <div className="col-span-5 space-y-4">
+
+          {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
 
           <div className="card p-4 bg-warning/5 border-warning/20">
             <p className="text-xs text-muted">
               <span className="text-warning font-medium">Note:</span> All in One jobs are the longest-running jobs in the platform. A single URL with all three outputs enabled can take 5-15 minutes. For a 10-URL job, budget 1-2 hours. Run overnight for large batches.
             </p>
+          </div>
+            </div>
           </div>
         </JobLauncherShell>
       </div>

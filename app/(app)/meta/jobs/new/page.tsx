@@ -258,7 +258,7 @@ export default function NewMetaJobPage() {
 
   return (
     <AppLayout title="New Meta Job">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-full">
         <Link href="/meta/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
           <ArrowLeft size={16} /> Back to Meta jobs
         </Link>
@@ -276,7 +276,19 @@ export default function NewMetaJobPage() {
               ]}
             />
           }
+          actions={
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <button onClick={() => setShowSaveTemplate(!showSaveTemplate)} className="btn-secondary text-xs">
+                Save as template
+              </button>
+              <button onClick={handleRun} disabled={running} className="btn-primary text-sm px-4 py-2">
+                {running ? 'Starting job...' : `Generate Meta Copy — ${validUrlCount} URLs`}
+              </button>
+            </div>
+          }
         >
+          <div className="grid grid-cols-7 gap-6">
+            <div className="col-span-5 space-y-4">
           {/* Job name */}
           <JobSection title="Inputs" description="Name the job and add the URL rows for this run. Keywords and H1s stay optional where the tool already allows them.">
             <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name (optional)</label>
@@ -366,6 +378,9 @@ export default function NewMetaJobPage() {
               <p className="text-xs text-muted mt-1">{validUrlCount} valid URLs</p>
             </div>
           </JobSection>
+            </div>
+
+            <div className="col-span-2 space-y-4">
 
           {/* Copy Settings */}
           <JobSection title="Configuration" description="Core generation, business, and brand controls for this job." className="space-y-4">
@@ -496,6 +511,10 @@ export default function NewMetaJobPage() {
             )}
           </div>
 
+            </div>
+
+            <div className="col-span-5 space-y-4">
+
           {/* Templates */}
           {templates.length > 0 && (
             <div className="card p-5">
@@ -512,11 +531,6 @@ export default function NewMetaJobPage() {
           )}
 
           {/* Save template */}
-          <div className="flex items-center gap-3">
-            <button onClick={() => setShowSaveTemplate(!showSaveTemplate)} className="btn-ghost text-xs">
-              Save as template
-            </button>
-          </div>
           {showSaveTemplate && (
             <div className="card p-4 flex gap-2">
               <input className="input-base flex-1 text-xs" value={templateName}
@@ -550,9 +564,8 @@ export default function NewMetaJobPage() {
             <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>
           )}
 
-          <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
-            {running ? 'Starting job...' : `Generate Meta Copy — ${validUrlCount} URLs`}
-          </button>
+            </div>
+          </div>
         </JobLauncherShell>
       </div>
     </AppLayout>

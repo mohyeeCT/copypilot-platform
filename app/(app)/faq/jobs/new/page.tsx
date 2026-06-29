@@ -266,6 +266,16 @@ export default function NewJobPage() {
               ]}
             />
           }
+          actions={
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <button onClick={() => setShowSaveTemplate(v => !v)} className="btn-secondary text-xs flex items-center gap-1.5">
+                <BookmarkPlus size={11} /> Save template
+              </button>
+              <button onClick={handleRun} disabled={submitting} className="btn-primary text-sm px-4 py-2">
+                {submitting ? 'Starting job...' : 'Run job'}
+              </button>
+            </div>
+          }
         >
         <div className="grid grid-cols-7 gap-6">
           {/* Left: URL input */}
@@ -478,19 +488,8 @@ export default function NewJobPage() {
               </div>
             )}
 
-            <button onClick={handleRun} disabled={submitting} className="btn-primary w-full py-3">
-              {submitting ? 'Starting job...' : `Run ${rows.filter(r => r.url).length} URL${rows.filter(r => r.url).length !== 1 ? 's' : ''}`}
-            </button>
-
             {/* Save as template */}
-            {!showSaveTemplate ? (
-              <button
-                onClick={() => setShowSaveTemplate(true)}
-                className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors w-full justify-center py-1"
-              >
-                <BookmarkPlus size={11} /> Save current settings as template
-              </button>
-            ) : (
+            {showSaveTemplate && (
               <div className="flex items-center gap-2">
                 <input
                   autoFocus

@@ -285,7 +285,7 @@ export default function NewJobPage() {
 
   return (
     <AppLayout title="New Intro Job">
-      <div className="max-w-7xl">
+      <div className="max-w-full">
         <JobLauncherShell
           eyebrow="Intro"
           title="New intro job"
