@@ -247,11 +247,6 @@ export default function PageCopyJobPage() {
             cancelling={cancelling}
             onCancel={handleCancel}
             helperText="All in One jobs can take longer because each URL may run meta, FAQ, page copy, competitor scraping, and QA steps."
-            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
-              title: row.primary_keyword || row.generated_title || row.url,
-              meta: row.url,
-              status: row.status || (row.error ? 'error' : 'ok'),
-            }))}
           />
         )}
         {/* Collapsible log after completion */}

@@ -1,15 +1,9 @@
 'use client'
 
-import { Activity, AlertCircle, CheckCircle2, CircleDot, Clock3, ListChecks, Square, Terminal } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { Activity, CircleDot, Clock3, Square, Terminal } from 'lucide-react'
 
 type LogEntry = { ts: string; msg: string }
-
-export type RunningJobPreviewItem = {
-  title: string
-  meta?: string
-  status?: string
-  flags?: string[]
-}
 
 type RunningJobPanelProps = {
   status: string
@@ -18,7 +12,6 @@ type RunningJobPanelProps = {
   failedRows?: number
   currentStep?: string
   logs?: LogEntry[]
-  previewItems?: RunningJobPreviewItem[]
   helperText?: string
   cancelling?: boolean
   onCancel?: () => void
@@ -61,16 +54,20 @@ export default function RunningJobPanel({
   failedRows = 0,
   currentStep,
   logs = [],
-  previewItems = [],
   helperText,
   cancelling = false,
   onCancel,
 }: RunningJobPanelProps) {
+  const activityRef = useRef<HTMLDivElement | null>(null)
   const progress = clampProgress(completedRows, totalRows)
   const remainingRows = Math.max(totalRows - completedRows, 0)
   const isStopping = status === 'cancelling' || cancelling
-  const visibleLogs = logs.slice(-14)
-  const logOffset = logs.length - visibleLogs.length
+
+  useEffect(() => {
+    const activity = activityRef.current
+    if (!activity) return
+    activity.scrollTop = activity.scrollHeight
+  }, [logs.length, currentStep, status])
 
   return (
     <section className="card mb-6 overflow-hidden p-0">
@@ -135,61 +132,25 @@ export default function RunningJobPanel({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-1">
-          <div className="rounded-lg border border-border bg-surface/70">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted">
-                <Terminal size={13} />
-                Live activity
-              </div>
-              <span className="text-[11px] text-muted">{logs.length} updates</span>
+        <div className="rounded-lg border border-border bg-surface/70">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted">
+              <Terminal size={13} />
+              Live activity
             </div>
-            <div className="max-h-56 overflow-y-auto px-3 py-2 font-mono text-xs">
-              {visibleLogs.length === 0 ? (
-                <p className="py-3 text-muted">Waiting for first update...</p>
-              ) : (
-                visibleLogs.map((entry, index) => {
-                  const realIndex = logOffset + index
-                  return (
-                    <div key={`${entry.ts}-${realIndex}`} className="flex gap-2 border-b border-border/40 py-1.5 last:border-0">
-                      <span className="shrink-0 text-muted" style={{ minWidth: 38 }}>+{elapsedSeconds(logs, entry, realIndex)}s</span>
-                      <span className="min-w-0 break-words text-text">{entry.msg}</span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
+            <span className="text-[11px] text-muted">{logs.length} updates</span>
           </div>
-
-          <div className="rounded-lg border border-border bg-surface/70">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted">
-                <ListChecks size={13} />
-                Latest rows
-              </div>
-              <span className="text-[11px] text-muted">{previewItems.length ? 'Live preview' : 'No rows yet'}</span>
-            </div>
-            <div className="divide-y divide-border/50">
-              {previewItems.length === 0 ? (
-                <p className="px-3 py-5 text-sm text-muted">Completed rows will appear here as the job runs.</p>
-              ) : (
-                previewItems.slice(0, 5).map((item, index) => {
-                  const hasIssue = item.status === 'error' || item.status === 'failed' || item.flags?.length
-                  const Icon = hasIssue ? AlertCircle : CheckCircle2
-                  return (
-                    <div key={`${item.title}-${index}`} className="flex items-start gap-2 px-3 py-2.5">
-                      <Icon size={14} className={hasIssue ? 'mt-0.5 shrink-0 text-warning' : 'mt-0.5 shrink-0 text-success'} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-text">{item.title || 'Untitled row'}</p>
-                        {item.meta && <p className="mt-0.5 truncate text-xs text-muted">{item.meta}</p>}
-                        {item.flags?.length ? <p className="mt-1 truncate text-xs text-warning">{item.flags.join('; ')}</p> : null}
-                      </div>
-                      {item.status && <span className="shrink-0 rounded-md bg-border/60 px-1.5 py-0.5 text-[11px] text-muted">{item.status}</span>}
-                    </div>
-                  )
-                })
-              )}
-            </div>
+          <div ref={activityRef} className="max-h-96 min-h-72 overflow-y-auto px-3 py-2 font-mono text-xs">
+            {logs.length === 0 ? (
+              <p className="py-3 text-muted">Waiting for first update...</p>
+            ) : (
+              logs.map((entry, index) => (
+                <div key={`${entry.ts}-${index}`} className="flex gap-2 border-b border-border/40 py-1.5 last:border-0">
+                  <span className="shrink-0 text-muted" style={{ minWidth: 38 }}>+{elapsedSeconds(logs, entry, index)}s</span>
+                  <span className="min-w-0 break-words text-text">{entry.msg}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

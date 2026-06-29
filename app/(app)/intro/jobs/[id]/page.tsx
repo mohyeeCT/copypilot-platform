@@ -315,12 +315,6 @@ export default function JobPage() {
             logs={job.logs}
             cancelling={cancelling}
             onCancel={handleCancel}
-            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
-              title: row.primary_keyword || row.url,
-              meta: row.url,
-              status: row.status || (row.error ? 'error' : 'ok'),
-              flags: row.qa_flags,
-            }))}
           />
         )}
         {/* Collapsible log after completion */}

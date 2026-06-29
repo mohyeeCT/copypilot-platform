@@ -207,11 +207,6 @@ export default function IndexerJobResultPage() {
               totalRows={job.total_urls}
               failedRows={job.failed_urls}
               currentStep={job.current_step}
-              previewItems={(job.results || []).slice(-5).reverse().map(result => ({
-                title: result.url,
-                meta: result.message,
-                status: result.status,
-              }))}
             />
           )}
 

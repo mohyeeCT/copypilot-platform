@@ -117,11 +117,6 @@ export default function SchemaJobPage() {
             logs={job.logs}
             cancelling={cancelling}
             onCancel={handleCancel}
-            previewItems={(job.results || []).slice(-5).reverse().map(result => ({
-              title: result.schema_type || result.url,
-              meta: result.url,
-              status: result.status,
-            }))}
           />
         )}
 

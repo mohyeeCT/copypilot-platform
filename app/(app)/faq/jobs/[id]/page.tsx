@@ -305,12 +305,6 @@ function gscErrorMessage(error?: string | null) {
             logs={job.logs}
             cancelling={cancelling}
             onCancel={handleCancel}
-            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
-              title: row.selected_keyword || row.keyword || row.url,
-              meta: row.url,
-              status: row.status || (row.error ? 'error' : 'ok'),
-              flags: row.qa_flags,
-            }))}
           />
         )}
         {/* Log panel after completion */}

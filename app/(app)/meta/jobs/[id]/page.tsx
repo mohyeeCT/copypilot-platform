@@ -209,12 +209,6 @@ export default function MetaJobPage() {
             logs={job.logs}
             cancelling={cancelling}
             onCancel={handleCancel}
-            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
-              title: row.selected_keyword || row.generated_title || row.url,
-              meta: row.url,
-              status: row.status || (row.error ? 'error' : 'ok'),
-              flags: row.qa_flags,
-            }))}
           />
         )}
         {/* Collapsible log after completion */}
