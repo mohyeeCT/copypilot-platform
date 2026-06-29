@@ -137,6 +137,7 @@ export default function NewJobPage() {
   const [businessType, setBusinessType] = useState('general')
   const [brandName, setBrandName] = useState('')
   const [fullBrandName, setFullBrandName] = useState('')
+  const [includeBrand, setIncludeBrand] = useState(false)
   const [numFaqs, setNumFaqs] = useState(5)
   const [dfsLogin, setDfsLogin] = useState('')
   const [useGsc, setUseGsc] = useState(true)
@@ -228,7 +229,7 @@ export default function NewJobPage() {
         rows: validRows,
         settings: {
           provider, model, business_type: businessType,
-          brand_name: brandName, full_brand_name: fullBrandName, brand_profile_id: selectedBrandProfileId, num_faqs: effectiveNumFaqs,
+          brand_name: brandName, full_brand_name: fullBrandName, brand_profile_id: selectedBrandProfileId, include_brand: includeBrand, num_faqs: effectiveNumFaqs,
           dfs_login: dfsLogin,
           location_code: locationCode, min_volume: minVolume,
           scrape_pages: scrapePages, use_gsc: useGsc,
@@ -311,6 +312,7 @@ export default function NewJobPage() {
                                 if (s.business_type) setBusinessType(s.business_type as string)
                                 if (s.brand_name) setBrandName(s.brand_name as string)
                                 if (s.full_brand_name) setFullBrandName(s.full_brand_name as string)
+                                if (typeof s.include_brand === 'boolean') setIncludeBrand(s.include_brand)
                                 if (s.num_faqs) setNumFaqs(clampIntegerSetting(s.num_faqs as number, FAQS_PER_PAGE_MIN, FAQS_PER_PAGE_MAX, 5))
                                 if (s.forbidden_phrases) setForbiddenPhrases(s.forbidden_phrases as string)
                                 if (s.branded_terms_input) setBrandedTermsInput(s.branded_terms_input as string)
@@ -515,7 +517,7 @@ export default function NewJobPage() {
                     if (session) {
                       const tmpl = await saveTemplate(session.access_token, templateName.trim(), {
                         provider, business_type: businessType, brand_name: brandName,
-                        full_brand_name: fullBrandName, num_faqs: effectiveNumFaqs,
+                        full_brand_name: fullBrandName, include_brand: includeBrand, num_faqs: effectiveNumFaqs,
                         forbidden_phrases: forbiddenPhrases, branded_terms_input: brandedTermsInput,
                         batch_size: effectiveBatchSize, use_gsc: useGsc, scrape_pages: scrapePages,
                         site_url: siteUrl,
@@ -587,6 +589,13 @@ export default function NewJobPage() {
                 <label className="text-xs text-muted block mb-1">Full brand name <span className="text-muted/50">(optional)</span></label>
                 <input value={fullBrandName} onChange={e => setFullBrandName(e.target.value)}
                   className="input-base text-xs" placeholder="e.g. Dayson Shalabi Burkert for DSB" />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border bg-surface-subtle px-3 py-2">
+                <div>
+                  <label className="text-xs text-foreground block">Include brand in FAQ copy</label>
+                  <p className="text-xs text-muted mt-0.5">Allow natural brand mentions in questions or answers.</p>
+                </div>
+                <Switch ariaLabel="Include brand in FAQ copy" checked={includeBrand} onChange={setIncludeBrand} />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Number of FAQs per page</label>
