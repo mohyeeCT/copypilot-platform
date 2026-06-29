@@ -110,7 +110,7 @@ export default function NewMetaJobPage() {
   const [running, setRunning]           = useState(false)
   const [error, setError]               = useState('')
   const [templates, setTemplates]       = useState<{id: string; name: string; settings: Record<string, unknown>}[]>([])
-  const [brandProfiles, setBrandProfiles] = useState<{id: string; name: string}[]>([])
+  const [brandProfiles, setBrandProfiles] = useState<{id: string; name: string; data: Record<string, string>}[]>([])
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -177,6 +177,22 @@ export default function NewMetaJobPage() {
   function handleProviderChange(p: string) {
     setProvider(p)
     setModel(PROVIDER_MODELS[p]?.[0]?.value ?? '')
+  }
+
+  function applyBrandProfile(value: string) {
+    setBrandProfileId(value)
+    const profile = brandProfiles.find(p => p.id === value)
+    if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+    if (profile?.data?.full_brand_name) setFullBrandName(profile.data.full_brand_name)
+  }
+
+  function handleIncludeBrandToggle() {
+    const next = !includeBrand
+    setIncludeBrand(next)
+    if (!next || brandName.trim()) return
+    const profile = brandProfiles.find(p => p.id === brandProfileId)
+    if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+    if (profile?.data?.full_brand_name) setFullBrandName(profile.data.full_brand_name)
   }
 
   function applyImportedText(text: string) {
@@ -419,7 +435,7 @@ export default function NewMetaJobPage() {
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Profile</label>
-                <CustomSelect value={brandProfileId} onChange={setBrandProfileId}
+                <CustomSelect value={brandProfileId} onChange={applyBrandProfile}
                   options={[
                     { value: '', label: 'No brand profile' },
                     ...brandProfiles.map(bp => ({ value: bp.id, label: bp.name })),
@@ -428,7 +444,7 @@ export default function NewMetaJobPage() {
             </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer">
-              <div onClick={() => setIncludeBrand(!includeBrand)}
+              <div onClick={handleIncludeBrandToggle}
                 className={`w-9 h-5 rounded-full transition-colors relative ${includeBrand ? 'bg-accent' : 'bg-border'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeBrand ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
