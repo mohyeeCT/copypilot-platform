@@ -27,8 +27,8 @@ const tools: Tool[] = [
 
 const other: Tool[] = [
   { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#4F9EFF' },
-  { href: 'https://indexer.copypilot.app', label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
-  { href: '/settings',                     label: 'Settings', icon: Settings, accent: '#94A3B8' },
+  { href: '/indexer/jobs',    label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
+  { href: '/settings',        label: 'Settings', icon: Settings, accent: '#94A3B8' },
 ]
 
 function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {

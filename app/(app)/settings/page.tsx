@@ -21,6 +21,7 @@ const BACKENDS = [
   { label: 'Meta Copy',   url: 'meta-saas-backend-production.up.railway.app' },
   { label: 'All in One',  url: 'all-in-one-saas-backend-production.up.railway.app' },
   { label: 'Schema Generator', url: 'schema-saas-backend-production.up.railway.app' },
+  { label: 'Indexer', url: 'indexer-backend-production.up.railway.app' },
 ]
 const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 
