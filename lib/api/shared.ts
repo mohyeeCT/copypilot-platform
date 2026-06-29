@@ -90,6 +90,7 @@ export type GscSettings = {
     configured: boolean
     email: string
     status: 'connected' | 'reconnect_required' | 'not_connected'
+    has_indexing_scope?: boolean
   }
   oauth_available: boolean
 }

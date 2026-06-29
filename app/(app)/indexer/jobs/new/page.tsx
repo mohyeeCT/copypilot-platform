@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Papa from 'papaparse'
@@ -10,6 +10,7 @@ import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
+import { getSettings, type GscSettings } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +63,7 @@ export default function NewIndexerJobPage() {
   const [fetching, setFetching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
 
   const pastedUrls = parseUrlsFromText(pasteText)
   const activeUrlCount = tab === 'sitemap'
@@ -69,6 +71,21 @@ export default function NewIndexerJobPage() {
     : tab === 'csv'
       ? csvUrls.length
       : pastedUrls.length
+  const authLabel = gscSettings?.active_method === 'google_oauth' ? 'Google account' : 'Service account'
+  const oauthNeedsReconnect = Boolean(
+    gscSettings?.active_method === 'google_oauth' &&
+    gscSettings.google_oauth.configured &&
+    gscSettings.google_oauth.has_indexing_scope === false
+  )
+
+  useEffect(() => {
+    void getToken()
+      .then(token => getSettings(token))
+      .then(settings => {
+        if (settings?.gsc) setGscSettings(settings.gsc as GscSettings)
+      })
+      .catch(() => undefined)
+  }, [])
 
   function handleCSV(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -126,6 +143,7 @@ export default function NewIndexerJobPage() {
 
   function canSubmit() {
     if (submitting) return false
+    if (oauthNeedsReconnect) return false
     if (tab === 'paste') return pastedUrls.length > 0
     if (tab === 'csv') return csvUrls.length > 0
     if (tab === 'sitemap') return sitemapPreview !== null || sitemapUrl.startsWith('http')
@@ -177,7 +195,10 @@ export default function NewIndexerJobPage() {
               summaryItems={[
                 { label: 'URLs', value: activeUrlCount },
                 { label: 'Input', value: sourceLabel },
-                { label: 'API', value: <JobSummaryPills items={[{ label: 'Indexing API', tone: 'accent' }]} /> },
+                { label: 'Auth', value: <JobSummaryPills items={[
+                  { label: authLabel, tone: oauthNeedsReconnect ? 'muted' : 'accent' },
+                  ...(oauthNeedsReconnect ? [{ label: 'Reconnect needed', tone: 'muted' as const }] : []),
+                ]} /> },
                 { label: 'Limit', value: '200/day' },
               ]}
             />
@@ -189,6 +210,11 @@ export default function NewIndexerJobPage() {
           }
         >
           {error && <p className="rounded-lg border border-error/20 bg-error/10 px-4 py-3 text-sm text-error">{error}</p>}
+          {oauthNeedsReconnect && (
+            <p className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+              Reconnect Google in Settings before running Indexer with Google account.
+            </p>
+          )}
 
           <div className="grid grid-cols-7 gap-6">
             <div className="col-span-5 space-y-4">

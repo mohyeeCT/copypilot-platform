@@ -8,6 +8,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import { JobLauncherShell, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
+import { getSettings, type GscSettings } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ async function getToken() {
 export default function IndexerJobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [quota, setQuota] = useState<Quota | null>(null)
+  const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -67,6 +69,8 @@ export default function IndexerJobsPage() {
       ])
       setJobs(jobsData)
       setQuota(quotaData)
+      const settings = await getSettings(token).catch(() => null)
+      if (settings?.gsc) setGscSettings(settings.gsc as GscSettings)
       setLoadError('')
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load Indexer data.')
@@ -96,6 +100,12 @@ export default function IndexerJobsPage() {
   }
 
   const quotaPct = quota ? Math.min((quota.used / quota.limit) * 100, 100) : 0
+  const authLabel = gscSettings?.active_method === 'google_oauth' ? 'Google account' : 'Service account'
+  const oauthNeedsReconnect = Boolean(
+    gscSettings?.active_method === 'google_oauth' &&
+    gscSettings.google_oauth.configured &&
+    gscSettings.google_oauth.has_indexing_scope === false
+  )
 
   return (
     <AppLayout title="Indexer">
@@ -109,7 +119,10 @@ export default function IndexerJobsPage() {
               summaryItems={[
                 { label: 'Jobs', value: jobs.length },
                 { label: 'Quota', value: quota ? `${quota.remaining} left` : 'Loading' },
-                { label: 'API', value: <JobSummaryPills items={[{ label: 'Indexing API', tone: 'accent' }]} /> },
+                { label: 'Auth', value: <JobSummaryPills items={[
+                  { label: authLabel, tone: oauthNeedsReconnect ? 'muted' : 'accent' },
+                  ...(oauthNeedsReconnect ? [{ label: 'Reconnect needed', tone: 'muted' as const }] : []),
+                ]} /> },
                 { label: 'Status', value: jobs.some(job => job.status === 'running') ? 'Running' : 'Ready' },
               ]}
             />

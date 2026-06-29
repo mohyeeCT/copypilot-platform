@@ -83,8 +83,9 @@ export default function SettingsPage() {
   function gscStatusText(settings: GscSettings | null): string {
     const oauth = settings?.google_oauth
     if (!oauth?.configured) return 'Connect Google to use Search Console data.'
+    if (oauth.status === 'connected' && oauth.has_indexing_scope === false) return 'Reconnect to enable Indexer submissions.'
     if (oauth.status === 'reconnect_required') return 'Reconnect to restore Search Console data.'
-    return 'Ready for Search Console keyword data.'
+    return 'Ready for Search Console keyword data and Indexer submissions.'
   }
 
   async function loadGscSettings(): Promise<boolean> {
@@ -289,6 +290,14 @@ export default function SettingsPage() {
     }
   }
 
+  function needsIndexerScope(settings: GscSettings | null): boolean {
+    return Boolean(
+      settings?.google_oauth.configured &&
+      settings.google_oauth.status === 'connected' &&
+      settings.google_oauth.has_indexing_scope === false
+    )
+  }
+
   async function handleLoadProperties() {
     if (gscPropertiesExpanded) {
       setGscPropertiesExpanded(false)
@@ -384,7 +393,7 @@ export default function SettingsPage() {
             <SearchConsoleIcon className="w-11 h-11 shrink-0" />
             <div>
               <h2 className="font-semibold text-sm">Google account</h2>
-              <p className="text-muted text-xs mt-0.5">Preferred for FAQ, Intro, Meta, and All-in-One Search Console data.</p>
+              <p className="text-muted text-xs mt-0.5">Preferred for Search Console copy tools and Indexer submissions.</p>
             </div>
           </div>
 
@@ -427,7 +436,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              {gscSettings.google_oauth.status === 'reconnect_required' && gscSettings.oauth_available && (
+              {(gscSettings.google_oauth.status === 'reconnect_required' || needsIndexerScope(gscSettings)) && gscSettings.oauth_available && (
                 <button
                   onClick={handleConnectGoogle}
                   disabled={!!gscBusy}
@@ -481,7 +490,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="font-semibold text-sm">Service account</h2>
-              <p className="text-muted text-xs mt-0.5">Service account remains available for fallback, legacy workflows, and Indexer.</p>
+              <p className="text-muted text-xs mt-0.5">Service account remains available for fallback and legacy workflows.</p>
             </div>
           </div>
 
@@ -530,7 +539,7 @@ export default function SettingsPage() {
           {error && <p className="text-error text-xs mt-3">{error}</p>}
 
           <p className="text-xs text-muted mt-4">
-            Keep a service account if you use Indexer. Google OAuth is preferred for Search Console copy tools; service account remains available. Google account connection currently covers Search Console data only.
+            Google OAuth is preferred for Search Console copy tools and Indexer. Service account support remains available for fallback and legacy workflows.
           </p>
         </div>
 
