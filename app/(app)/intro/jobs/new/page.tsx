@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
-import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
+import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -295,8 +295,14 @@ export default function NewJobPage() {
               summaryItems={[
                 { label: 'URLs', value: validUrlCount },
                 { label: 'Target', value: `${wordCount} words / ${paragraphCount}p` },
-                { label: 'Template', value: pageTemplate },
-                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${includeAiOverviewContext ? ' + AIO' : ''}` },
+                { label: 'AI', value: <JobSummaryPills items={[
+                  { label: cleanProviderLabel(provider), tone: 'accent' },
+                  { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                ]} /> },
+                { label: 'Context', value: <JobSummaryPills items={[
+                  { label: scrapePages ? 'Scrape' : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  ...(includeAiOverviewContext ? [{ label: 'AIO', tone: 'accent' as const }] : []),
+                ]} /> },
               ]}
             />
           }
@@ -387,7 +393,7 @@ export default function NewJobPage() {
               </span>
             )}
             <button onClick={handleSubmit} disabled={submitting || !dfsLogin} className="btn-primary text-sm px-4 py-2">
-              {submitting ? 'Starting...' : 'Run job'}
+              {submitting ? 'Starting job...' : 'Run Job'}
             </button>
           </div>
           }

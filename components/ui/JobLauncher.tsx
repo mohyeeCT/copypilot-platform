@@ -5,6 +5,11 @@ type SummaryItem = {
   value: ReactNode
 }
 
+type SummaryPill = {
+  label: string
+  tone?: 'neutral' | 'accent' | 'success' | 'muted'
+}
+
 type JobLauncherShellProps = {
   children: ReactNode
   eyebrow?: string
@@ -80,4 +85,34 @@ export function JobSummaryBar({ summaryItems }: JobSummaryBarProps) {
       ))}
     </dl>
   )
+}
+
+export function JobSummaryPills({ items }: { items: SummaryPill[] }) {
+  return (
+    <span className="job-summary-pills">
+      {items.map(item => (
+        <span key={`${item.label}-${item.tone ?? 'neutral'}`} className="job-summary-pill" data-tone={item.tone ?? 'neutral'}>
+          {item.label}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export function cleanProviderLabel(provider: string) {
+  return provider.replace(/\s*\([^)]*\)/g, '').trim() || 'AI'
+}
+
+export function cleanModelLabel(
+  model: string,
+  options: { label: string; value: string }[] = [],
+  provider = ''
+) {
+  const optionLabel = options.find(option => option.value === model)?.label
+  const label = optionLabel || model || 'Default'
+  const cleanLabel = label.replace(/\s*\((default|latest)\)/gi, '').trim()
+  const providerName = cleanProviderLabel(provider)
+  if (!providerName || providerName === 'OpenAI') return cleanLabel
+
+  return cleanLabel.replace(new RegExp(`^${providerName}\\s+`, 'i'), '').trim() || cleanLabel
 }

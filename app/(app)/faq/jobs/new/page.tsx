@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
-import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
+import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -261,8 +261,14 @@ export default function NewJobPage() {
               summaryItems={[
                 { label: 'URLs', value: validUrlCount },
                 { label: 'FAQs/page', value: effectiveNumFaqs },
-                { label: 'AI', value: `${provider} / ${model || 'default'}` },
-                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${useGsc ? ' + GSC' : ''}` },
+                { label: 'AI', value: <JobSummaryPills items={[
+                  { label: cleanProviderLabel(provider), tone: 'accent' },
+                  { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                ]} /> },
+                { label: 'Context', value: <JobSummaryPills items={[
+                  { label: scrapePages ? 'Scrape' : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : []),
+                ]} /> },
               ]}
             />
           }
@@ -272,7 +278,7 @@ export default function NewJobPage() {
                 <BookmarkPlus size={11} /> Save template
               </button>
               <button onClick={handleRun} disabled={submitting} className="btn-primary text-sm px-4 py-2">
-                {submitting ? 'Starting job...' : 'Run job'}
+                {submitting ? 'Starting job...' : 'Run Job'}
               </button>
             </div>
           }

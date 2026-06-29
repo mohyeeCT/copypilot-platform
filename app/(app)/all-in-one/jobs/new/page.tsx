@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
-import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
+import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -265,14 +265,20 @@ export default function NewAIOJob() {
               summaryItems={[
                 { label: 'URLs', value: validUrlCount },
                 { label: 'Outputs', value: enabledOutputs },
-                { label: 'AI', value: `${provider} / ${model || 'default'}` },
-                { label: 'Data', value: useGsc ? 'GSC enabled' : 'GSC off' },
+                { label: 'AI', value: <JobSummaryPills items={[
+                  { label: cleanProviderLabel(provider), tone: 'accent' },
+                  { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                ]} /> },
+                { label: 'Data', value: <JobSummaryPills items={[
+                  { label: 'Scrape', tone: 'success' },
+                  ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : [{ label: 'No GSC', tone: 'muted' as const }]),
+                ]} /> },
               ]}
             />
           }
           actions={
             <button onClick={handleRun} disabled={running} className="btn-primary text-sm px-4 py-2">
-              {running ? 'Starting job...' : `Run All in One — ${validUrlCount} URLs`}
+              {running ? 'Starting job...' : 'Run Job'}
             </button>
           }
         >

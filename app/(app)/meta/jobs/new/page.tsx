@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
-import { JobLauncherShell, JobSection, JobSummaryBar } from '@/components/ui/JobLauncher'
+import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Switch from '@/components/ui/Switch'
@@ -270,9 +270,15 @@ export default function NewMetaJobPage() {
             <JobSummaryBar
               summaryItems={[
                 { label: 'URLs', value: validUrlCount },
-                { label: 'AI', value: `${provider} / ${model || 'default'}` },
+                { label: 'AI', value: <JobSummaryPills items={[
+                  { label: cleanProviderLabel(provider), tone: 'accent' },
+                  { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                ]} /> },
                 { label: 'Business', value: businessType },
-                { label: 'Context', value: `${scrapePages ? 'Scraping on' : 'Scraping off'}${useGsc ? ' + GSC' : ''}` },
+                { label: 'Context', value: <JobSummaryPills items={[
+                  { label: scrapePages ? 'Scrape' : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : []),
+                ]} /> },
               ]}
             />
           }
@@ -282,7 +288,7 @@ export default function NewMetaJobPage() {
                 Save as template
               </button>
               <button onClick={handleRun} disabled={running} className="btn-primary text-sm px-4 py-2">
-                {running ? 'Starting job...' : `Generate Meta Copy — ${validUrlCount} URLs`}
+                {running ? 'Starting job...' : 'Run Job'}
               </button>
             </div>
           }
