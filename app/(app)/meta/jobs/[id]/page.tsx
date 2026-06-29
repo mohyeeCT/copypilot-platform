@@ -2,9 +2,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp, Copy, Square, Pencil, X, Check } from 'lucide-react'
+import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
@@ -109,8 +110,6 @@ export default function MetaJobPage() {
     return () => clearInterval(t)
   }, [job, load])
 
-  const progress = job ? (job.completed_rows / Math.max(job.total_rows, 1)) * 100 : 0
-
   function markUpdated(indices: number[], results: MetaResult[]) {
     const successful = indices.filter(i => {
       const r = results[i]
@@ -199,45 +198,25 @@ export default function MetaJobPage() {
           </div>
         </div>
 
-        {/* Progress + log panel */}
+        {/* Running job panel */}
         {(job.status === 'running' || job.status === 'cancelling') && (
-          <div className="mb-6 flex flex-col md:grid md:grid-cols-5 gap-4">
-            <div className="md:col-span-2">
-              <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-xs text-accent font-mono animate-pulse">{job.current_step || 'Processing...'}</p>
-                <p className="text-xs text-muted font-mono">{Math.round(progress)}%</p>
-              </div>
-            </div>
-            <div className="md:col-span-3 card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 180 }}>
-              {(job.logs || []).length === 0 ? (
-                <p className="text-muted">Waiting for first update...</p>
-              ) : (job.logs || []).map((entry, i) => {
-                const elapsed = Math.round((new Date(entry.ts).getTime() - new Date((job.logs || [])[0].ts).getTime()) / 1000)
-                return (
-                  <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
-                    <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
-                    <span className="text-text">{entry.msg}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <RunningJobPanel
+            status={job.status}
+            completedRows={job.completed_rows}
+            totalRows={job.total_rows}
+            failedRows={job.failed_rows || 0}
+            currentStep={job.current_step}
+            logs={job.logs}
+            cancelling={cancelling}
+            onCancel={handleCancel}
+            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
+              title: row.selected_keyword || row.generated_title || row.url,
+              meta: row.url,
+              status: row.status || (row.error ? 'error' : 'ok'),
+              flags: row.qa_flags,
+            }))}
+          />
         )}
-
-        {/* Stop job */}
-        {(job.status === 'running' || job.status === 'cancelling') && (
-          <div className="mb-4">
-            <button onClick={handleCancel} disabled={cancelling || job.status === 'cancelling'}
-              className="flex items-center gap-2 text-xs border border-error/30 text-error bg-error/8 hover:bg-error/15 transition-colors rounded-lg px-3 py-2 disabled:opacity-50">
-              <Square size={12} fill="currentColor" />
-              {job.status === 'cancelling' ? 'Stopping...' : 'Stop job'}
-            </button>
-          </div>
-        )}
-
         {/* Collapsible log after completion */}
         {job.status === 'complete' && job.logs?.length ? (
           <div className="mb-6">

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { AlertTriangle, ArrowLeft, CheckCircle, Clock, Download, RefreshCw, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { JobLauncherShell, JobSummaryBar } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
@@ -126,10 +127,6 @@ export default function IndexerJobResultPage() {
     ? job.results
     : job.results.filter(result => result.status === filter || (filter === 'queued' && result.status === 'quota_exceeded'))
 
-  const progressPct = job.total_urls > 0
-    ? Math.round(((job.submitted_urls + job.failed_urls) / job.total_urls) * 100)
-    : 0
-
   async function handleResubmit() {
     if (!job || selected.size === 0) return
     setResubmitting(true)
@@ -204,15 +201,18 @@ export default function IndexerJobResultPage() {
           )}
 
           {job.status === 'running' && (
-            <div className="card p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm text-text">{job.current_step}</span>
-                <span className="text-xs text-muted">{progressPct}%</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-border">
-                <div className="h-1.5 rounded-full bg-accent transition-all duration-500" style={{ width: `${progressPct}%` }} />
-              </div>
-            </div>
+            <RunningJobPanel
+              status={job.status}
+              completedRows={job.submitted_urls + job.failed_urls}
+              totalRows={job.total_urls}
+              failedRows={job.failed_urls}
+              currentStep={job.current_step}
+              previewItems={(job.results || []).slice(-5).reverse().map(result => ({
+                title: result.url,
+                meta: result.message,
+                status: result.status,
+              }))}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

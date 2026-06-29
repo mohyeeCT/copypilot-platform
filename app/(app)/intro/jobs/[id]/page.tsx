@@ -3,10 +3,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
-import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, Square, ChevronDown, ChevronUp } from 'lucide-react'
+import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, ChevronDown, ChevronUp } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -58,6 +59,7 @@ type Job = {
   completed_rows: number
   failed_rows?: number
   current_step?: string
+  logs?: {ts: string; msg: string}[]
   results: RowResult[]
   created_at: string
   error: string | null
@@ -210,7 +212,7 @@ export default function JobPage() {
     </AppLayout>
   )
 
-  const progress = job.total_rows > 0 ? (job.completed_rows / job.total_rows) * 100 : 0
+  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
 
   return (
     <AppLayout title="Page Intro">
@@ -302,58 +304,27 @@ export default function JobPage() {
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Running job panel */}
         {(job.status === 'running' || job.status === 'cancelling') && (
-          <div className="mb-6 flex flex-col md:grid md:grid-cols-5 gap-4">
-            <div className="md:col-span-2">
-              <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                <div className="h-full bg-accent rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }} />
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-xs text-accent font-mono animate-pulse">
-                  {job.current_step || 'Processing...'}
-                </p>
-                <p className="text-xs text-muted font-mono">{Math.round(progress)}%</p>
-              </div>
-            </div>
-            <div className="md:col-span-3 card p-3 font-mono text-xs overflow-y-auto" style={{ maxHeight: 180 }}>
-              {((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).length === 0 ? (
-                <p className="text-muted">Waiting for first update...</p>
-              ) : (
-                ((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).map((entry, i) => {
-                  const logs = (job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []
-                  const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
-                  const baseTs = chapterStart ? new Date(chapterStart.ts).getTime() : new Date(logs[0]?.ts || entry.ts).getTime()
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - baseTs) / 1000)
-                  return (
-                    <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
-                      <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
-                      <span className="text-text">{entry.msg}</span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
+          <RunningJobPanel
+            status={job.status}
+            completedRows={job.completed_rows}
+            totalRows={job.total_rows}
+            failedRows={failedRows}
+            currentStep={job.current_step}
+            logs={job.logs}
+            cancelling={cancelling}
+            onCancel={handleCancel}
+            previewItems={(job.results || []).slice(-5).reverse().map(row => ({
+              title: row.primary_keyword || row.url,
+              meta: row.url,
+              status: row.status || (row.error ? 'error' : 'ok'),
+              flags: row.qa_flags,
+            }))}
+          />
         )}
-
-        {/* Stop job button */}
-        {(job.status === 'running' || job.status === 'cancelling') && (
-          <div className="mb-4">
-            <button
-              onClick={handleCancel}
-              disabled={cancelling || job.status === 'cancelling'}
-              className="flex items-center gap-2 text-xs border border-error/30 text-error bg-error/8 hover:bg-error/15 transition-colors rounded-lg px-3 py-2 disabled:opacity-50"
-            >
-              <Square size={12} fill="currentColor" />
-              {job.status === 'cancelling' ? 'Stopping...' : cancelling ? 'Stopping...' : 'Stop job'}
-            </button>
-          </div>
-        )}
-
         {/* Collapsible log after completion */}
-        {job.status === 'complete' && (job as unknown as {logs?: {ts: string; msg: string}[]}).logs?.length ? (
+        {job.status === 'complete' && job.logs?.length ? (
           <div className="mb-6">
             <button
               onClick={() => setLogsCollapsed(!logsCollapsed)}
@@ -361,12 +332,12 @@ export default function JobPage() {
             >
               {logsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
               {logsCollapsed ? 'Show run log' : 'Hide run log'}
-              <span className="text-muted/50">({((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).length} steps)</span>
+              <span className="text-muted/50">({(job.logs || []).length} steps)</span>
             </button>
             {!logsCollapsed && (
               <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
-                {((job as unknown as {logs?: {ts: string; msg: string}[]}).logs || []).map((entry, i) => {
-                  const logs = (job as unknown as {logs?: {ts: string; msg: string}[]}).logs!
+                {(job.logs || []).map((entry, i) => {
+                  const logs = job.logs!
                   const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
                   return (
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">

@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Copy, ExternalLink, Square } from 'lucide-react'
+import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
 
@@ -26,6 +27,8 @@ interface Job {
   total_rows?: number
   completed_rows?: number
   failed_rows?: number
+  current_step?: string
+  logs?: {ts: string; msg: string}[]
   progress?: { total?: number; completed?: number; failed?: number }
   results?: SchemaResult[]
 }
@@ -105,13 +108,21 @@ export default function SchemaJobPage() {
         </div>
 
         {(job.status === 'running' || job.status === 'cancelling') && (
-          <div className="mb-4">
-            <button onClick={handleCancel} disabled={cancelling || job.status === 'cancelling'}
-              className="flex items-center gap-2 text-xs border border-error/30 text-error bg-error/8 hover:bg-error/15 transition-colors rounded-lg px-3 py-2 disabled:opacity-50">
-              <Square size={12} fill="currentColor" />
-              {job.status === 'cancelling' ? 'Stopping...' : 'Stop job'}
-            </button>
-          </div>
+          <RunningJobPanel
+            status={job.status}
+            completedRows={completed}
+            totalRows={total}
+            failedRows={failed}
+            currentStep={job.current_step || 'Generating structured data...'}
+            logs={job.logs}
+            cancelling={cancelling}
+            onCancel={handleCancel}
+            previewItems={(job.results || []).slice(-5).reverse().map(result => ({
+              title: result.schema_type || result.url,
+              meta: result.url,
+              status: result.status,
+            }))}
+          />
         )}
 
         <div className="space-y-4">
