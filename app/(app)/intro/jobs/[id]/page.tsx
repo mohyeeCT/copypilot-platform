@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
 import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, Square, ChevronDown, ChevronUp } from 'lucide-react'
@@ -274,11 +275,10 @@ export default function JobPage() {
                 </button>
               )}
               <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-[var(--accent)]"
+                <StyledCheckbox
+                  ariaLabel="Select all intro result rows"
                   checked={selectedRows.size === job.results.length && job.results.length > 0}
-                  onChange={e => setSelectedRows(e.target.checked ? new Set(job.results.map((_, i) => i)) : new Set())}
+                  onChange={checked => setSelectedRows(checked ? new Set(job.results.map((_, i) => i)) : new Set())}
                 />
                 {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
               </label>
@@ -428,14 +428,14 @@ export default function JobPage() {
                       onClick={() => { setExpanded(expanded === i ? null : i); setNewlyUpdated(prev => { const n = new Set(prev); n.delete(i); return n }) }}
                       className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 transition-colors text-left">
                       <div className="flex items-center gap-3 min-w-0">
-                        <input
-                          type="checkbox"
-                          className="accent-[var(--accent)] shrink-0"
+                        <StyledCheckbox
+                          ariaLabel={`Select intro result row ${i + 1}`}
+                          className="shrink-0"
                           checked={selectedRows.has(i)}
                           onClick={e => e.stopPropagation()}
-                          onChange={e => setSelectedRows(prev => {
+                          onChange={checked => setSelectedRows(prev => {
                             const next = new Set(prev)
-                            e.target.checked ? next.add(i) : next.delete(i)
+                            checked ? next.add(i) : next.delete(i)
                             return next
                           })}
                         />

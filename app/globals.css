@@ -14,6 +14,8 @@
   /* Borders */
   --border:         #C5BEB2;   /* primary border — visible contrast */
   --border-subtle:  #D4CEC4;   /* secondary borders */
+  --hover:          #ECE8E0;
+  --track-off:      #CFC8BC;
 
   /* Typography */
   --text:           #111110;   /* near-black — maximum readability */
@@ -66,6 +68,8 @@
 
   --border:         #28283A;
   --border-subtle:  #1E1E2C;
+  --hover:          #22222E;
+  --track-off:      #33333F;
 
   --text:           #EEECF4;
   --muted:          #8080A8;
@@ -95,7 +99,13 @@
 @layer base {
   * { box-sizing: border-box; }
 
-  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
 
   body {
     background-color: var(--bg);
@@ -117,10 +127,20 @@
   h4 { font-size: 0.875rem; font-weight: 600; }
 
   /* Scrollbar */
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
-  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  body, main, .overflow-y-auto, .overflow-auto {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+    scroll-behavior: smooth;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
 
   /* Selection */
   ::selection { background: var(--accent-subtle); color: var(--text); }
@@ -485,6 +505,116 @@
   [data-theme="dark"] .cs-option:hover {
     background: rgba(255,255,255,0.05);
     box-shadow: inset 1px 1px 3px rgba(0,0,0,.25), inset -1px -1px 3px rgba(255,255,255,.02);
+  }
+
+  /* Switch — boolean settings */
+  .cp-switch {
+    width: 38px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--track-off);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    flex-shrink: 0;
+  }
+  .cp-switch[data-checked="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+  .cp-switch:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .cp-switch-knob {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-xs);
+    transform: translateX(0);
+    transition: transform 0.16s ease;
+  }
+  .cp-switch[data-checked="true"] .cp-switch-knob {
+    transform: translateX(16px);
+  }
+
+  /* Checkbox — row/list selection */
+  .cp-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cp-checkbox input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .cp-checkbox-box {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    background: var(--surface-raised);
+    color: #fff;
+    transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .cp-checkbox:hover .cp-checkbox-box {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+  .cp-checkbox[data-checked="true"] .cp-checkbox-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .cp-checkbox input:focus-visible + .cp-checkbox-box {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Segmented control — small mutually exclusive choices */
+  .cp-segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface);
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,.06);
+  }
+  .cp-segment {
+    border: 0;
+    border-radius: 7px;
+    padding: 6px 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .cp-segment:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+  .cp-segment[data-active="true"] {
+    background: var(--surface-raised);
+    color: var(--text);
+    box-shadow: var(--shadow-xs);
   }
 }
 

@@ -2,11 +2,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, Upload, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { toDisplayOptions } from '@/lib/option-labels'
 import { createClient } from '@/lib/supabase'
@@ -311,7 +313,7 @@ export default function NewAIOJob() {
                 <div className="space-y-2">
                   {availableTemplates.map(t => (
                     <label key={t.key} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${templateKey === t.key ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'}`}>
-                      <input type="radio" className="accent-[var(--accent)]" checked={templateKey === t.key} onChange={() => setTemplateKey(t.key)} />
+                      <input type="radio" checked={templateKey === t.key} onChange={() => setTemplateKey(t.key)} style={{ accentColor: 'var(--accent)' }} />
                       <span className="text-sm font-medium">{t.name}</span>
                     </label>
                   ))}
@@ -331,9 +333,15 @@ export default function NewAIOJob() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-sm">URLs</h2>
               <div className="flex gap-2">
-                <button onClick={() => setInputMode(inputMode === 'csv' ? 'manual' : 'csv')} className="text-xs text-muted hover:text-accent flex items-center gap-1">
-                  <Upload size={12} /> Paste CSV
-                </button>
+                <SegmentedControl
+                  value={inputMode}
+                  onChange={setInputMode}
+                  ariaLabel="All in One input mode"
+                  options={[
+                    { value: 'manual', label: 'Manual' },
+                    { value: 'csv', label: 'Paste CSV' },
+                  ]}
+                />
                 <button onClick={() => setRows([...rows, { url: '', keyword: '', page_type: pageType, h1: '', gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs }])}
                   className="btn-ghost text-xs flex items-center gap-1">
                   <Plus size={12} /> Add row
@@ -394,8 +402,11 @@ export default function NewAIOJob() {
                         const labels = { gen_page_copy: 'Page Copy', gen_meta: 'Meta', gen_faqs: 'FAQs' }
                         return (
                           <label key={field} className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox" className="accent-[var(--accent)] w-3 h-3" checked={row[field]}
-                              onChange={() => toggleRow(i, field)} />
+                            <StyledCheckbox
+                              ariaLabel={`${labels[field]} for row ${i + 1}`}
+                              checked={row[field]}
+                              onChange={() => toggleRow(i, field)}
+                            />
                             <span className="text-xs text-muted">{labels[field]}</span>
                           </label>
                         )

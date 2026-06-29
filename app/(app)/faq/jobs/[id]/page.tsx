@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Copy, Download, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X, Square } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { faqApi } from '@/lib/api/faq'
 
@@ -281,11 +282,10 @@ function gscErrorMessage(error?: string | null) {
           {job.status === 'complete' && job.results?.length > 0 && (
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-[var(--accent)]"
+                <StyledCheckbox
+                  ariaLabel="Select all FAQ result rows"
                   checked={selectedRows.size === job.results.length && job.results.length > 0}
-                  onChange={e => setSelectedRows(e.target.checked ? new Set(job.results.map((_, i) => i)) : new Set())}
+                  onChange={checked => setSelectedRows(checked ? new Set(job.results.map((_, i) => i)) : new Set())}
                 />
                 {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
               </label>
@@ -472,14 +472,14 @@ function gscErrorMessage(error?: string | null) {
                   className="flex items-center gap-3 px-4 py-3 hover:bg-border/20 cursor-pointer transition-colors"
                   onClick={() => { setExpanded(expanded === i ? null : i); setNewlyUpdated(prev => { const n = new Set(prev); n.delete(i); return n }) }}
                 >
-                  <input
-                    type="checkbox"
-                    className="accent-[var(--accent)] shrink-0"
+                  <StyledCheckbox
+                    ariaLabel={`Select FAQ result row ${i + 1}`}
+                    className="shrink-0"
                     checked={selectedRows.has(i)}
                     onClick={e => e.stopPropagation()}
-                    onChange={e => setSelectedRows(prev => {
+                    onChange={checked => setSelectedRows(prev => {
                       const next = new Set(prev)
-                      e.target.checked ? next.add(i) : next.delete(i)
+                      checked ? next.add(i) : next.delete(i)
                       return next
                     })}
                   />

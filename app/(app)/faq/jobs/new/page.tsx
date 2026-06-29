@@ -5,6 +5,9 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import StyledCheckbox from '@/components/ui/StyledCheckbox'
+import Switch from '@/components/ui/Switch'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 
@@ -317,15 +320,17 @@ export default function NewJobPage() {
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 mb-4 bg-bg rounded-lg p-1">
-                {(['manual', 'paste', 'csv'] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`flex-1 py-1.5 text-xs rounded-md transition-colors capitalize
-                      ${tab === t ? 'bg-surface text-text border border-border' : 'text-muted hover:text-text'}`}>
-                    {t === 'csv' ? 'Upload CSV' : t === 'paste' ? 'Bulk Paste' : 'Manual'}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={tab}
+                onChange={setTab}
+                ariaLabel="FAQ input mode"
+                className="mb-4 w-full"
+                options={[
+                  { value: 'manual', label: 'Manual' },
+                  { value: 'paste', label: 'Bulk Paste' },
+                  { value: 'csv', label: 'Upload CSV' },
+                ]}
+              />
 
                 <ImportErrors rows={importErrors} />
 
@@ -371,11 +376,10 @@ export default function NewJobPage() {
                   {/* Resizable column headers */}
                   <div className="flex items-center gap-1 mb-1 px-1 select-none">
                     <div className="w-6 shrink-0 flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        className="accent-accent"
+                      <StyledCheckbox
+                        ariaLabel="Select all FAQ rows"
                         checked={rows.length > 0 && selectedRows.size === rows.length}
-                        onChange={e => setSelectedRows(e.target.checked ? new Set(rows.map((_, i) => i)) : new Set())}
+                        onChange={checked => setSelectedRows(checked ? new Set(rows.map((_, i) => i)) : new Set())}
                       />
                     </div>
                     {(['url', 'keyword', 'type', 'h1'] as const).map((col) => (
@@ -398,13 +402,12 @@ export default function NewJobPage() {
                     {rows.map((row, i) => (
                       <div key={i} className={`flex items-center gap-1 rounded ${selectedRows.has(i) ? 'bg-accent/5' : ''}`}>
                         <div className="w-6 shrink-0 flex items-center justify-center">
-                          <input
-                            type="checkbox"
-                            className="accent-accent"
+                          <StyledCheckbox
+                            ariaLabel={`Select FAQ row ${i + 1}`}
                             checked={selectedRows.has(i)}
-                            onChange={e => {
+                            onChange={checked => {
                               const s = new Set(selectedRows)
-                              e.target.checked ? s.add(i) : s.delete(i)
+                              checked ? s.add(i) : s.delete(i)
                               setSelectedRows(s)
                             }}
                           />
@@ -607,26 +610,22 @@ export default function NewJobPage() {
                   <span className="text-xs">Restricted industry</span>
                   <p className="text-xs text-muted mt-0.5">Score on GSC signals only — for industries where DFS suppresses volume (CBD, guns, adult)</p>
                 </div>
-                <input type="checkbox" checked={restrictedIndustry} onChange={e => setRestrictedIndustry(e.target.checked)}
-                  className="accent-accent shrink-0 ml-3" />
+                <Switch ariaLabel="Restricted industry" checked={restrictedIndustry} onChange={setRestrictedIndustry} className="ml-3" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Scrape pages (Jina)</span>
-                <input type="checkbox" checked={scrapePages} onChange={e => setScrapePages(e.target.checked)}
-                  className="accent-accent" />
+                <Switch ariaLabel="Scrape pages" checked={scrapePages} onChange={setScrapePages} />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <span className="text-xs text-muted">Load async AI Overview</span>
                   <p className="text-xs text-muted/50 mt-0.5">Doubles DFS cost (~$0.001/kw). Disable on large runs.</p>
                 </div>
-                <input type="checkbox" checked={loadAsyncAiOverview} onChange={e => setLoadAsyncAiOverview(e.target.checked)}
-                  className="accent-accent shrink-0" />
+                <Switch ariaLabel="Load async AI Overview" checked={loadAsyncAiOverview} onChange={setLoadAsyncAiOverview} />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Use GSC data</span>
-                <input type="checkbox" checked={useGsc} onChange={e => setUseGsc(e.target.checked)}
-                  className="accent-accent" />
+                <Switch ariaLabel="Use GSC data" checked={useGsc} onChange={setUseGsc} />
               </label>
               {useGsc && (
                 <input value={siteUrl} onChange={e => setSiteUrl(e.target.value)}
@@ -640,7 +639,8 @@ export default function NewJobPage() {
                 <input
                   type="range" min={PROCESSING_CHUNK_SIZE_MIN} max={PROCESSING_CHUNK_SIZE_MAX} value={effectiveBatchSize}
                   onChange={e => setBatchSize(clampIntegerSetting(+e.target.value, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1))}
-                  className="w-full accent-accent"
+                  className="w-full"
+                  style={{ accentColor: 'var(--accent)' }}
                 />
                 <p className="text-xs text-muted mt-1.5 leading-relaxed">
                   {effectiveBatchSize === 1

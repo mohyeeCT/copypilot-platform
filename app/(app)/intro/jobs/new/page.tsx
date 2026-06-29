@@ -5,6 +5,9 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import StyledCheckbox from '@/components/ui/StyledCheckbox'
+import Switch from '@/components/ui/Switch'
 import { createClient } from '@/lib/supabase'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { introApi } from '@/lib/api/intro'
@@ -393,14 +396,16 @@ export default function NewJobPage() {
               </div>
 
               {/* Tab bar */}
-              <div className="flex items-center gap-1 border-b border-border">
-                {(['manual', 'paste', 'csv'] as const).map(t => (
-                  <button key={t} onClick={() => setTab(t)}
-                    className={`text-xs px-3 py-2 transition-colors border-b-2 -mb-px ${tab === t ? 'border-accent text-text' : 'border-transparent text-muted hover:text-text'}`}>
-                    {t === 'manual' ? 'Manual entry' : t === 'paste' ? 'Paste from sheet' : 'Upload CSV'}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={tab}
+                onChange={setTab}
+                ariaLabel="Intro input mode"
+                options={[
+                  { value: 'manual', label: 'Manual entry' },
+                  { value: 'paste', label: 'Paste from sheet' },
+                  { value: 'csv', label: 'Upload CSV' },
+                ]}
+              />
 
               <ImportErrors rows={importErrors} />
 
@@ -443,10 +448,11 @@ export default function NewJobPage() {
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left py-2 pr-2 text-muted font-normal w-6">
-                        <input type="checkbox"
+                        <StyledCheckbox
+                          ariaLabel="Select all intro rows"
                           checked={selectedRows.size === rows.length && rows.length > 0}
-                          onChange={e => setSelectedRows(e.target.checked ? new Set(rows.map((_, i) => i)) : new Set())}
-                          className="accent-accent" />
+                          onChange={checked => setSelectedRows(checked ? new Set(rows.map((_, i) => i)) : new Set())}
+                        />
                       </th>
                       {[
                         { key: 'url', label: 'URL' },
@@ -470,13 +476,15 @@ export default function NewJobPage() {
                     {rows.map((row, i) => (
                       <tr key={i} className="border-b border-border/50 group">
                         <td className="py-1 pr-2">
-                          <input type="checkbox" checked={selectedRows.has(i)}
-                            onChange={e => {
+                          <StyledCheckbox
+                            ariaLabel={`Select intro row ${i + 1}`}
+                            checked={selectedRows.has(i)}
+                            onChange={checked => {
                               const next = new Set(selectedRows)
-                              e.target.checked ? next.add(i) : next.delete(i)
+                              checked ? next.add(i) : next.delete(i)
                               setSelectedRows(next)
                             }}
-                            className="accent-accent" />
+                          />
                         </td>
                         <td className="py-1 pr-2">
                           <input value={row.url} onChange={e => setRows(rows.map((r, j) => j === i ? {...r, url: e.target.value} : r))}
@@ -600,8 +608,7 @@ export default function NewJobPage() {
               </div>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Include brand in copy</span>
-                <input type="checkbox" checked={includeBrand} onChange={e => setIncludeBrand(e.target.checked)}
-                  className="accent-accent" />
+                <Switch ariaLabel="Include brand in copy" checked={includeBrand} onChange={setIncludeBrand} />
               </label>
               <div>
                 <label className="text-xs text-muted block mb-1">Forbidden phrases <span className="text-muted/50">(one per line)</span></label>
@@ -642,26 +649,22 @@ export default function NewJobPage() {
                   <span className="text-xs">Restricted industry</span>
                   <p className="text-xs text-muted mt-0.5">Score on GSC signals only — for industries where DFS suppresses volume (CBD, guns, adult)</p>
                 </div>
-                <input type="checkbox" checked={restrictedIndustry} onChange={e => setRestrictedIndustry(e.target.checked)}
-                  className="accent-accent shrink-0 ml-3" />
+                <Switch ariaLabel="Restricted industry" checked={restrictedIndustry} onChange={setRestrictedIndustry} className="ml-3" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Scrape pages (Jina)</span>
-                <input type="checkbox" checked={scrapePages} onChange={e => setScrapePages(e.target.checked)}
-                  className="accent-accent" />
+                <Switch ariaLabel="Scrape pages" checked={scrapePages} onChange={setScrapePages} />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <span className="text-xs text-muted">Use AI Overview context</span>
                   <p className="text-xs text-muted mt-0.5">Adds search intent context; disable for faster jobs</p>
                 </div>
-                <input type="checkbox" checked={includeAiOverviewContext} onChange={e => setIncludeAiOverviewContext(e.target.checked)}
-                  className="accent-accent shrink-0 ml-3" />
+                <Switch ariaLabel="Use AI Overview context" checked={includeAiOverviewContext} onChange={setIncludeAiOverviewContext} className="ml-3" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-xs text-muted">Use GSC data</span>
-                <input type="checkbox" checked={useGsc} onChange={e => setUseGsc(e.target.checked)}
-                  className="accent-accent" />
+                <Switch ariaLabel="Use GSC data" checked={useGsc} onChange={setUseGsc} />
               </label>
               {useGsc && (
                 <input value={siteUrl} onChange={e => setSiteUrl(e.target.value)}

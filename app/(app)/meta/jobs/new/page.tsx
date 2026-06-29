@@ -7,6 +7,8 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import NicheSelect from '@/components/ui/NicheSelect'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import Switch from '@/components/ui/Switch'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
@@ -42,6 +44,13 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
 }
 const BUSINESS_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']
+const INPUT_MODES = (['manual', 'paste', 'csv'] as const)
+type InputMode = typeof INPUT_MODES[number]
+const INPUT_MODE_LABELS: Record<InputMode, string> = {
+  manual: 'Manual entry',
+  paste: 'Paste from sheet',
+  csv: 'Upload CSV',
+}
 
 interface Row { url: string; keyword: string; page_type: string; h1: string }
 
@@ -94,7 +103,7 @@ export default function NewMetaJobPage() {
   const [pasteText, setPasteText] = useState('')
   const [importErrors, setImportErrors] = useState<RejectedImportRow[]>([])
   const [importNotices, setImportNotices] = useState<ImportNotice[]>([])
-  const [inputMode, setInputMode] = useState<'manual' | 'paste' | 'csv'>('manual')
+  const [inputMode, setInputMode] = useState<InputMode>('manual')
 
   // Auth / loading
   const [running, setRunning]           = useState(false)
@@ -275,14 +284,13 @@ export default function NewMetaJobPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-1 border-b border-border mb-3">
-              {(['manual', 'paste', 'csv'] as const).map(t => (
-                <button key={t} onClick={() => setInputMode(t)}
-                  className={`text-xs px-3 py-2 transition-colors border-b-2 -mb-px ${inputMode === t ? 'border-accent text-text' : 'border-transparent text-muted hover:text-text'}`}>
-                  {t === 'manual' ? 'Manual entry' : t === 'paste' ? 'Paste from sheet' : 'Upload CSV'}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={inputMode}
+              onChange={setInputMode}
+              ariaLabel="Meta input mode"
+              className="mb-3"
+              options={INPUT_MODES.map(value => ({ value, label: INPUT_MODE_LABELS[value] }))}
+            />
 
               <ImportErrors rows={importErrors} />
 
@@ -469,10 +477,7 @@ export default function NewMetaJobPage() {
                     onChange={e => setBrandedTermsInput(e.target.value)} placeholder="acme&#10;acme inc" />
                 </div>
                 <label className="flex items-center gap-2.5 cursor-pointer pt-1">
-                  <div onClick={() => setRestrictedIndustry(!restrictedIndustry)}
-                    className={`w-9 h-5 rounded-full transition-colors relative ${restrictedIndustry ? 'bg-accent' : 'bg-border'}`}>
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${restrictedIndustry ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </div>
+                  <Switch ariaLabel="Restricted industry mode" checked={restrictedIndustry} onChange={setRestrictedIndustry} />
                   <div>
                     <span className="text-sm">Restricted industry mode</span>
                     <p className="text-xs text-muted mt-0.5">Score keywords on GSC engagement only, ignoring DFS volume. Use for CBD, firearms, dispensaries, or adult industries where DataForSEO suppresses volume data.</p>

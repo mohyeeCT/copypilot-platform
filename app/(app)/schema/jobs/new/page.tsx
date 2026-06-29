@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
+import Switch from '@/components/ui/Switch'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
 import { getProviderMetadata } from '@/lib/api/shared'
@@ -190,7 +191,7 @@ export default function NewSchemaJobPage() {
                   <span className="block text-sm">{label}</span>
                   <span className="block text-xs text-muted mt-0.5">{description}</span>
                 </span>
-                <input className="shrink-0" type="checkbox" checked={value} onChange={e => setter(e.target.checked)} />
+                <Switch ariaLabel={label} checked={value} onChange={setter} />
               </label>
             ))}
           </div>
