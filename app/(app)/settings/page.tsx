@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
-import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap, KeyRound, Key, Globe, Cpu, Info } from 'lucide-react'
+import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
+import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile, startGscOAuth, listGscProperties, disconnectGscOAuth, setGscAuthMethod, type GscAuthMethod, type GscProperty, type GscSettings } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
@@ -24,21 +24,6 @@ const BACKENDS = [
   { label: 'Indexer', url: 'indexer-backend-production.up.railway.app' },
 ]
 const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
-
-function SearchConsoleIcon({ className = 'w-5 h-5' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
-      <rect x="9" y="12" width="30" height="27" rx="4" fill="#F1F5F9" />
-      <rect x="9" y="12" width="30" height="8" rx="4" fill="#CBD5E1" />
-      <rect x="14" y="7" width="20" height="9" rx="3" fill="#E2E8F0" />
-      <rect x="18" y="9" width="12" height="3" rx="1.5" fill="#94A3B8" />
-      <path d="M17 30h4.5l3-5 3.2 8 3.1-5H36" fill="none" stroke="#4285F4" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="24" cy="25" r="3.5" fill="#34A853" />
-      <path d="M31 33l5 5" stroke="#4285F4" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="29.5" cy="31.5" r="5" fill="none" stroke="#4285F4" strokeWidth="2.6" />
-    </svg>
-  )
-}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'credentials' | 'gsc' | 'brand' | 'about'>('credentials')
@@ -371,31 +356,59 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted text-sm mt-1">Configure integrations for your account</p>
-        </div>
+      <JobLauncherShell
+        eyebrow="Account settings"
+        title="Settings"
+        description="Manage saved credentials, Search Console access, brand profiles, and platform health."
+        summary={
+          <div className="space-y-3">
+            <JobSummaryBar
+              summaryItems={[
+                {
+                  label: 'AI keys',
+                  value: AI_PROVIDERS.filter(p => providerKeyStatus[p]).length || (credsConfigured ? 1 : 0),
+                },
+                {
+                  label: 'GSC method',
+                  value: gscSettings?.active_method === 'google_oauth'
+                    ? 'Google'
+                    : gscSettings?.active_method === 'service_account'
+                      ? 'Service'
+                      : 'None',
+                },
+                {
+                  label: 'Backends',
+                  value: `${Object.values(backendStatuses).filter(s => s === 'ok').length}/${BACKENDS.length}`,
+                },
+              ]}
+            />
+            <JobSummaryPills
+              items={[
+                { label: credsConfigured ? 'Credentials saved' : 'Credentials needed', tone: credsConfigured ? 'success' : 'muted' },
+                { label: gscSettings?.google_oauth.configured ? 'Google connected' : 'Google not connected', tone: gscSettings?.google_oauth.configured ? 'success' : 'muted' },
+                { label: gscSettings?.service_account.configured ? 'Service account ready' : 'Service account optional', tone: gscSettings?.service_account.configured ? 'success' : 'neutral' },
+              ]}
+            />
+          </div>
+        }
+      >
 
         {gscMessage && (
-          <p
+          <div
             role="status"
             aria-live="polite"
-            className={`text-xs mb-4 ${gscIsError ? 'text-error' : 'text-accent'}`}
+            className={`rounded-lg border px-4 py-3 text-xs ${gscIsError ? 'border-error/30 bg-error/5 text-error' : 'border-accent/25 bg-accent/5 text-accent'}`}
           >
             {gscMessage}
-          </p>
+          </div>
         )}
 
         {/* Google Search Console — Google account */}
-        <div className="card p-6 mb-4">
-          <div className="flex items-start gap-4 mb-5">
-            <SearchConsoleIcon className="w-11 h-11 shrink-0" />
-            <div>
-              <h2 className="font-semibold text-sm">Google account</h2>
-              <p className="text-muted text-xs mt-0.5">Preferred for Search Console copy tools and Indexer submissions.</p>
-            </div>
-          </div>
+        <JobSection
+          title="Google account"
+          description="Preferred for Search Console copy tools and Indexer submissions."
+          kicker="Search Console"
+        >
 
           {gscSettings && gscSettings.google_oauth.configured ? (
             <div className="space-y-3">
@@ -478,21 +491,14 @@ export default function SettingsPage() {
             </div>
           ) : null}
 
-        </div>
+        </JobSection>
 
         {/* Google Search Console — Service account */}
-        <div className="card p-6 mb-4">
-          <div className="flex items-start gap-4 mb-5">
-            <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-              </svg>
-            </div>
-            <div>
-              <h2 className="font-semibold text-sm">Service account</h2>
-              <p className="text-muted text-xs mt-0.5">Service account remains available for fallback and legacy workflows.</p>
-            </div>
-          </div>
+        <JobSection
+          title="Service account"
+          description="Service account remains available for fallback and legacy workflows."
+          kicker="Search Console"
+        >
 
           {gscSettings && gscSettings.service_account.configured ? (
             <div className="flex items-center justify-between bg-accent/5 border border-accent/20 rounded-lg px-4 py-3">
@@ -541,19 +547,14 @@ export default function SettingsPage() {
           <p className="text-xs text-muted mt-4">
             Google OAuth is preferred for Search Console copy tools and Indexer. Service account support remains available for fallback and legacy workflows.
           </p>
-        </div>
+        </JobSection>
 
         {/* Credentials */}
-        <div className="card p-6 mb-4">
-          <div className="flex items-start gap-4 mb-5">
-            <div className="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-              <KeyRound size={15} className="text-purple-400" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-sm">API Credentials</h2>
-              <p className="text-muted text-xs mt-0.5">Saved credentials are used securely by the backends and are never shown again.</p>
-            </div>
-          </div>
+        <JobSection
+          title="API credentials"
+          description="Saved credentials are used securely by the backends and are never shown again."
+          kicker="Access"
+        >
 
           {credsConfigured && !showCredsForm ? (
             <div className="flex items-center justify-between bg-accent/5 border border-accent/20 rounded-lg px-4 py-3">
@@ -636,7 +637,7 @@ export default function SettingsPage() {
               {credsError && <p className="text-error text-xs">{credsError}</p>}
             </div>
           )}
-        </div>
+        </JobSection>
 
         {/* Brand Profiles */}
         <BrandProfilesCard
@@ -646,10 +647,14 @@ export default function SettingsPage() {
           deleteBrandProfile={deleteBrandProfile}
         />
 
-        <div className="card overflow-hidden">
-          <div className="px-6 py-5 border-b border-border flex items-center justify-between">
+        <JobSection
+          title="Platform health"
+          description="Live backend health checks and production entry points."
+          kicker="System"
+        >
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-surface-raised px-4 py-3">
             <div className="flex items-center gap-3">
-              <Image src="/favicon-32x32.png" alt="FAQ Production" width={24} height={24} className="w-6 h-6" />
+              <Zap size={14} className="text-accent shrink-0" />
               <div>
                 <p className="font-semibold text-sm">CopyPilot</p>
                 <p className="text-xs text-muted">AI-powered SEO copy production platform</p>
@@ -665,7 +670,7 @@ export default function SettingsPage() {
             </a>
           </div>
 
-          <div className="divide-y divide-border">
+          <div className="overflow-hidden rounded-lg border border-border divide-y divide-border">
             {BACKENDS.map(b => {
               const status = backendStatuses[b.url] ?? 'checking'
               return (
@@ -734,8 +739,8 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </JobSection>
+      </JobLauncherShell>
     </AppLayout>
   )
 }

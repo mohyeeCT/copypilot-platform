@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { CheckCircle, Plus, Pencil, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { BadgeCheck, CheckCircle, Plus, Pencil, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react'
 import CustomSelect from '@/components/ui/CustomSelect'
 
 type BrandProfile = {
@@ -119,15 +119,16 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
   )
 
   return (
-    <div className="card p-6 mb-4">
-      <div className="flex items-start justify-between mb-5">
+    <div className="job-section">
+      <div className="job-section-header">
         <div className="flex items-start gap-4">
-          <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
-            <span style={{ fontSize: 16 }}>🎯</span>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/20 bg-accent/5 text-accent">
+            <BadgeCheck size={15} />
           </div>
           <div>
-            <h2 className="font-semibold text-sm">Brand Profiles</h2>
-            <p className="text-muted text-xs mt-0.5">One profile per client or brand. Select which to use when running a job.</p>
+            <p className="job-section-kicker">Brand context</p>
+            <h2 className="job-section-title">Brand profiles</h2>
+            <p className="job-section-description">One profile per client or brand. Select which to use when running a job.</p>
           </div>
         </div>
         {editingId !== 'new' && (
