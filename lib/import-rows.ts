@@ -124,6 +124,13 @@ function columnAcceptsValue(schema: ImportSchema, columnKey: string, value: stri
   return column.acceptedValues.some(accepted => normalizeHeader(accepted) === normalizedValue)
 }
 
+function normalizeAcceptedValue(column: ImportColumn, value: string): string {
+  const trimmed = value.trim()
+  if (!column.acceptedValues?.length) return trimmed
+  const normalizedValue = normalizeHeader(trimmed)
+  return column.acceptedValues.find(accepted => normalizeHeader(accepted) === normalizedValue) || trimmed
+}
+
 function getPositionalLayout(values: string[], schema: ImportSchema): PositionalLayout | null {
   const populatedValues = withoutTrailingEmptyValues(values)
 
@@ -144,7 +151,10 @@ function buildRowFromPositionalLayout(values: string[], schema: ImportSchema, la
     row[column.key] = column.defaultValue
   }
   layout.keys.forEach((key, index) => {
-    row[key] = values[index]?.trim() || schema.columns.find(column => column.key === key)?.defaultValue || ''
+    const column = schema.columns.find(candidate => candidate.key === key)
+    row[key] = values[index]?.trim()
+      ? (column ? normalizeAcceptedValue(column, values[index]) : values[index].trim())
+      : column?.defaultValue || ''
   })
   return row
 }
@@ -195,7 +205,9 @@ export function parseImportedRows(text: string, schema: ImportSchema): ImportRes
         const sourceIndex = headerMap ? headerMap.get(column.key) : columnIndex
         row[column.key] = sourceIndex === undefined
           ? column.defaultValue
-          : values[sourceIndex]?.trim() || column.defaultValue
+          : values[sourceIndex]?.trim()
+            ? normalizeAcceptedValue(column, values[sourceIndex])
+            : column.defaultValue
       })
     }
 
