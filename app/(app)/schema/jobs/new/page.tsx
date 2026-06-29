@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
+import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import Switch from '@/components/ui/Switch'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
@@ -134,73 +135,103 @@ export default function NewSchemaJobPage() {
     </AppLayout>
   )
 
+  const schemaTypeLabel = SCHEMA_TYPES.find(type => type.value === schemaType)?.label ?? schemaType
+
   return (
     <AppLayout title="New Schema Generator Job">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/schema/jobs" className="text-muted hover:text-text transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold">New Schema Generator Job</h1>
-            <p className="text-muted text-sm">Generate deployable schema.org JSON-LD for one URL</p>
-          </div>
-        </div>
+      <div className="max-w-full">
+        <Link href="/schema/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
+          <ArrowLeft size={16} /> Back to Schema jobs
+        </Link>
+        <JobLauncherShell
+          eyebrow="Schema"
+          title="New Schema Job"
+          description="Generate deployable schema.org JSON-LD from a target URL while keeping schema type, AI, and source controls visible."
+          summary={
+            <JobSummaryBar
+              summaryItems={[
+                { label: 'URLs', value: url.trim().startsWith('http') ? 1 : 0 },
+                { label: 'Schema', value: schemaTypeLabel },
+                { label: 'AI', value: <JobSummaryPills items={[
+                  { label: cleanProviderLabel(provider), tone: 'accent' },
+                  { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                ]} /> },
+                { label: 'Context', value: <JobSummaryPills items={[
+                  { label: scrapeTarget ? 'Page scrape' : 'No page scrape', tone: scrapeTarget ? 'success' : 'muted' },
+                  ...(scrapeHomepage ? [{ label: 'Homepage', tone: 'success' as const }] : []),
+                  ...(deepScrape ? [{ label: 'About/Contact', tone: 'accent' as const }] : []),
+                  ...(serpCheck ? [{ label: 'SERP', tone: 'accent' as const }] : []),
+                  ...(includeScriptTag ? [{ label: 'Script tag', tone: 'muted' as const }] : []),
+                ]} /> },
+              ]}
+            />
+          }
+          actions={
+            <button onClick={handleRun} disabled={running} className="btn-primary text-sm px-4 py-2">
+              {running ? 'Starting job...' : 'Run Job'}
+            </button>
+          }
+        >
+          <div className="grid grid-cols-7 gap-6">
+            <div className="col-span-5 space-y-4">
+              <JobSection title="Inputs" description="Name the run and provide the page that should receive generated schema markup.">
+                <div className="card p-4 space-y-4">
+                  <div>
+                    <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name</label>
+                    <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. LocalBusiness schema" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted uppercase tracking-wider mb-2">Target URL</label>
+                    <input className="input-base font-mono text-sm" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/page" />
+                  </div>
+                </div>
+              </JobSection>
 
-        <div className="space-y-5">
-          <div className="card p-5 space-y-4">
-            <div>
-              <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name</label>
-              <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. LocalBusiness schema" />
+              {error && (
+                <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>
+              )}
             </div>
-            <div>
-              <label className="block text-xs text-muted uppercase tracking-wider mb-2">Target URL</label>
-              <input className="input-base font-mono text-sm" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/page" />
+
+            <div className="col-span-2 space-y-4">
+              <JobSection title="Configuration" description="Schema type and AI settings for this generated JSON-LD.">
+                <div className="card p-4 space-y-4">
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Schema type</label>
+                    <CustomSelect value={schemaType} onChange={setSchemaType} options={SCHEMA_TYPES} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Provider</label>
+                    <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Model</label>
+                    <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
+                  </div>
+                </div>
+              </JobSection>
+
+              <JobSection title="Data & context" description="Choose which page and search signals should guide the schema.">
+                <div className="card p-4 space-y-3">
+                  {[
+                    { label: 'Scrape target page', description: 'Reads content from the URL you entered.', value: scrapeTarget, setter: setScrapeTarget },
+                    { label: 'Scrape homepage', description: 'Adds business-wide details from the website homepage.', value: scrapeHomepage, setter: setScrapeHomepage },
+                    { label: 'Deep scrape About/Contact', description: 'Checks About and Contact pages for company and location details.', value: deepScrape, setter: setDeepScrape },
+                    { label: 'SERP context', description: 'Uses DataForSEO search results. Requires saved credentials.', value: serpCheck, setter: setSerpCheck },
+                    { label: 'Include script tag', description: 'Wraps the JSON-LD in a ready-to-paste <script> tag.', value: includeScriptTag, setter: setIncludeScriptTag },
+                  ].map(({ label, description, value, setter }) => (
+                    <label key={label} className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0">
+                      <span className="min-w-0">
+                        <span className="block text-sm">{label}</span>
+                        <span className="block text-xs text-muted mt-0.5">{description}</span>
+                      </span>
+                      <Switch ariaLabel={label} checked={value} onChange={setter} />
+                    </label>
+                  ))}
+                </div>
+              </JobSection>
             </div>
           </div>
-
-          <div className="card p-5 space-y-4">
-            <h2 className="font-semibold text-sm">Schema Settings</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-muted mb-1">Schema type</label>
-                <CustomSelect value={schemaType} onChange={setSchemaType} options={SCHEMA_TYPES} />
-              </div>
-              <div>
-                <label className="block text-xs text-muted mb-1">Provider</label>
-                <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs text-muted mb-1">Model</label>
-                <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-5 space-y-3">
-            <h2 className="font-semibold text-sm">Data Sources</h2>
-            {[
-              { label: 'Scrape target page', description: 'Reads content from the URL you entered.', value: scrapeTarget, setter: setScrapeTarget },
-              { label: 'Scrape homepage', description: 'Adds business-wide details from the website homepage.', value: scrapeHomepage, setter: setScrapeHomepage },
-              { label: 'Deep scrape About/Contact', description: 'Checks About and Contact pages for company and location details.', value: deepScrape, setter: setDeepScrape },
-              { label: 'SERP context', description: 'Uses DataForSEO search results. Requires saved credentials.', value: serpCheck, setter: setSerpCheck },
-              { label: 'Include script tag', description: 'Wraps the JSON-LD in a ready-to-paste <script> tag.', value: includeScriptTag, setter: setIncludeScriptTag },
-            ].map(({ label, description, value, setter }) => (
-              <label key={label} className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0">
-                <span className="min-w-0">
-                  <span className="block text-sm">{label}</span>
-                  <span className="block text-xs text-muted mt-0.5">{description}</span>
-                </span>
-                <Switch ariaLabel={label} checked={value} onChange={setter} />
-              </label>
-            ))}
-          </div>
-
-          {error && <p className="text-error text-sm">{error}</p>}
-          <button onClick={handleRun} disabled={running} className="btn-primary w-full py-3">
-            {running ? 'Starting job...' : 'Generate Schema'}
-          </button>
-        </div>
+        </JobLauncherShell>
       </div>
     </AppLayout>
   )
