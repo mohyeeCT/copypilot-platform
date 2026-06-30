@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Trash2, ExternalLink, Plus, Pencil, Check, X, Copy,
-  FileText, HelpCircle, Tag, BookOpen, Layers, Clock
+  FileText, Layers, Clock
 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
@@ -64,6 +64,10 @@ function formatDate(iso: string) {
   if (diffHrs < 24) return `${diffHrs}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('en-US').format(value)
 }
 
 export default function JobsListPage({ tool }: { tool: ToolConfig }) {
@@ -150,6 +154,10 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
     } catch (e) { if (e instanceof Error && e.message !== 'Rate limit displayed') toast.error('Failed to duplicate') }
   }
 
+  const totalJobs = jobs.length
+  const totalUrls = jobs.reduce((sum, job) => sum + (job.total_rows || 0), 0)
+  const completedUrls = jobs.reduce((sum, job) => sum + (job.completed_rows || 0), 0)
+
   return (
     <AppLayout title={tool.label}>
       <div className="max-w-5xl mx-auto">
@@ -209,7 +217,60 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
           </div>
         ) : (
           /* Jobs list */
+          <>
+          <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3">
+            {[
+              { label: 'Total jobs', value: totalJobs, icon: FileText, accentValue: false },
+              { label: 'URLs processed', value: totalUrls, icon: Layers, accentValue: true },
+              { label: 'Completed URLs', value: completedUrls, icon: Check, accentValue: false },
+            ].map(stat => {
+              const StatIcon = stat.icon
+              return (
+                <div
+                  key={stat.label}
+                  className="flex items-center gap-3"
+                  style={{
+                    background: 'var(--surface-raised)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '10px 14px',
+                  }}
+                >
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                    style={{ background: `${tool.accent}14`, border: `1px solid ${tool.accent}28`, color: tool.accent }}
+                  >
+                    <StatIcon size={14} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.62rem] font-bold uppercase tracking-[0.07em]" style={{ color: 'var(--muted)' }}>
+                      {stat.label}
+                    </span>
+                    <span className="block text-xl font-bold leading-tight" style={{ color: stat.accentValue ? 'var(--accent)' : 'var(--text)' }}>
+                      {formatNumber(stat.value)}
+                    </span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
           <div className="card overflow-hidden">
+            <div
+              className="hidden items-center px-5 py-2.5 text-[0.6rem] font-bold uppercase tracking-[0.07em] sm:grid"
+              style={{
+                gridTemplateColumns: 'minmax(0, 1fr) 88px 92px 72px 92px',
+                background: 'var(--surface)',
+                color: 'var(--muted)',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <span>Job name</span>
+              <span>URLs</span>
+              <span>Status</span>
+              <span>When</span>
+              <span className="sr-only">Actions</span>
+            </div>
             {jobs.map((job, i) => {
               const progress = job.total_rows > 0 ? (job.completed_rows / job.total_rows) * 100 : 0
               const isRunning = job.status === 'running' || job.status === 'pending'
@@ -218,7 +279,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               return (
                 <div
                   key={job.id}
-                  className="group relative transition-colors cursor-pointer"
+                  className="group relative transition-colors cursor-pointer hover:bg-black/[0.025]"
                   style={{
                     borderBottom: i < jobs.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   }}
@@ -241,11 +302,11 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                   )}
 
                   <div
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.025] transition-colors"
+                    className="grid grid-cols-[minmax(0,1fr)_92px] items-center gap-3 px-5 py-3.5 sm:grid-cols-[minmax(0,1fr)_88px_92px_72px_92px]"
                     style={{ paddingLeft: 20 }}
                   >
                     {/* Name */}
-                    <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                    <div className="min-w-0" onClick={e => e.stopPropagation()}>
                       {editingId === job.id ? (
                         <div className="flex items-center gap-1.5">
                           <input
@@ -271,7 +332,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                       ) : (
                         <div className="flex items-center gap-2 group/name">
                           <span
-                            className="font-medium text-sm truncate"
+                            className="font-semibold text-sm truncate"
                             style={{ color: 'var(--text)' }}
                             onClick={() => router.push(tool.jobHref(job.id))}
                           >
@@ -281,6 +342,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                             onClick={e => { e.stopPropagation(); setEditingId(job.id); setEditingName(job.name || '') }}
                             className="opacity-0 group-hover/name:opacity-100 p-0.5 transition-all"
                             style={{ color: 'var(--muted)' }}
+                            title="Rename job"
                           >
                             <Pencil size={11} />
                           </button>
@@ -288,7 +350,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                       )}
 
                       {/* Subtitle: rows summary */}
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 sm:hidden">
                         {job.status === 'complete' ? (
                           <span className="text-xs" style={{ color: 'var(--muted)' }}>
                             <span style={{ color: 'var(--accent)' }}>{job.completed_rows - (job.failed_rows || 0)} ok</span>
@@ -309,17 +371,30 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                       </div>
                     </div>
 
-                    {/* Status badge + date */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <Badge label={job.status} />
-                      <span className="text-xs hidden sm:block" style={{ color: 'var(--muted)', minWidth: 56 }}>
-                        {formatDate(job.created_at)}
+                    {/* URLs */}
+                    <div className="hidden sm:block">
+                      <span className="text-sm font-bold" style={{ color: isRunning ? 'var(--warning)' : 'var(--accent)' }}>
+                        {job.completed_rows}
                       </span>
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}> / {job.total_rows}</span>
+                      {(job.failed_rows || 0) > 0 && (
+                        <div className="text-[0.65rem]" style={{ color: 'var(--error)' }}>{job.failed_rows} failed</div>
+                      )}
                     </div>
+
+                    {/* Status */}
+                    <div className="hidden sm:block">
+                      <Badge label={job.status} />
+                    </div>
+
+                    {/* When */}
+                    <span className="hidden text-xs sm:block" style={{ color: 'var(--muted)' }}>
+                      {formatDate(job.created_at)}
+                    </span>
 
                     {/* Actions */}
                     <div
-                      className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      className="flex items-center justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                       onClick={e => e.stopPropagation()}
                     >
                       <button
@@ -354,6 +429,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               )
             })}
           </div>
+          </>
         )}
       </div>
     </AppLayout>
