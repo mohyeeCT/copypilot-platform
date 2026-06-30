@@ -398,7 +398,7 @@ export default function SettingsPage() {
         )}
 
         {/* Google Search Console — Google account */}
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           <div className="space-y-4">
         <JobSection
           title="Google account"
