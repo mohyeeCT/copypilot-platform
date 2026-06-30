@@ -21,8 +21,8 @@ export const dynamic = 'force-dynamic'
 const PROVIDERS  = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Claude': [
-    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
-    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Sonnet 5 (default)', value: 'claude-sonnet-5' },
+    { label: 'Claude Sonnet 4.6', value: 'claude-sonnet-4-6' },
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
   ],
   'OpenAI': [
@@ -34,6 +34,13 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Gemini (free)': [{ label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' }],
   'Mistral (free tier)': [{ label: 'Mistral Small Latest', value: 'mistral-small-latest' }],
   'Groq (free tier)': [{ label: 'Llama 3.3 70B Versatile', value: 'llama-3.3-70b-versatile' }],
+}
+
+function resolveProviderModel(provider: string, savedModel?: string | null) {
+  const options = PROVIDER_MODELS[provider] ?? []
+  return options.some(option => option.value === savedModel)
+    ? savedModel || ''
+    : options[0]?.value || ''
 }
 const BIZ_TYPES  = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']
@@ -127,7 +134,7 @@ export default function NewAIOJob() {
       if (s) {
         const savedProvider = s.provider || 'Claude'
         setProvider(savedProvider)
-        setModel(s.model || PROVIDER_MODELS[savedProvider]?.[0]?.value || '')
+        setModel(resolveProviderModel(savedProvider, s.model || null))
         setBizType(s.business_type || 'general')
         setBrandName(s.brand_name || '')
         setFullBrand(s.full_brand_name || '')

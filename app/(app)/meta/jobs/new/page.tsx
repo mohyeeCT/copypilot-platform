@@ -20,8 +20,8 @@ export const dynamic = 'force-dynamic'
 const PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Claude': [
-    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
-    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Sonnet 5 (default)', value: 'claude-sonnet-5' },
+    { label: 'Claude Sonnet 4.6', value: 'claude-sonnet-4-6' },
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
   ],
   'OpenAI': [
@@ -42,6 +42,13 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'Llama 3.1 8B', value: 'llama-3.1-8b-instant' },
     { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile' },
   ],
+}
+
+function resolveProviderModel(provider: string, savedModel?: string | null) {
+  const options = PROVIDER_MODELS[provider] ?? []
+  return options.some(option => option.value === savedModel)
+    ? savedModel || ''
+    : options[0]?.value || ''
 }
 const BUSINESS_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
 const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']
@@ -157,8 +164,9 @@ export default function NewMetaJobPage() {
   useEffect(() => { load() }, [load])
 
   function applyTemplate(t: Record<string, unknown>) {
-    if (t.provider)             setProvider(t.provider as string)
-    if (t.model)                setModel(t.model as string)
+    const nextProvider = (t.provider as string) || provider
+    if (t.provider)             setProvider(nextProvider)
+    if (t.model || t.provider)  setModel(resolveProviderModel(nextProvider, t.model as string | undefined))
     if (t.business_type)        setBusinessType(t.business_type as string)
     if (t.brand_name)           setBrandName(t.brand_name as string)
     if (t.full_brand_name)      setFullBrandName(t.full_brand_name as string)

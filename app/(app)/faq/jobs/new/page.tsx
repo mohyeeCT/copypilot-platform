@@ -58,8 +58,8 @@ function clampIntegerSetting(value: unknown, minimum: number, maximum: number, f
 
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   'Claude': [
-    { label: 'Claude Sonnet 4.6 (default)', value: 'claude-sonnet-4-6' },
-    { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20251001' },
+    { label: 'Claude Sonnet 5 (default)', value: 'claude-sonnet-5' },
+    { label: 'Claude Sonnet 4.6', value: 'claude-sonnet-4-6' },
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
   ],
   'OpenAI': [
