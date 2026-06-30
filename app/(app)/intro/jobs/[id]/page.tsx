@@ -227,7 +227,7 @@ export default function JobPage() {
 
   return (
     <AppLayout title="Page Intro">
-      <div className="max-w-5xl">
+      <div className="max-w-5xl mx-auto">
         <button onClick={() => router.push('/intro/jobs')}
           className="flex items-center gap-2 text-muted hover:text-text text-sm mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to Intro jobs

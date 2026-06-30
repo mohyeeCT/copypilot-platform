@@ -223,7 +223,7 @@ function gscErrorMessage(error?: string | null) {
 
   return (
     <AppLayout title="FAQ Copy">
-      <div className="max-w-5xl">
+      <div className="max-w-5xl mx-auto">
         <button onClick={() => router.push('/faq/jobs')}
           className="flex items-center gap-2 text-muted hover:text-text text-sm mb-6 transition-colors">
           <ArrowLeft size={14} /> Back to FAQ jobs
