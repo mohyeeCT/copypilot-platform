@@ -62,9 +62,13 @@ export default function SettingsPage() {
   function gscStatusText(settings: GscSettings | null): string {
     const oauth = settings?.google_oauth
     if (!oauth?.configured) return 'Connect Google to use Search Console data.'
+    if (oauth.status === 'connected' && oauth.has_indexing_scope === false && oauth.has_sheets_scope === false) {
+      return 'Reconnect to enable Indexer submissions and Google Sheets exports.'
+    }
     if (oauth.status === 'connected' && oauth.has_indexing_scope === false) return 'Reconnect to enable Indexer submissions.'
+    if (oauth.status === 'connected' && oauth.has_sheets_scope === false) return 'Reconnect to enable Google Sheets exports.'
     if (oauth.status === 'reconnect_required') return 'Reconnect to restore Search Console data.'
-    return 'Ready for Search Console keyword data and Indexer submissions.'
+    return 'Ready for Search Console keyword data and Indexer submissions, plus Google Sheets exports.'
   }
 
   async function loadGscSettings(): Promise<boolean> {
@@ -269,11 +273,14 @@ export default function SettingsPage() {
     }
   }
 
-  function needsIndexerScope(settings: GscSettings | null): boolean {
+  function needsGoogleScopeRefresh(settings: GscSettings | null): boolean {
     return Boolean(
       settings?.google_oauth.configured &&
       settings.google_oauth.status === 'connected' &&
-      settings.google_oauth.has_indexing_scope === false
+      (
+        settings.google_oauth.has_indexing_scope === false ||
+        settings.google_oauth.has_sheets_scope === false
+      )
     )
   }
 
@@ -402,7 +409,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
         <JobSection
           title="Google account"
-          description="Preferred for Search Console copy tools and Indexer submissions."
+          description="Preferred for Search Console copy tools and Indexer submissions, plus Google Sheets exports."
           kicker="Search Console"
         >
 
@@ -445,7 +452,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              {(gscSettings.google_oauth.status === 'reconnect_required' || needsIndexerScope(gscSettings)) && gscSettings.oauth_available && (
+              {(gscSettings.google_oauth.status === 'reconnect_required' || needsGoogleScopeRefresh(gscSettings)) && gscSettings.oauth_available && (
                 <button
                   onClick={handleConnectGoogle}
                   disabled={!!gscBusy}
@@ -541,7 +548,7 @@ export default function SettingsPage() {
           {error && <p className="text-error text-xs mt-3">{error}</p>}
 
           <p className="text-xs text-muted mt-4">
-            Google OAuth is preferred for Search Console copy tools and Indexer. Service account support remains available for fallback and legacy workflows.
+            Google OAuth is preferred for Search Console copy tools and Indexer, with Google Sheets exports available from completed jobs. Service account support remains available for fallback and legacy workflows.
           </p>
         </JobSection>
 

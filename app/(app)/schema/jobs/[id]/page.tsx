@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Copy, Download, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Copy, Download, ExternalLink, FileSpreadsheet } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -40,6 +41,7 @@ export default function SchemaJobPage() {
   const [job, setJob] = useState<Job | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [copied, setCopied] = useState('')
+  const [exportingSheets, setExportingSheets] = useState(false)
 
   const load = useCallback(async () => {
     const sb = createClient()
@@ -111,6 +113,24 @@ export default function SchemaJobPage() {
     XLSX.writeFile(wb, `schema_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
   }
 
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'Schema results'} - Schema`,
+        sheet_name: 'Schema Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
+  }
+
   if (!job) return (
     <AppLayout title="Schema Generator">
       <div className="flex items-center justify-center h-48">
@@ -146,6 +166,9 @@ export default function SchemaJobPage() {
               </button>
               <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
                 <Download size={12} /> Export XLSX
+              </button>
+              <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
+                <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
               </button>
             </div>
           )}

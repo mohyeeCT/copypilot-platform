@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, CheckCircle, Clock, Download, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle, Clock, Download, FileSpreadsheet, RefreshCw, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
@@ -11,6 +11,7 @@ import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { JobLauncherShell, JobSummaryBar } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,17 @@ const STATUS_CONFIG = {
   failed: { label: 'Failed', icon: XCircle, className: 'text-error' },
   queued: { label: 'Queued', icon: Clock, className: 'text-warning' },
   quota_exceeded: { label: 'Quota', icon: AlertTriangle, className: 'text-warning' },
+}
+
+function buildExportRows(job: Job) {
+  const headers = ['URL', 'Status', 'Message', 'Timestamp']
+  const rows = job.results.map(result => ({
+    'URL': result.url,
+    'Status': result.status,
+    'Message': result.message,
+    'Timestamp': result.timestamp || '',
+  }))
+  return { headers, rows }
 }
 
 async function getToken() {
@@ -105,6 +117,7 @@ export default function IndexerJobResultPage() {
   const [filter, setFilter] = useState('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [resubmitting, setResubmitting] = useState(false)
+  const [exportingSheets, setExportingSheets] = useState(false)
 
   const fetchJob = useCallback(async () => {
     try {
@@ -156,6 +169,24 @@ export default function IndexerJobResultPage() {
     }
   }
 
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildExportRows(job)
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'Indexer results'} - Indexer`,
+        sheet_name: 'Indexer Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
+  }
+
   return (
     <AppLayout title="Indexer Result">
       <div className="max-w-full">
@@ -200,6 +231,10 @@ export default function IndexerJobResultPage() {
                   <button onClick={() => downloadXLSX(job)} className="btn-ghost gap-2">
                     <Download size={14} />
                     Download XLSX
+                  </button>
+                  <button onClick={() => void exportGoogleSheets()} disabled={exportingSheets} className="btn-ghost gap-2 disabled:opacity-50">
+                    <FileSpreadsheet size={14} />
+                    {exportingSheets ? 'Exporting...' : 'Google Sheets'}
                   </button>
                 </>
               )}

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Download, FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
@@ -10,6 +10,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -106,6 +107,8 @@ export default function PageCopyJobPage() {
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
   const [reviewerInstruction, setReviewerInstruction] = useState<Record<string, string>>({})
   const [logsCollapsed, setLogsCollapsed] = useState(true)
+  const [exportingSheets, setExportingSheets] = useState(false)
+  const [exportingLinksSheets, setExportingLinksSheets] = useState(false)
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false); setRerunningSections(new Set()) }
@@ -220,6 +223,24 @@ export default function PageCopyJobPage() {
     XLSX.writeFile(wb, `page_copy_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
   }
 
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildResultsExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'All in One results'} - All in One`,
+        sheet_name: 'All in One Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
+  }
+
   function buildInternalLinksExportRows() {
     const headers = ['Source URL', 'Target URL', 'Suggested Anchor', 'Confidence', 'Reason']
     const rows = job!.internal_link_suggestions!.map(s => ({
@@ -250,6 +271,24 @@ export default function PageCopyJobPage() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Internal Links')
     XLSX.writeFile(wb, `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
+  }
+
+  async function exportInternalLinksGoogleSheets() {
+    if (!job?.internal_link_suggestions?.length || exportingLinksSheets) return
+    setExportingLinksSheets(true)
+    try {
+      const { headers, rows } = buildInternalLinksExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'Internal links'} - Internal Links`,
+        sheet_name: 'Internal Links',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingLinksSheets(false)
+    }
   }
 
   if (!job) return (
@@ -351,6 +390,9 @@ export default function PageCopyJobPage() {
                 <button onClick={downloadInternalLinksXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
                   <Download size={12} /> Export XLSX
                 </button>
+                <button onClick={exportInternalLinksGoogleSheets} disabled={exportingLinksSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
+                  <FileSpreadsheet size={12} /> {exportingLinksSheets ? 'Exporting...' : 'Google Sheets'}
+                </button>
               </div>
             </div>
             <div className="space-y-2">
@@ -422,6 +464,9 @@ export default function PageCopyJobPage() {
             </button>
             <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
               <Download size={12} /> Export XLSX
+            </button>
+            <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
+              <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
             </button>
           </div>
         )}

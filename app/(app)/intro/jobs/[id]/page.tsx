@@ -8,8 +8,9 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
-import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
+import { Copy, Download, FileSpreadsheet, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +91,7 @@ export default function JobPage() {
   const [editingKeyword, setEditingKeyword] = useState<number | null>(null)
   const [edits, setEdits] = useState<Record<number, string>>({})
   const [editingRow, setEditingRow] = useState<number | null>(null)
+  const [exportingSheets, setExportingSheets] = useState(false)
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
@@ -156,31 +158,34 @@ export default function JobPage() {
     setCancelling(false)
   }
 
-  function downloadCsv() {
-    if (!job?.results?.length) return
+  function buildExportRows() {
     const headers = [
       'URL', 'Intro Copy', 'Primary Keyword', 'Supporting Keywords',
       'Word Count', 'Cluster Source', 'Keyword Source', 'Runner Up',
       'Primary Volume', 'Primary Difficulty', 'Scrape Status', 'Intro Status', 'QA Flags',
     ]
-    const csvRows = job.results.map(r => {
-      const introCopy = edits[job.results.indexOf(r)] ?? r.intro_copy
-      return [
-        r.url || '',
-        introCopy || '',
-        r.primary_keyword || '',
-        r.supporting_keywords || '',
-        r.word_count ?? '',
-        r.cluster_source || '',
-        r.keyword_source || '',
-        r.runner_up || '',
-        r.primary_volume ?? '',
-        r.primary_difficulty ?? '',
-        r.scrape_status || '',
-        r.status || (r.error ? 'error' : 'ok'),
-        (r.qa_flags || []).join('; '),
-      ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
-    })
+    const rows = job!.results.map((r, i) => ({
+      'URL': r.url || '',
+      'Intro Copy': edits[i] ?? r.intro_copy ?? '',
+      'Primary Keyword': r.primary_keyword || '',
+      'Supporting Keywords': r.supporting_keywords || '',
+      'Word Count': r.word_count ?? '',
+      'Cluster Source': r.cluster_source || '',
+      'Keyword Source': r.keyword_source || '',
+      'Runner Up': r.runner_up || '',
+      'Primary Volume': r.primary_volume ?? '',
+      'Primary Difficulty': r.primary_difficulty ?? '',
+      'Scrape Status': r.scrape_status || '',
+      'Intro Status': r.status || (r.error ? 'error' : 'ok'),
+      'QA Flags': (r.qa_flags || []).join('; '),
+    }))
+    return { headers, rows }
+  }
+
+  function downloadCsv() {
+    if (!job?.results?.length) return
+    const { headers, rows } = buildExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`))
     const csv = [headers, ...csvRows].map(r => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -191,25 +196,29 @@ export default function JobPage() {
 
   function downloadXlsx() {
     if (!job?.results?.length) return
-    const data = job.results.map((r, i) => ({
-      URL: r.url || '',
-      'Intro Copy': edits[i] ?? r.intro_copy ?? '',
-      'Primary Keyword': r.primary_keyword || '',
-      'Runner Up': r.runner_up || '',
-      'Supporting Keywords': r.supporting_keywords || '',
-      'Word Count': r.word_count ?? '',
-      'Cluster Source': r.cluster_source || '',
-      'Keyword Source': r.keyword_source || '',
-      'Primary Volume': r.primary_volume ?? '',
-      'Primary Difficulty': r.primary_difficulty ?? '',
-      'Scrape Status': r.scrape_status || '',
-      'Intro Status': r.status || (r.error ? 'error' : 'ok'),
-      'QA Flags': (r.qa_flags || []).join('; '),
-    }))
-    const ws = XLSX.utils.json_to_sheet(data)
+    const { rows } = buildExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Results')
     XLSX.writeFile(wb, `${job.name || 'intro-results'}.xlsx`)
+  }
+
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'Intro results'} - Intro`,
+        sheet_name: 'Intro Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
   }
 
   if (!job) return (
@@ -310,6 +319,9 @@ export default function JobPage() {
               </button>
               <button onClick={downloadXlsx} className="btn-secondary text-xs flex items-center gap-1.5">
                 <Download size={12} /> Export XLSX
+              </button>
+              <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-secondary text-xs flex items-center gap-1.5 disabled:opacity-50">
+                <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
               </button>
             </>
           )}

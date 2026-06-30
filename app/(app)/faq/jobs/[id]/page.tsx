@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Copy, Download, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
+import { Copy, Download, FileSpreadsheet, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
@@ -9,6 +9,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { faqApi } from '@/lib/api/faq'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -60,6 +61,7 @@ export default function JobPage() {
   const [editingKeyword, setEditingKeyword] = useState<number | null>(null)
   const [edits, setEdits] = useState<Record<string, {question: string; answer: string}>>({})
   const [editingFaq, setEditingFaq] = useState<string | null>(null)
+  const [exportingSheets, setExportingSheets] = useState(false)
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
@@ -225,6 +227,24 @@ function gscErrorMessage(error?: string | null) {
     XLSX.writeFile(wb, `${job.name || 'results'}.xlsx`)
   }
 
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'FAQ results'} - FAQ`,
+        sheet_name: 'FAQ Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
+  }
+
   if (!job) return (
     <AppLayout title="FAQ Copy">
       <div className="flex items-center justify-center py-24">
@@ -319,6 +339,9 @@ function gscErrorMessage(error?: string | null) {
               </button>
               <button onClick={downloadXlsx} className="btn-secondary flex items-center gap-2">
                 <Download size={14} /> Download XLSX
+              </button>
+              <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-secondary flex items-center gap-2 disabled:opacity-50">
+                <FileSpreadsheet size={14} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
               </button>
             </div>
           )}

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
+import { ArrowLeft, Download, FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
@@ -10,6 +10,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -90,6 +91,7 @@ export default function MetaJobPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [editingKw, setEditingKw]   = useState<number | null>(null)
   const [kwOverrides, setKwOverrides] = useState<Record<number, string>>({})
+  const [exportingSheets, setExportingSheets] = useState(false)
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
@@ -195,6 +197,24 @@ export default function MetaJobPage() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Results')
     XLSX.writeFile(wb, `meta_copy_${job.name.replace(/\s+/g, '_')}.xlsx`)
+  }
+
+  async function exportGoogleSheets() {
+    if (!job?.results?.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      const { headers, rows } = buildExportRows()
+      await exportRowsToGoogleSheets({
+        title: `${job.name || 'Meta results'} - Meta`,
+        sheet_name: 'Meta Results',
+        headers,
+        rows,
+      })
+    } catch (error) {
+      alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
   }
 
   function getLengthColor(len: number | undefined, max: number, warn: number) {
@@ -337,6 +357,9 @@ export default function MetaJobPage() {
             </button>
             <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
               <Download size={12} /> Export XLSX
+            </button>
+            <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
+              <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
             </button>
           </div>
         )}

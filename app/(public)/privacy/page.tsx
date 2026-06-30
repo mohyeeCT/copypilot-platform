@@ -4,15 +4,15 @@ import Image from 'next/image'
 const sections = [
   {
     title: 'Information we collect',
-    body: 'CopyPilot collects the account information needed to provide access, saved tool settings, job inputs, generated outputs, and basic operational logs. When you connect Google Search Console through OAuth, CopyPilot stores safe connection metadata such as the connected Google email and uses encrypted tokens server-side to request Search Console data.',
+    body: 'CopyPilot collects the account information needed to provide access, saved tool settings, job inputs, generated outputs, and basic operational logs. When you connect Google through OAuth, CopyPilot stores safe connection metadata such as the connected Google email and uses encrypted tokens server-side to request Search Console data and create Google Sheets exports when you choose that export option.',
   },
   {
     title: 'How we use information',
-    body: 'We use this information to authenticate users, run SEO copy workflows, save user preferences, troubleshoot jobs, protect the service from abuse, and provide Google Search Console context when you choose to enable it.',
+    body: 'We use this information to authenticate users, run SEO copy workflows, save user preferences, troubleshoot jobs, protect the service from abuse, provide Google Search Console context when you choose to enable it, and create Google Sheets exports when requested.',
   },
   {
-    title: 'Google Search Console access',
-    body: 'Google OAuth access is read-only and limited to Search Console data. CopyPilot may read accessible properties, permission levels, and query/page performance data for the connected Google account. You can disconnect Google access from CopyPilot settings, and you can also revoke access from your Google Account.',
+    title: 'Google access',
+    body: 'Google OAuth Search Console access is read-only, and Google Sheets access is used only to create exports when you request an export. CopyPilot may read accessible properties, permission levels, and query/page performance data for the connected Google account, and may create a new spreadsheet containing the rows you export. You can disconnect Google access from CopyPilot settings, and you can also revoke access from your Google Account.',
   },
   {
     title: 'How we protect information',
