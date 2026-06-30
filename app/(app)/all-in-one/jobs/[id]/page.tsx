@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -85,6 +86,12 @@ interface Job {
   logs?: {ts: string; msg: string}[]
 }
 
+function previewText(text?: string, max = 120) {
+  const cleaned = (text || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  return cleaned.length > max ? `${cleaned.slice(0, max - 3).trim()}...` : cleaned
+}
+
 export default function PageCopyJobPage() {
   const { id }  = useParams()
   const router  = useRouter()
@@ -97,7 +104,7 @@ export default function PageCopyJobPage() {
   const [expanded, setExpanded]         = useState<number | null>(null)
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
   const [reviewerInstruction, setReviewerInstruction] = useState<Record<string, string>>({})
-  const [logsCollapsed, setLogsCollapsed] = useState(false)
+  const [logsCollapsed, setLogsCollapsed] = useState(true)
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false); setRerunningSections(new Set()) }
@@ -217,6 +224,11 @@ export default function PageCopyJobPage() {
     </AppLayout>
   )
 
+  const metaRows = job.results?.filter(row => !row.error && row.generated_title).length ?? 0
+  const faqTotal = job.results?.reduce((sum, row) => sum + (row.faq_count ?? row.faq_items?.length ?? 0), 0) ?? 0
+  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status !== 'ok' || row.error).length ?? 0
+  const linkSuggestions = job.internal_link_suggestions?.length ?? 0
+
   return (
     <AppLayout title="All in One">
       <div className="max-w-5xl mx-auto">
@@ -249,15 +261,25 @@ export default function PageCopyJobPage() {
             helperText="All in One jobs can take longer because each URL may run meta, FAQ, page copy, competitor scraping, and QA steps."
           />
         )}
+
+        {job.status === 'complete' && job.results && job.results.length > 0 && (
+          <CompletedJobSummary
+            stats={[
+              { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
+              { label: 'Meta rows', value: metaRows, tone: 'success' },
+              { label: 'FAQs generated', value: faqTotal, tone: 'success' },
+              { label: 'Link ideas', value: linkSuggestions, tone: 'muted' },
+            ]}
+            message={failedRows > 0 ? `${failedRows} rows need review before download` : 'All rows complete - ready to download'}
+            logCount={job.logs?.length}
+            logsCollapsed={logsCollapsed}
+            onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
+          />
+        )}
+
         {/* Collapsible log after completion */}
-        {job.status === 'complete' && job.logs?.length ? (
+        {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
           <div className="mb-6">
-            <button onClick={() => setLogsCollapsed(!logsCollapsed)}
-              className="flex items-center gap-2 text-xs text-muted hover:text-text transition-colors mb-2">
-              {logsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-              {logsCollapsed ? 'Show run log' : 'Hide run log'}
-              <span className="text-muted/50">({(job.logs || []).length} steps)</span>
-            </button>
             {!logsCollapsed && (
               <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
                 {(job.logs || []).map((entry, i) => {
@@ -380,10 +402,19 @@ export default function PageCopyJobPage() {
                     })}
                   />
                   <span className="text-xs font-mono text-muted shrink-0">{i + 1}</span>
-                  <span className="text-xs font-mono text-muted truncate flex-1">{row.url}</span>
-                  {row.primary_keyword && (
-                    <span className="text-xs font-mono text-accent shrink-0 hidden sm:block">{row.primary_keyword}</span>
-                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono text-muted truncate">{row.url}</span>
+                      {row.primary_keyword && (
+                        <span className="text-xs font-mono text-accent shrink-0 hidden sm:block">{row.primary_keyword}</span>
+                      )}
+                    </div>
+                    {(row.generated_title || row.optimised_h1 || row.faq_items?.[0]?.question || Object.values(row.section_results || {})[0]) && (
+                      <p className="text-xs text-muted mt-1 truncate">
+                        {previewText(row.generated_title || row.optimised_h1 || row.faq_items?.[0]?.question || Object.values(row.section_results || {})[0])}
+                      </p>
+                    )}
+                  </div>
                   {row.generated_title && <span className="text-xs text-muted font-mono hidden lg:block">meta ✓</span>}
                   {row.faq_count ? <span className="text-xs text-muted font-mono hidden lg:block">{row.faq_count} FAQs</span> : null}
                   <div className="flex items-center gap-2 shrink-0">

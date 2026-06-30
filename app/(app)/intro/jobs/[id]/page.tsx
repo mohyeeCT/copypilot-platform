@@ -3,11 +3,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { introApi } from '@/lib/api/intro'
-import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Copy, Download, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
@@ -65,6 +66,13 @@ type Job = {
   error: string | null
 }
 
+function previewText(text?: string, max = 120) {
+  const cleaned = (text || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const firstSentence = cleaned.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || cleaned
+  return firstSentence.length > max ? `${firstSentence.slice(0, max - 3).trim()}...` : firstSentence
+}
+
 export default function JobPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -72,7 +80,7 @@ export default function JobPage() {
   const [cancelling, setCancelling] = useState(false)
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [rerunningMulti, setRerunningMulti] = useState(false)
-  const [logsCollapsed, setLogsCollapsed] = useState(false)
+  const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [view, setView] = useState<'cards' | 'table'>('cards')
@@ -213,6 +221,9 @@ export default function JobPage() {
   )
 
   const failedRows = job.failed_rows ?? job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
+  const generatedRows = job.results?.filter(row => !row.error && row.intro_copy).length ?? 0
+  const keywordSources = Array.from(new Set((job.results || []).map(row => row.keyword_source || row.cluster_source).filter(Boolean)))
+  const keywordSourceSummary = keywordSources.length === 0 ? 'Manual' : keywordSources.length === 1 ? keywordSources[0] : 'Mixed'
 
   return (
     <AppLayout title="Page Intro">
@@ -317,31 +328,36 @@ export default function JobPage() {
             onCancel={handleCancel}
           />
         )}
-        {/* Collapsible log after completion */}
-        {job.status === 'complete' && job.logs?.length ? (
+
+        {job.status === 'complete' && job.results?.length > 0 && (
+          <CompletedJobSummary
+            stats={[
+              { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
+              { label: 'Intros generated', value: generatedRows, tone: 'success' },
+              { label: 'Failed', value: failedRows, tone: failedRows > 0 ? 'error' : 'default' },
+              { label: 'Keyword source', value: keywordSourceSummary, tone: 'muted' },
+            ]}
+            logCount={job.logs?.length}
+            logsCollapsed={logsCollapsed}
+            onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
+          />
+        )}
+
+        {/* Run log after completion */}
+        {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
           <div className="mb-6">
-            <button
-              onClick={() => setLogsCollapsed(!logsCollapsed)}
-              className="flex items-center gap-2 text-xs text-muted hover:text-text transition-colors mb-2"
-            >
-              {logsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-              {logsCollapsed ? 'Show run log' : 'Hide run log'}
-              <span className="text-muted/50">({(job.logs || []).length} steps)</span>
-            </button>
-            {!logsCollapsed && (
-              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
-                {(job.logs || []).map((entry, i) => {
-                  const logs = job.logs!
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
-                  return (
-                    <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
-                      <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
-                      <span className="text-muted">{entry.msg}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
+              {(job.logs || []).map((entry, i) => {
+                const logs = job.logs!
+                const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
+                return (
+                  <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
+                    <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
+                    <span className="text-muted">{entry.msg}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         ) : null}
 
@@ -392,7 +408,7 @@ export default function JobPage() {
                     <button
                       onClick={() => { setExpanded(expanded === i ? null : i); setNewlyUpdated(prev => { const n = new Set(prev); n.delete(i); return n }) }}
                       className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 transition-colors text-left">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <StyledCheckbox
                           ariaLabel={`Select intro result row ${i + 1}`}
                           className="shrink-0"
@@ -405,10 +421,17 @@ export default function JobPage() {
                           })}
                         />
                         <span className="text-xs font-mono text-muted shrink-0">{i + 1}</span>
-                        <span className="text-xs font-mono text-muted truncate">{row.url}</span>
-                        {row.primary_keyword && (
-                          <span className="text-xs font-mono text-accent shrink-0">{row.primary_keyword}</span>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs font-mono text-muted truncate">{row.url}</span>
+                            {row.primary_keyword && (
+                              <span className="text-xs font-mono text-accent shrink-0">{row.primary_keyword}</span>
+                            )}
+                          </div>
+                          {row.intro_copy && (
+                            <p className="text-xs text-muted mt-1 truncate">{previewText(row.intro_copy)}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {row.word_count != null && (

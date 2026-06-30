@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -68,6 +69,12 @@ interface Job {
   logs?: {ts: string; msg: string}[]
 }
 
+function previewText(text?: string, max = 120) {
+  const cleaned = (text || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  return cleaned.length > max ? `${cleaned.slice(0, max - 3).trim()}...` : cleaned
+}
+
 export default function MetaJobPage() {
   const { id }  = useParams()
   const router  = useRouter()
@@ -78,7 +85,7 @@ export default function MetaJobPage() {
   const [rerunningMulti, setRerunningMulti] = useState(false)
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
   const [expanded, setExpanded]     = useState<number | null>(null)
-  const [logsCollapsed, setLogsCollapsed] = useState(false)
+  const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [editingKw, setEditingKw]   = useState<number | null>(null)
   const [kwOverrides, setKwOverrides] = useState<Record<number, string>>({})
@@ -180,6 +187,11 @@ export default function MetaJobPage() {
     </AppLayout>
   )
 
+  const titleCount = job.results?.filter(row => !row.error && row.generated_title).length ?? 0
+  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
+  const gscLabels = Array.from(new Set((job.results || []).map(row => gscAuthLabel(row.gsc_auth_method)).filter(Boolean)))
+  const gscSummary = gscLabels.length === 0 ? 'Manual' : gscLabels.length === 1 ? gscLabels[0] : 'Mixed'
+
   return (
     <AppLayout title="Meta Copy">
       <div className="max-w-5xl mx-auto">
@@ -211,15 +223,24 @@ export default function MetaJobPage() {
             onCancel={handleCancel}
           />
         )}
+
+        {job.status === 'complete' && job.results && job.results.length > 0 && (
+          <CompletedJobSummary
+            stats={[
+              { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
+              { label: 'Titles generated', value: titleCount, tone: 'success' },
+              { label: 'Failed', value: failedRows, tone: failedRows > 0 ? 'error' : 'default' },
+              { label: 'GSC', value: gscSummary, tone: 'muted' },
+            ]}
+            logCount={job.logs?.length}
+            logsCollapsed={logsCollapsed}
+            onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
+          />
+        )}
+
         {/* Collapsible log after completion */}
-        {job.status === 'complete' && job.logs?.length ? (
+        {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
           <div className="mb-6">
-            <button onClick={() => setLogsCollapsed(!logsCollapsed)}
-              className="flex items-center gap-2 text-xs text-muted hover:text-text transition-colors mb-2">
-              {logsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-              {logsCollapsed ? 'Show run log' : 'Hide run log'}
-              <span className="text-muted/50">({(job.logs || []).length} steps)</span>
-            </button>
             {!logsCollapsed && (
               <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
                 {(job.logs || []).map((entry, i) => {
@@ -312,8 +333,15 @@ export default function MetaJobPage() {
                     })}
                   />
                   <span className="text-xs font-mono text-muted shrink-0">{i + 1}</span>
-                  <span className="text-xs font-mono text-muted truncate flex-1">{row.url}</span>
-                  {row.selected_keyword && <span className="text-xs font-mono text-accent shrink-0 hidden sm:block">{row.selected_keyword}</span>}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono text-muted truncate">{row.url}</span>
+                      {row.selected_keyword && <span className="text-xs font-mono text-accent shrink-0 hidden sm:block">{row.selected_keyword}</span>}
+                    </div>
+                    {(row.generated_title || row.generated_description) && (
+                      <p className="text-xs text-muted mt-1 truncate">{previewText(row.generated_title || row.generated_description)}</p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {row.generated_title && (
                       <span className={`text-xs font-mono shrink-0 ${getLengthColor(row.title_length, 60, 55)}`}>

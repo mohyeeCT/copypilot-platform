@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Copy, Download, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -35,6 +36,12 @@ type Job = {
   results: RowResult[]; created_at: string; error: string | null
 }
 
+function previewText(text?: string, max = 110) {
+  const cleaned = (text || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  return cleaned.length > max ? `${cleaned.slice(0, max - 3).trim()}...` : cleaned
+}
+
 export default function JobPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -42,7 +49,7 @@ export default function JobPage() {
   const [cancelling, setCancelling] = useState(false)
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [rerunningMulti, setRerunningMulti] = useState(false)
-  const [logsCollapsed, setLogsCollapsed] = useState(false)
+  const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [view, setView] = useState<'cards' | 'table'>('cards')
@@ -210,6 +217,9 @@ function gscErrorMessage(error?: string | null) {
   )
 
   const failedRows = job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
+  const faqTotal = job.results?.reduce((sum, row) => sum + (row.faq_count ?? row.faqs?.length ?? 0), 0) ?? 0
+  const gscLabels = Array.from(new Set((job.results || []).map(row => gscAuthLabel(row.gsc_auth_method)).filter(Boolean)))
+  const gscSummary = gscLabels.length === 0 ? 'Manual' : gscLabels.length === 1 ? gscLabels[0] : 'Mixed'
 
   return (
     <AppLayout title="FAQ Copy">
@@ -307,31 +317,36 @@ function gscErrorMessage(error?: string | null) {
             onCancel={handleCancel}
           />
         )}
-        {/* Log panel after completion */}
-        {job.status === 'complete' && job.logs?.length ? (
+
+        {job.status === 'complete' && job.results?.length > 0 && (
+          <CompletedJobSummary
+            stats={[
+              { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
+              { label: 'FAQs generated', value: faqTotal, tone: 'success' },
+              { label: 'Failed', value: failedRows, tone: failedRows > 0 ? 'error' : 'default' },
+              { label: 'GSC', value: gscSummary, tone: 'muted' },
+            ]}
+            logCount={job.logs?.length}
+            logsCollapsed={logsCollapsed}
+            onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
+          />
+        )}
+
+        {/* Run log after completion */}
+        {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
           <div className="mb-6">
-            <button
-              onClick={() => setLogsCollapsed(!logsCollapsed)}
-              className="flex items-center gap-2 text-xs text-muted hover:text-text transition-colors mb-2"
-            >
-              {logsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-              {logsCollapsed ? 'Show run log' : 'Hide run log'}
-              <span className="text-muted/50">({(job.logs || []).length} steps)</span>
-            </button>
-            {!logsCollapsed && (
-              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
-                {(job.logs || []).map((entry, i) => {
-                  const logs = job.logs!
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
-                  return (
-                    <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
-                      <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
-                      <span className="text-muted">{entry.msg}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
+              {(job.logs || []).map((entry, i) => {
+                const logs = job.logs!
+                const elapsed = Math.round((new Date(entry.ts).getTime() - new Date(logs[0].ts).getTime()) / 1000)
+                return (
+                  <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
+                    <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
+                    <span className="text-muted">{entry.msg}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         ) : null}
 
@@ -454,6 +469,9 @@ function gscErrorMessage(error?: string | null) {
                     <p className="font-mono text-xs text-muted truncate">{row.url}</p>
                     {row.keyword && (
                       <p className="font-mono text-xs text-accent mt-0.5 truncate">{row.keyword}</p>
+                    )}
+                    {row.faqs?.[0]?.question && (
+                      <p className="text-xs text-muted mt-1 truncate">{previewText(row.faqs[0].question)}</p>
                     )}
                   </div>
                   <Badge label={row.keyword_source || 'manual'} />
