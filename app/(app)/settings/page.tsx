@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Upload, Trash2, CheckCircle, ExternalLink, Github, Server, Tag, Zap } from 'lucide-react'
-import { useToast } from '@/components/ui/Toast'
+import { Upload, Trash2, CheckCircle, Server, Zap } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -12,9 +11,6 @@ import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 export const dynamic = 'force-dynamic'
 
 const VERSION = 'v3.0'
-const FRONTEND_URL = 'copypilot.app'
-const BACKEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
-const FRONTEND_REPO = 'https://github.com/mohyeeCT/copypilot-platform'
 const BACKENDS = [
   { label: 'FAQ Copy',    url: 'faq-saas-backend-production.up.railway.app' },
   { label: 'Page Intro',  url: 'intro-saas-backend-production.up.railway.app' },
@@ -26,8 +22,6 @@ const BACKENDS = [
 const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'credentials' | 'gsc' | 'brand' | 'about'>('credentials')
-  const toast = useToast()
   const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
   const [gscProperties, setGscProperties] = useState<GscProperty[]>([])
   const [gscPropertiesExpanded, setGscPropertiesExpanded] = useState(false)
@@ -404,6 +398,8 @@ export default function SettingsPage() {
         )}
 
         {/* Google Search Console — Google account */}
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="space-y-4">
         <JobSection
           title="Google account"
           description="Preferred for Search Console copy tools and Indexer submissions."
@@ -639,17 +635,9 @@ export default function SettingsPage() {
           )}
         </JobSection>
 
-        {/* Brand Profiles */}
-        <BrandProfilesCard
-          listBrandProfiles={listBrandProfiles}
-          createBrandProfile={createBrandProfile}
-          updateBrandProfile={updateBrandProfile}
-          deleteBrandProfile={deleteBrandProfile}
-        />
-
         <JobSection
           title="Platform health"
-          description="Live backend health checks and production entry points."
+          description="Live status for the services that power CopyPilot tools."
           kicker="System"
         >
           <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-surface-raised px-4 py-3">
@@ -679,67 +667,28 @@ export default function SettingsPage() {
                     <Server size={13} className="text-muted shrink-0" />
                     <div>
                       <p className="text-xs font-medium">{b.label}</p>
-                      <p className="text-xs text-muted font-mono mt-0.5">{b.url}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-1.5 text-xs ${status === 'ok' ? 'text-accent' : status === 'error' ? 'text-error' : 'text-muted'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${status === 'ok' ? 'bg-accent animate-pulse' : status === 'error' ? 'bg-error' : 'bg-muted animate-pulse'}`} />
-                      {status === 'ok' ? 'Operational' : status === 'error' ? 'Unreachable' : 'Checking...'}
-                    </div>
-                    <a href={`https://${b.url}/health`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent transition-colors">
-                      <ExternalLink size={12} />
-                    </a>
+                  <div className={`flex items-center gap-1.5 text-xs ${status === 'ok' ? 'text-accent' : status === 'error' ? 'text-error' : 'text-muted'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${status === 'ok' ? 'bg-accent animate-pulse' : status === 'error' ? 'bg-error' : 'bg-muted animate-pulse'}`} />
+                    {status === 'ok' ? 'Operational' : status === 'error' ? 'Needs attention' : 'Checking...'}
                   </div>
                 </div>
               )
             })}
-
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Zap size={14} className="text-muted shrink-0" />
-                <div>
-                  <p className="text-xs font-medium">Frontend</p>
-                  <p className="text-xs text-muted font-mono mt-0.5">{FRONTEND_URL}</p>
-                </div>
-              </div>
-              <a href={`https://${FRONTEND_URL}`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent transition-colors">
-                <ExternalLink size={12} />
-              </a>
-            </div>
-
-            <div className="px-6 py-4 flex items-center gap-8">
-              <div className="flex items-center gap-2 text-xs text-muted shrink-0">
-                <Github size={13} />
-                <span>Repos</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <a href={BACKEND_REPO} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors font-mono">
-                  Railway backends <ExternalLink size={10} />
-                </a>
-                <a href={FRONTEND_REPO} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors font-mono">
-                  copypilot-platform <ExternalLink size={10} />
-                </a>
-              </div>
-            </div>
-
-            <div className="px-6 py-4">
-              <div className="flex items-center gap-2 text-xs text-muted mb-3">
-                <Tag size={13} />
-                <span>Stack</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {['FastAPI', 'Next.js 14', 'Supabase', 'Railway', 'Vercel', 'DataForSEO', 'Jina Reader', 'Claude', 'OpenAI', 'Gemini', 'Mistral', 'Groq'].map(t => (
-                  <span key={t} className="text-xs font-mono bg-border/60 text-muted px-2 py-0.5 rounded">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </JobSection>
+          </div>
+
+          <aside className="xl:sticky xl:top-6">
+            <BrandProfilesCard
+              listBrandProfiles={listBrandProfiles}
+              createBrandProfile={createBrandProfile}
+              updateBrandProfile={updateBrandProfile}
+              deleteBrandProfile={deleteBrandProfile}
+            />
+          </aside>
+        </div>
       </JobLauncherShell>
     </AppLayout>
   )

@@ -33,6 +33,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [profilesVisible, setProfilesVisible] = useState(true)
 
   async function getToken() {
     const sb = createClient()
@@ -56,12 +57,14 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
     setForm({ name: '', ...EMPTY_DATA })
     setEditingId('new')
     setExpandedId(null)
+    setProfilesVisible(true)
   }
 
   function openEdit(p: BrandProfile) {
     setForm({ name: p.name, ...EMPTY_DATA, ...p.data })
     setEditingId(p.id)
     setExpandedId(p.id)
+    setProfilesVisible(true)
   }
 
   function cancel() {
@@ -131,76 +134,89 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
             <p className="job-section-description">One profile per client or brand. Select which to use when running a job.</p>
           </div>
         </div>
-        {editingId !== 'new' && (
-          <button onClick={openNew} className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors">
-            <Plus size={12} /> New profile
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setProfilesVisible(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors"
+          >
+            {profilesVisible ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {profilesVisible ? 'Hide profiles' : 'Show profiles'}
           </button>
-        )}
+          {editingId !== 'new' && (
+            <button onClick={openNew} className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors">
+              <Plus size={12} /> New profile
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* New profile form */}
-      {editingId === 'new' && (
-        <ProfileForm
-          form={form} setForm={setForm} saving={saving} error={error}
-          onSave={save} onCancel={cancel} isNew
-        />
-      )}
+      {profilesVisible && (
+        <>
+          {/* New profile form */}
+          {editingId === 'new' && (
+            <ProfileForm
+              form={form} setForm={setForm} saving={saving} error={error}
+              onSave={save} onCancel={cancel} isNew
+            />
+          )}
 
-      {/* Existing profiles */}
-      {profiles.length === 0 && editingId !== 'new' && (
-        <p className="text-xs text-muted text-center py-4">No brand profiles yet. Create one to get started.</p>
-      )}
+          {/* Existing profiles */}
+          {profiles.length === 0 && editingId !== 'new' && (
+            <p className="text-xs text-muted text-center py-4">No brand profiles yet. Create one to get started.</p>
+          )}
 
-      <div className="space-y-2 mt-2">
-        {profiles.map(p => (
-          <div key={p.id} className="border border-border rounded-lg overflow-hidden">
-            {/* Profile header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-surface/50">
-              <div className="flex items-center gap-3">
-                {savedId === p.id && <CheckCircle size={13} className="text-accent shrink-0" />}
-                <span className="text-sm font-medium">{p.name}</span>
-                {p.data.brand_name && p.data.brand_name !== p.name && (
-                  <span className="text-xs text-muted font-mono">{p.data.brand_name}</span>
+          <div className="space-y-2 mt-2">
+            {profiles.map(p => (
+              <div key={p.id} className="border border-border rounded-lg overflow-hidden">
+                {/* Profile header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-surface/50">
+                  <div className="flex items-center gap-3">
+                    {savedId === p.id && <CheckCircle size={13} className="text-accent shrink-0" />}
+                    <span className="text-sm font-medium">{p.name}</span>
+                    {p.data.brand_name && p.data.brand_name !== p.name && (
+                      <span className="text-xs text-muted font-mono">{p.data.brand_name}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openEdit(p)} className="p-1.5 text-muted hover:text-accent transition-colors" title="Edit">
+                      <Pencil size={12} />
+                    </button>
+                    <button onClick={() => remove(p.id)} className="p-1.5 text-muted hover:text-error transition-colors" title="Delete">
+                      <Trash2 size={12} />
+                    </button>
+                    <button onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                      className="p-1.5 text-muted hover:text-text transition-colors">
+                      {expandedId === p.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Edit form */}
+                {editingId === p.id && (
+                  <div className="px-4 pb-4 pt-3 border-t border-border">
+                    <ProfileForm
+                      form={form} setForm={setForm} saving={saving} error={error}
+                      onSave={save} onCancel={cancel}
+                    />
+                  </div>
+                )}
+
+                {/* Summary view */}
+                {expandedId === p.id && editingId !== p.id && (
+                  <div className="px-4 pb-3 pt-2 border-t border-border grid grid-cols-2 gap-2">
+                    {(Object.entries(p.data) as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k}>
+                        <p className="text-xs text-muted capitalize">{k.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-text truncate">{v}</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => openEdit(p)} className="p-1.5 text-muted hover:text-accent transition-colors" title="Edit">
-                  <Pencil size={12} />
-                </button>
-                <button onClick={() => remove(p.id)} className="p-1.5 text-muted hover:text-error transition-colors" title="Delete">
-                  <Trash2 size={12} />
-                </button>
-                <button onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                  className="p-1.5 text-muted hover:text-text transition-colors">
-                  {expandedId === p.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Edit form */}
-            {editingId === p.id && (
-              <div className="px-4 pb-4 pt-3 border-t border-border">
-                <ProfileForm
-                  form={form} setForm={setForm} saving={saving} error={error}
-                  onSave={save} onCancel={cancel}
-                />
-              </div>
-            )}
-
-            {/* Summary view */}
-            {expandedId === p.id && editingId !== p.id && (
-              <div className="px-4 pb-3 pt-2 border-t border-border grid grid-cols-2 gap-2">
-                {(Object.entries(p.data) as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k}>
-                    <p className="text-xs text-muted capitalize">{k.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-text truncate">{v}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   )
 }

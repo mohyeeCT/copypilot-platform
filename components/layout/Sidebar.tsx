@@ -19,14 +19,14 @@ type Tool = {
 }
 
 const tools: Tool[] = [
-  { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#818CF8' },
-  { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#60A5FA' },
-  { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#F59E0B' },
+  { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#0B7A5C' },
+  { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#0B7A5C' },
+  { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#0B7A5C' },
   { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0B7A5C' },
 ]
 
 const other: Tool[] = [
-  { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#4F9EFF' },
+  { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#94A3B8' },
   { href: '/indexer/jobs',    label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
   { href: '/settings',        label: 'Settings', icon: Settings, accent: '#94A3B8' },
 ]
