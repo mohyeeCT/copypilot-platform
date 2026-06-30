@@ -10,6 +10,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -155,21 +156,45 @@ export default function MetaJobPage() {
     setTimeout(() => setCopiedField(null), 1500)
   }
 
+  function buildExportRows() {
+    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
+    const rows = job!.results!.map(r => ({
+      'URL': r.url || '',
+      'Title Tag': r.generated_title || '',
+      'Title Length': r.title_length || '',
+      'Meta Description': r.generated_description || '',
+      'Description Length': r.description_length || '',
+      'Optimised H1': r.optimised_h1 || '',
+      'H1 Length': r.h1_length || '',
+      'Keyword': r.selected_keyword || '',
+      'Volume': r.kw_volume ?? '',
+      'Difficulty': r.kw_difficulty ?? '',
+      'Keyword Source': r.keyword_source || '',
+      'Runner Up': r.runner_up || '',
+      'Status': r.status || '',
+      'QA Flags': (r.qa_flags || []).join('; '),
+    }))
+    return { headers, rows }
+  }
+
   function downloadCsv() {
     if (!job?.results?.length) return
-    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
-    const rows = job.results.map(r => [
-      r.url, r.generated_title || '', r.title_length || '',
-      r.generated_description || '', r.description_length || '',
-      r.optimised_h1 || '', r.h1_length || '',
-      r.selected_keyword || '', r.kw_volume ?? '', r.kw_difficulty ?? '',
-      r.keyword_source || '', r.runner_up || '', r.status || '', (r.qa_flags || []).join('; '),
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
+    const { headers, rows } = buildExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
+    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `meta_copy_${job.name.replace(/\s+/g, '_')}.csv`
     a.click()
+  }
+
+  function downloadXlsx() {
+    if (!job?.results?.length) return
+    const { rows } = buildExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Results')
+    XLSX.writeFile(wb, `meta_copy_${job.name.replace(/\s+/g, '_')}.xlsx`)
   }
 
   function getLengthColor(len: number | undefined, max: number, warn: number) {
@@ -309,6 +334,9 @@ export default function MetaJobPage() {
             </label>
             <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
               <Download size={12} /> Export CSV
+            </button>
+            <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
+              <Download size={12} /> Export XLSX
             </button>
           </div>
         )}

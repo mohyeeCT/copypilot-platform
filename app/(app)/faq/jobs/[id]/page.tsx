@@ -9,6 +9,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { faqApi } from '@/lib/api/faq'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -148,8 +149,7 @@ function gscErrorMessage(error?: string | null) {
     setCancelling(false)
   }
 
-  function downloadCsv() {
-    if (!job?.results?.length) return
+  function buildExportRows() {
     const headers = [
       'URL',
       'SEO Target Keyword',
@@ -169,43 +169,60 @@ function gscErrorMessage(error?: string | null) {
       'FAQ Sources',
       'FAQ Schema Script',  // bonus column not in Streamlit
     ]
-    const rows = job.results.map(r => {
+    const results = job!.results
+    const rows = results.map(r => {
       // Build faq_combined from faqs array if faq_combined not on result
       const faqCombined = r.faq_combined ||
         (r.faqs || []).map((f: FAQ, fi: number) => {
-          const key = `${job.results.indexOf(r)}-${fi}`
+          const key = `${results.indexOf(r)}-${fi}`
           const edited = edits[key]
           return `Q: ${edited?.question ?? f.question}\nA: ${edited?.answer ?? f.answer}`
         }).join('\n\n')
       const faqSources = r.faq_sources ||
         (r.faqs || []).map((f: FAQ) => f.source || 'generated').join(', ')
 
-      return [
-        r.url || '',
-        r.selected_keyword || r.keyword || '',
-        r.keyword_source || '',
-        r.runner_up || '',
-        r.scrape_status || '',
-        r.ai_overview_raw_text || '',
-        r.paa_raw_text || '',
-        r.ai_overview_present ? 'Yes' : 'No',
-        r.ao_question_count ?? '',
-        r.paa_count ?? '',
-        r.faq_count ?? (r.faqs?.length ?? ''),
-        r.faq_schema_json || r.schema_json || '',
-        r.status || (r.error ? 'error' : 'ok'),
-        (r.qa_flags || []).join('; '),
-        faqCombined,
-        faqSources,
-        r.faq_schema_script || r.schema_script || '',
-      ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
+      return {
+        'URL': r.url || '',
+        'SEO Target Keyword': r.selected_keyword || r.keyword || '',
+        'Keyword Source': r.keyword_source || '',
+        'Runner Up Keyword': r.runner_up || '',
+        'Page Scrape Status': r.scrape_status || '',
+        'AI Overview Content': r.ai_overview_raw_text || '',
+        'PAA Content': r.paa_raw_text || '',
+        'AI Overview Present': r.ai_overview_present ? 'Yes' : 'No',
+        'FAQs from AI Overview': r.ao_question_count ?? '',
+        'PAA Questions Found': r.paa_count ?? '',
+        'FAQs Generated': r.faq_count ?? (r.faqs?.length ?? ''),
+        'FAQ Schema JSON-LD': r.faq_schema_json || r.schema_json || '',
+        'FAQ Status': r.status || (r.error ? 'error' : 'ok'),
+        'QA Flags': (r.qa_flags || []).join('; '),
+        'FAQ Content': faqCombined,
+        'FAQ Sources': faqSources,
+        'FAQ Schema Script': r.faq_schema_script || r.schema_script || '',
+      }
     })
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    return { headers, rows }
+  }
+
+  function downloadCsv() {
+    if (!job?.results?.length) return
+    const { headers, rows } = buildExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`))
+    const csv = [headers, ...csvRows].map(r => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `${job.name || 'results'}.csv`
     a.click()
+  }
+
+  function downloadXlsx() {
+    if (!job?.results?.length) return
+    const { rows } = buildExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Results')
+    XLSX.writeFile(wb, `${job.name || 'results'}.xlsx`)
   }
 
   if (!job) return (
@@ -299,6 +316,9 @@ function gscErrorMessage(error?: string | null) {
               </div>
               <button onClick={downloadCsv} className="btn-primary flex items-center gap-2">
                 <Download size={14} /> Download CSV
+              </button>
+              <button onClick={downloadXlsx} className="btn-secondary flex items-center gap-2">
+                <Download size={14} /> Download XLSX
               </button>
             </div>
           )}

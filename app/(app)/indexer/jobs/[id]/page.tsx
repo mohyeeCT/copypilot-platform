@@ -11,6 +11,7 @@ import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { JobLauncherShell, JobSummaryBar } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +70,19 @@ function downloadCSV(job: Job) {
   anchor.click()
   document.body.removeChild(anchor)
   URL.revokeObjectURL(url)
+}
+
+function downloadXLSX(job: Job) {
+  const rows = job.results.map(result => ({
+    URL: result.url,
+    Status: result.status,
+    Message: result.message,
+    Timestamp: result.timestamp || '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Results')
+  XLSX.writeFile(wb, `indexer-${job.id.slice(0, 8)}.xlsx`)
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
@@ -178,10 +192,16 @@ export default function IndexerJobResultPage() {
                 </button>
               )}
               {job.status === 'complete' && job.results.length > 0 && (
-                <button onClick={() => downloadCSV(job)} className="btn-ghost gap-2">
-                  <Download size={14} />
-                  Download CSV
-                </button>
+                <>
+                  <button onClick={() => downloadCSV(job)} className="btn-ghost gap-2">
+                    <Download size={14} />
+                    Download CSV
+                  </button>
+                  <button onClick={() => downloadXLSX(job)} className="btn-ghost gap-2">
+                    <Download size={14} />
+                    Download XLSX
+                  </button>
+                </>
               )}
               <span className={clsx('rounded-full px-3 py-1 text-sm font-medium capitalize', {
                 'bg-accent/10 text-accent': job.status === 'running',

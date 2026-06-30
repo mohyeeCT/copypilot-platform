@@ -10,6 +10,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -184,36 +185,71 @@ export default function PageCopyJobPage() {
     })
   }
 
+  function buildResultsExportRows() {
+    const headers = ['URL', 'Primary Keyword', 'Word Count', 'Template', 'Keyword Source', 'Volume', 'Status', 'Competitor URLs']
+    const rows = job!.results!.map(r => ({
+      'URL': r.url || '',
+      'Primary Keyword': r.primary_keyword || '',
+      'Word Count': r.word_count || '',
+      'Template': r.template_name || '',
+      'Keyword Source': r.keyword_source || '',
+      'Volume': r.kw_volume || '',
+      'Status': r.status || '',
+      'Competitor URLs': (r.competitor_urls || []).join('; '),
+    }))
+    return { headers, rows }
+  }
+
   function downloadCsv() {
     if (!job?.results?.length) return
-    const headers = ['URL', 'Primary Keyword', 'Word Count', 'Template', 'Keyword Source', 'Volume', 'Status', 'Competitor URLs']
-    const rows = job.results.map(r => [
-      r.url, r.primary_keyword || '', r.word_count || '',
-      r.template_name || '', r.keyword_source || '', r.kw_volume || '',
-      r.status || '', (r.competitor_urls || []).join('; '),
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
+    const { headers, rows } = buildResultsExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
+    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `page_copy_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
     a.click()
   }
 
+  function downloadXlsx() {
+    if (!job?.results?.length) return
+    const { rows } = buildResultsExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Results')
+    XLSX.writeFile(wb, `page_copy_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
+  }
+
+  function buildInternalLinksExportRows() {
+    const headers = ['Source URL', 'Target URL', 'Suggested Anchor', 'Confidence', 'Reason']
+    const rows = job!.internal_link_suggestions!.map(s => ({
+      'Source URL': s.source_url || '',
+      'Target URL': s.target_url || '',
+      'Suggested Anchor': s.anchor_text || '',
+      'Confidence': s.confidence ?? '',
+      'Reason': s.reason || '',
+    }))
+    return { headers, rows }
+  }
+
   function downloadInternalLinksCsv() {
     if (!job?.internal_link_suggestions?.length) return
-    const headers = ['Source URL', 'Target URL', 'Suggested Anchor', 'Confidence', 'Reason']
-    const rows = job.internal_link_suggestions.map(s => [
-      s.source_url || '',
-      s.target_url || '',
-      s.anchor_text || '',
-      s.confidence ?? '',
-      s.reason || '',
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' })
+    const { headers, rows } = buildInternalLinksExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
+    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
     a.click()
+  }
+
+  function downloadInternalLinksXlsx() {
+    if (!job?.internal_link_suggestions?.length) return
+    const { rows } = buildInternalLinksExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Internal Links')
+    XLSX.writeFile(wb, `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
   }
 
   if (!job) return (
@@ -308,9 +344,14 @@ export default function PageCopyJobPage() {
                 <h2 className="text-sm font-semibold">Internal link suggestions</h2>
                 <p className="text-xs text-muted">{job.internal_link_suggestions.length} opportunities found across this job</p>
               </div>
-              <button onClick={downloadInternalLinksCsv} className="btn-ghost text-xs flex items-center gap-1.5">
-                <Download size={12} /> Export CSV
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={downloadInternalLinksCsv} className="btn-ghost text-xs flex items-center gap-1.5">
+                  <Download size={12} /> Export CSV
+                </button>
+                <button onClick={downloadInternalLinksXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
+                  <Download size={12} /> Export XLSX
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {job.internal_link_suggestions.slice(0, 6).map((suggestion, si) => (
@@ -378,6 +419,9 @@ export default function PageCopyJobPage() {
             )}
             <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
               <Download size={12} /> Export CSV
+            </button>
+            <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
+              <Download size={12} /> Export XLSX
             </button>
           </div>
         )}

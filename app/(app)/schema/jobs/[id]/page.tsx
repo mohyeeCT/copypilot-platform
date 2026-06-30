@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Copy, Download, ExternalLink } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
+import * as XLSX from 'xlsx'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,6 +78,39 @@ export default function SchemaJobPage() {
     setTimeout(() => setCopied(''), 1500)
   }
 
+  function buildExportRows() {
+    const headers = ['URL', 'Status', 'Schema Type', 'Schema JSON', 'Schema Script', 'Error']
+    const rows = (job!.results || []).map(result => ({
+      'URL': result.url || '',
+      'Status': result.status || '',
+      'Schema Type': result.schema_type || '',
+      'Schema JSON': result.schema_json || '',
+      'Schema Script': result.schema_script || '',
+      'Error': result.error || '',
+    }))
+    return { headers, rows }
+  }
+
+  function downloadCsv() {
+    if (!job?.results?.length) return
+    const { headers, rows } = buildExportRows()
+    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
+    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `schema_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
+    a.click()
+  }
+
+  function downloadXlsx() {
+    if (!job?.results?.length) return
+    const { rows } = buildExportRows()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Results')
+    XLSX.writeFile(wb, `schema_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
+  }
+
   if (!job) return (
     <AppLayout title="Schema Generator">
       <div className="flex items-center justify-center h-48">
@@ -105,6 +139,16 @@ export default function SchemaJobPage() {
               {failed > 0 && <span className="text-xs text-error font-mono">{failed} failed</span>}
             </div>
           </div>
+          {job.results && job.results.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
+                <Download size={12} /> Export CSV
+              </button>
+              <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
+                <Download size={12} /> Export XLSX
+              </button>
+            </div>
+          )}
         </div>
 
         {(job.status === 'running' || job.status === 'cancelling') && (
