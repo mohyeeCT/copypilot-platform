@@ -64,11 +64,11 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
       style={active ? {
         background: `${accent}14`,
         color: accent,
-      } : { color: 'var(--muted)' }}
+      } : { color: 'var(--sidebar-nav-text)' }}
     >
       <Icon
         size={14}
-        style={{ color: active ? accent : 'var(--muted)', flexShrink: 0 }}
+        style={{ color: active ? accent : 'var(--sidebar-nav-text)', flexShrink: 0 }}
         className="transition-colors"
       />
       <span className="flex-1 leading-none">{label}</span>
@@ -181,7 +181,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         <button
           onClick={toggleTheme}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
-          style={{ color: 'var(--muted)' }}
+          style={{ color: 'var(--sidebar-footer-text)' }}
         >
           {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
           <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
@@ -191,9 +191,9 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         <button
           onClick={signOut}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
-          style={{ color: 'var(--muted)' }}
+          style={{ color: 'var(--sidebar-footer-text)' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--sidebar-footer-text)')}
         >
           <LogOut size={14} />
           <span>Sign out</span>

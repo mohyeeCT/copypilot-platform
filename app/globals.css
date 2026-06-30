@@ -10,6 +10,8 @@
   --surface:        #F0EDE6;   /* card base */
   --surface-raised: #FAF8F4;   /* elevated card — near white */
   --sidebar-bg:     #DDD8CF;   /* sidebar — distinct darker layer */
+  --sidebar-nav-text:    #111110;
+  --sidebar-footer-text: #4A4540;
 
   /* Borders */
   --border:         #C5BEB2;   /* primary border — visible contrast */
@@ -65,6 +67,8 @@
   --surface:        #15151E;   /* card base — visible step up */
   --surface-raised: #1C1C27;   /* elevated card */
   --sidebar-bg:     #09090E;   /* sidebar — deepest layer */
+  --sidebar-nav-text:    #EEECF4;
+  --sidebar-footer-text: #B8B6C8;
 
   --border:         #28283A;
   --border-subtle:  #1E1E2C;
