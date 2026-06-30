@@ -2,10 +2,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
+import { ArrowLeft, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
+import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -352,15 +353,12 @@ export default function MetaJobPage() {
               />
               {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
             </label>
-            <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
-              <Download size={12} /> Export CSV
-            </button>
-            <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
-              <Download size={12} /> Export XLSX
-            </button>
-            <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
-              <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
-            </button>
+            <ExportMenu
+              onCsv={downloadCsv}
+              onXlsx={downloadXlsx}
+              onGoogleSheets={exportGoogleSheets}
+              sheetsLoading={exportingSheets}
+            />
           </div>
         )}
 

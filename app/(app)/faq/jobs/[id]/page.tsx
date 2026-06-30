@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Copy, Download, FileSpreadsheet, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
+import { Copy, ChevronDown, ChevronUp, ArrowLeft, RefreshCw, Pencil, X } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
+import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -334,15 +335,12 @@ function gscErrorMessage(error?: string | null) {
                 <button onClick={() => setView('table')}
                   className={`text-xs px-3 py-1.5 rounded-md transition-colors ${view === 'table' ? 'bg-surface text-text' : 'text-muted hover:text-text'}`}>Table</button>
               </div>
-              <button onClick={downloadCsv} className="btn-primary flex items-center gap-2">
-                <Download size={14} /> Download CSV
-              </button>
-              <button onClick={downloadXlsx} className="btn-secondary flex items-center gap-2">
-                <Download size={14} /> Download XLSX
-              </button>
-              <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-secondary flex items-center gap-2 disabled:opacity-50">
-                <FileSpreadsheet size={14} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
-              </button>
+              <ExportMenu
+                onCsv={downloadCsv}
+                onXlsx={downloadXlsx}
+                onGoogleSheets={exportGoogleSheets}
+                sheetsLoading={exportingSheets}
+              />
             </div>
           )}
         </div>

@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Copy, Download, ExternalLink, FileSpreadsheet } from 'lucide-react'
+import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
+import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
@@ -161,15 +162,12 @@ export default function SchemaJobPage() {
           </div>
           {job.results && job.results.length > 0 && (
             <div className="flex items-center gap-2">
-              <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
-                <Download size={12} /> Export CSV
-              </button>
-              <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
-                <Download size={12} /> Export XLSX
-              </button>
-              <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
-                <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
-              </button>
+              <ExportMenu
+                onCsv={downloadCsv}
+                onXlsx={downloadXlsx}
+                onGoogleSheets={exportGoogleSheets}
+                sheetsLoading={exportingSheets}
+              />
             </div>
           )}
         </div>

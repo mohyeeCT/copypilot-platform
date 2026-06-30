@@ -2,10 +2,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
+import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
@@ -384,15 +385,12 @@ export default function PageCopyJobPage() {
                 <p className="text-xs text-muted">{job.internal_link_suggestions.length} opportunities found across this job</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={downloadInternalLinksCsv} className="btn-ghost text-xs flex items-center gap-1.5">
-                  <Download size={12} /> Export CSV
-                </button>
-                <button onClick={downloadInternalLinksXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
-                  <Download size={12} /> Export XLSX
-                </button>
-                <button onClick={exportInternalLinksGoogleSheets} disabled={exportingLinksSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
-                  <FileSpreadsheet size={12} /> {exportingLinksSheets ? 'Exporting...' : 'Google Sheets'}
-                </button>
+                <ExportMenu
+                  onCsv={downloadInternalLinksCsv}
+                  onXlsx={downloadInternalLinksXlsx}
+                  onGoogleSheets={exportInternalLinksGoogleSheets}
+                  sheetsLoading={exportingLinksSheets}
+                />
               </div>
             </div>
             <div className="space-y-2">
@@ -459,15 +457,12 @@ export default function PageCopyJobPage() {
                 <Download size={12} /> Download all .docx
               </button>
             )}
-            <button onClick={downloadCsv} className="btn-ghost text-xs flex items-center gap-1.5">
-              <Download size={12} /> Export CSV
-            </button>
-            <button onClick={downloadXlsx} className="btn-ghost text-xs flex items-center gap-1.5">
-              <Download size={12} /> Export XLSX
-            </button>
-            <button onClick={exportGoogleSheets} disabled={exportingSheets} className="btn-ghost text-xs flex items-center gap-1.5 disabled:opacity-50">
-              <FileSpreadsheet size={12} /> {exportingSheets ? 'Exporting...' : 'Google Sheets'}
-            </button>
+            <ExportMenu
+              onCsv={downloadCsv}
+              onXlsx={downloadXlsx}
+              onGoogleSheets={exportGoogleSheets}
+              sheetsLoading={exportingSheets}
+            />
           </div>
         )}
 

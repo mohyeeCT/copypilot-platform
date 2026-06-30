@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, CheckCircle, Clock, Download, FileSpreadsheet, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle, Clock, RefreshCw, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { JobLauncherShell, JobSummaryBar } from '@/components/ui/JobLauncher'
@@ -224,18 +225,12 @@ export default function IndexerJobResultPage() {
               )}
               {job.status === 'complete' && job.results.length > 0 && (
                 <>
-                  <button onClick={() => downloadCSV(job)} className="btn-ghost gap-2">
-                    <Download size={14} />
-                    Download CSV
-                  </button>
-                  <button onClick={() => downloadXLSX(job)} className="btn-ghost gap-2">
-                    <Download size={14} />
-                    Download XLSX
-                  </button>
-                  <button onClick={() => void exportGoogleSheets()} disabled={exportingSheets} className="btn-ghost gap-2 disabled:opacity-50">
-                    <FileSpreadsheet size={14} />
-                    {exportingSheets ? 'Exporting...' : 'Google Sheets'}
-                  </button>
+                  <ExportMenu
+                    onCsv={() => downloadCSV(job)}
+                    onXlsx={() => downloadXLSX(job)}
+                    onGoogleSheets={exportGoogleSheets}
+                    sheetsLoading={exportingSheets}
+                  />
                 </>
               )}
               <span className={clsx('rounded-full px-3 py-1 text-sm font-medium capitalize', {
