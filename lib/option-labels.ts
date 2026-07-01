@@ -13,6 +13,7 @@ export const OPTION_LABELS: Record<string, string> = {
   case_study: 'Case Study',
   glossary: 'Glossary',
   homepage: 'Homepage',
+  landing_page: 'Landing Page',
   about: 'About',
   contact: 'Contact',
   collection: 'Collection',

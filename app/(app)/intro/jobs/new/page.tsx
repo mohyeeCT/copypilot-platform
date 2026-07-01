@@ -21,7 +21,8 @@ type Row = { url: string; keyword: string; page_type: string; h1: string }
 const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'service_lp', h1: '' })
 
 const PAGE_TEMPLATES = [
-  { value: 'service_lp', label: 'Service / Landing Page' },
+  { value: 'service_lp', label: 'Service Page' },
+  { value: 'landing_page', label: 'Landing Page' },
   { value: 'category', label: 'Category (Ecommerce)' },
   { value: 'product', label: 'Product Page' },
   { value: 'location', label: 'Location Page' },

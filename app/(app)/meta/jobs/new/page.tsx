@@ -51,7 +51,7 @@ function resolveProviderModel(provider: string, savedModel?: string | null) {
     : options[0]?.value || ''
 }
 const BUSINESS_TYPES = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
-const PAGE_TYPES = ['general', 'category', 'product', 'service', 'location', 'blog', 'brand']
+const PAGE_TYPES = ['general', 'category', 'product', 'service', 'landing_page', 'location', 'blog', 'brand']
 const INPUT_MODES = (['manual', 'paste', 'csv'] as const)
 type InputMode = typeof INPUT_MODES[number]
 const INPUT_MODE_LABELS: Record<InputMode, string> = {

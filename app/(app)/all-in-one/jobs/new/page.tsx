@@ -43,10 +43,10 @@ function resolveProviderModel(provider: string, savedModel?: string | null) {
     : options[0]?.value || ''
 }
 const BIZ_TYPES  = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
-const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'service', 'local', 'about', 'contact', 'product', 'collection']
+const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'landing_page', 'service', 'local', 'about', 'contact', 'product', 'collection']
 const PAGE_LABELS: Record<string, string> = {
   blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
-  homepage: 'Homepage', service: 'Service Page', local: 'Local Service Page',
+  homepage: 'Homepage', landing_page: 'Landing Page', service: 'Service Page', local: 'Local Service Page',
   about: 'About Us', contact: 'Contact Us', product: 'Product Page', collection: 'Collection / Category',
 }
 

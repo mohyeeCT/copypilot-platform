@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
 
 type Row = { url: string; keyword: string; page_type: string; h1: string }
 const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'general', h1: '' })
-const PAGE_TYPES = ['general', 'product', 'category', 'service', 'blog', 'local']
+const PAGE_TYPES = ['general', 'product', 'category', 'service', 'landing_page', 'blog', 'local']
 
 function createFaqRowImportSchema() {
   return createCopyRowImportSchema(
