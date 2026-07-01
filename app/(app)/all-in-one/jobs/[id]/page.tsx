@@ -137,6 +137,10 @@ export default function PageCopyJobPage() {
     return () => clearInterval(t)
   }, [job, load])
 
+  useEffect(() => {
+    if (job && job.status !== 'running' && job.status !== 'cancelling') setCancelling(false)
+  }, [job?.status])
+
   function markUpdated(indices: number[], results: PageCopyResult[]) {
     const successful = indices.filter(i => {
       const r = results[i]
