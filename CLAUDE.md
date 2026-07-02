@@ -5,7 +5,7 @@ See `../CLAUDE.md` for full platform context, conventions, and working rules.
 ## What This Repo Is
 
 Next.js 15 App Router frontend for CopyPilot. Deployed on Vercel.
-Default branch: `main`. Current HEAD: `b750a32`.
+Default branch: `main`. Current HEAD: `82b45d1`.
 
 ## Key Directories
 
@@ -60,7 +60,10 @@ lib/
 /<tool>/jobs/[id]           → job detail
 ```
 
-Tools: `faq`, `intro`, `meta`, `page-copy`, `all-in-one`
+Visible primary tools: `faq`, `intro`, `meta`, `all-in-one`.
+Other tools: `schema`, `indexer`.
+Hidden/legacy: `page-copy` remains routable for old jobs/direct links but must
+stay hidden from primary navigation unless the user explicitly asks to work on it.
 
 ## API Client Pattern
 
@@ -74,6 +77,13 @@ export const <tool>Api = { runJob, listJobs, getJob, ... }
 
 Shared calls (settings, brand profiles, niches) route through the FAQ backend
 via `lib/api/shared.ts`. Do not duplicate these in other clients.
+
+Google OAuth is preferred in Settings for Search Console copy tools, Indexer
+submissions, and Google Sheets exports. Service-account support remains visible
+for fallback and legacy workflows.
+
+Current API clients include FAQ, Intro, Meta, All in One, Schema Generator,
+Indexer, and hidden/legacy Page Copy.
 
 ## Design System
 
@@ -96,7 +106,7 @@ Key utility classes defined in `globals.css` (do not re-implement in Tailwind):
 
 ## Cancellation Polling Contract
 
-All five `jobs/[id]/page.tsx` files must follow this pattern:
+All authenticated job detail pages must follow this pattern:
 
 ```typescript
 // Poll while running OR cancelling
@@ -122,11 +132,16 @@ Do not write custom parsers. The shared parser handles:
 
 ## Settings Page
 
-`app/(app)/settings/page.tsx` checks all 5 backend health endpoints in
-parallel on load. The `BACKENDS` array defines all 5 service URLs. Update
-this array if a Railway URL changes.
+`app/(app)/settings/page.tsx` checks active backend health endpoints in
+parallel on load. The `BACKENDS` array defines the service URLs. Update this
+array if a Railway URL changes.
 
 ## Known Gotchas
+
+- Standalone Page Copy is intentionally hidden. Tests such as
+  `lib/retired-page-copy-entrypoints.test.mjs` protect that behavior.
+- Schema Generator and Indexer live under Other in the sidebar, not as primary
+  copy tools.
 
 - `NEXT_PUBLIC_*` vars are baked at build time — env var changes require redeploy
 - `export const dynamic = 'force-dynamic'` is required on all authenticated pages
