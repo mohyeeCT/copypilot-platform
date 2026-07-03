@@ -21,6 +21,10 @@ interface SchemaResult {
   schema_json?: string
   schema_script?: string
   error?: string | null
+  source_summary?: {
+    scraped_sections: string[]
+    serp_used: boolean
+  }
 }
 
 interface Job {
@@ -200,6 +204,17 @@ export default function SchemaJobPage() {
                 <p className="text-sm text-error">{result.error}</p>
               ) : (
                 <div className="space-y-3">
+                  {result.source_summary?.scraped_sections?.length === 0 && (
+                    <p
+                      className="rounded border px-3 py-2 text-xs text-warning"
+                      style={{
+                        background: 'rgba(198, 123, 0, 0.08)',
+                        borderColor: 'rgba(198, 123, 0, 0.22)',
+                      }}
+                    >
+                      No page content was available for this URL; schema was generated without source data.
+                    </p>
+                  )}
                   <div className="flex items-center gap-2">
                     <button onClick={() => copyText(result.schema_json || '', `json-${index}`)} className="btn-ghost text-xs flex items-center gap-1.5">
                       <Copy size={12} /> {copied === `json-${index}` ? 'Copied!' : 'Copy JSON'}
