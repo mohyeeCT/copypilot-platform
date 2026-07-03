@@ -10,6 +10,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { faqApi } from '@/lib/api/faq'
+import { buildFaqExportRows } from '@/lib/faq-export'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import * as XLSX from 'xlsx'
 
@@ -153,58 +154,7 @@ function gscErrorMessage(error?: string | null) {
   }
 
   function buildExportRows() {
-    const headers = [
-      'URL',
-      'SEO Target Keyword',
-      'Keyword Source',
-      'Runner Up Keyword',
-      'Page Scrape Status',
-      'AI Overview Content',
-      'PAA Content',
-      'AI Overview Present',
-      'FAQs from AI Overview',
-      'PAA Questions Found',
-      'FAQs Generated',
-      'FAQ Schema JSON-LD',
-      'FAQ Status',
-      'QA Flags',
-      'FAQ Content',
-      'FAQ Sources',
-      'FAQ Schema Script',  // bonus column not in Streamlit
-    ]
-    const results = job!.results
-    const rows = results.map(r => {
-      // Build faq_combined from faqs array if faq_combined not on result
-      const faqCombined = r.faq_combined ||
-        (r.faqs || []).map((f: FAQ, fi: number) => {
-          const key = `${results.indexOf(r)}-${fi}`
-          const edited = edits[key]
-          return `Q: ${edited?.question ?? f.question}\nA: ${edited?.answer ?? f.answer}`
-        }).join('\n\n')
-      const faqSources = r.faq_sources ||
-        (r.faqs || []).map((f: FAQ) => f.source || 'generated').join(', ')
-
-      return {
-        'URL': r.url || '',
-        'SEO Target Keyword': r.selected_keyword || r.keyword || '',
-        'Keyword Source': r.keyword_source || '',
-        'Runner Up Keyword': r.runner_up || '',
-        'Page Scrape Status': r.scrape_status || '',
-        'AI Overview Content': r.ai_overview_raw_text || '',
-        'PAA Content': r.paa_raw_text || '',
-        'AI Overview Present': r.ai_overview_present ? 'Yes' : 'No',
-        'FAQs from AI Overview': r.ao_question_count ?? '',
-        'PAA Questions Found': r.paa_count ?? '',
-        'FAQs Generated': r.faq_count ?? (r.faqs?.length ?? ''),
-        'FAQ Schema JSON-LD': r.faq_schema_json || r.schema_json || '',
-        'FAQ Status': r.status || (r.error ? 'error' : 'ok'),
-        'QA Flags': (r.qa_flags || []).join('; '),
-        'FAQ Content': faqCombined,
-        'FAQ Sources': faqSources,
-        'FAQ Schema Script': r.faq_schema_script || r.schema_script || '',
-      }
-    })
-    return { headers, rows }
+    return buildFaqExportRows(job!.results, edits)
   }
 
   function downloadCsv() {
