@@ -119,6 +119,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
 
   return (
     <aside
+      className="rounded-2xl border border-[var(--border)] border-t-[var(--surface-raised)] shadow-[0_2px_8px_rgba(0,0,0,0.08),0_8px_32px_rgba(0,0,0,0.10)] md:rounded-none md:border-0 md:border-r md:border-r-[var(--border)] md:shadow-none"
       style={{
         width: 224,
         height: '100%',
@@ -126,11 +127,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--sidebar-bg)',
-        border: '1px solid var(--border)',
-        borderTop: '1px solid var(--surface-raised)',
-        borderRadius: 16,
         overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.10)',
         alignSelf: 'stretch',
       }}
     >
