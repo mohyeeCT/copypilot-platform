@@ -160,32 +160,32 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
 
   return (
     <AppLayout title={tool.label}>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Page header */}
-        <div className="flex items-center justify-between mb-7">
-          <div>
-            <div className="flex items-center gap-2.5 mb-0.5">
+        <div className="flex min-w-0 flex-col gap-4 mb-7 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5 mb-0.5">
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                className="w-7 h-7 rounded-lg flex shrink-0 items-center justify-center"
                 style={{ background: `${tool.accent}18`, border: `1px solid ${tool.accent}30` }}
               >
                 <Icon size={14} style={{ color: tool.accent }} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight">{tool.label}</h1>
+              <h1 className="truncate whitespace-nowrap text-xl font-bold tracking-tight">{tool.label}</h1>
             </div>
-            <div className="flex items-center gap-2 pl-9">
-              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 pl-9">
+              <p className="text-sm whitespace-nowrap" style={{ color: 'var(--muted)' }}>
                 {jobs.length > 0 ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''}` : 'No jobs yet'}
               </p>
               {refreshLabel && (
-                <span className="text-xs flex items-center gap-1" style={{ color: 'var(--muted)', opacity: 0.6 }}>
+                <span className="text-xs flex items-center gap-1 whitespace-nowrap" style={{ color: 'var(--muted)', opacity: 0.6 }}>
                   <Clock size={10} />
                   {refreshLabel}
                 </span>
               )}
             </div>
           </div>
-          <Link href={tool.newHref} className="btn-primary flex items-center gap-2">
+          <Link href={tool.newHref} className="btn-primary flex shrink-0 items-center gap-2 self-start sm:self-auto">
             <Plus size={14} /> New Job
           </Link>
         </div>
@@ -228,12 +228,13 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               return (
                 <div
                   key={stat.label}
-                  className="flex items-center gap-3"
+                  className="flex min-w-0 items-center gap-3"
                   style={{
                     background: 'var(--surface-raised)',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
                     padding: '10px 14px',
+                    boxShadow: 'var(--shadow-xs)',
                   }}
                 >
                   <span
@@ -243,10 +244,10 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                     <StatIcon size={14} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[0.62rem] font-bold uppercase tracking-[0.07em]" style={{ color: 'var(--muted)' }}>
+                    <span className="block truncate whitespace-nowrap text-[0.62rem] font-bold uppercase tracking-[0.07em]" style={{ color: 'var(--muted)' }}>
                       {stat.label}
                     </span>
-                    <span className="block text-xl font-bold leading-tight" style={{ color: stat.accentValue ? 'var(--accent)' : 'var(--text)' }}>
+                    <span className="block truncate whitespace-nowrap text-xl font-bold leading-tight" style={{ color: stat.accentValue ? 'var(--accent)' : 'var(--text)' }}>
                       {formatNumber(stat.value)}
                     </span>
                   </span>
@@ -265,10 +266,10 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                 borderBottom: '1px solid var(--border)',
               }}
             >
-              <span>Job name</span>
-              <span>URLs</span>
-              <span>Status</span>
-              <span>When</span>
+              <span className="whitespace-nowrap">Job name</span>
+              <span className="whitespace-nowrap">URLs</span>
+              <span className="whitespace-nowrap">Status</span>
+              <span className="whitespace-nowrap">When</span>
               <span className="sr-only">Actions</span>
             </div>
             {jobs.map((job, i) => {
@@ -303,7 +304,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
 
                   <div
                     className="grid grid-cols-[minmax(0,1fr)_92px] items-center gap-3 px-5 py-3.5 sm:grid-cols-[minmax(0,1fr)_88px_92px_72px_92px]"
-                    style={{ paddingLeft: 20 }}
+                    style={{ paddingLeft: 22 }}
                   >
                     {/* Name */}
                     <div className="min-w-0" onClick={e => e.stopPropagation()}>
@@ -372,7 +373,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                     </div>
 
                     {/* URLs */}
-                    <div className="hidden sm:block">
+                    <div className="hidden whitespace-nowrap sm:block">
                       <span className="text-sm font-bold" style={{ color: isRunning ? 'var(--warning)' : 'var(--accent)' }}>
                         {job.completed_rows}
                       </span>
@@ -383,18 +384,18 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                     </div>
 
                     {/* Status */}
-                    <div className="hidden sm:block">
+                    <div className="hidden whitespace-nowrap sm:block">
                       <Badge label={job.status} />
                     </div>
 
                     {/* When */}
-                    <span className="hidden text-xs sm:block" style={{ color: 'var(--muted)' }}>
+                    <span className="hidden whitespace-nowrap text-xs sm:block" style={{ color: 'var(--muted)' }}>
                       {formatDate(job.created_at)}
                     </span>
 
                     {/* Actions */}
                     <div
-                      className="flex items-center justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                      className="flex items-center justify-end gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                       onClick={e => e.stopPropagation()}
                     >
                       <button

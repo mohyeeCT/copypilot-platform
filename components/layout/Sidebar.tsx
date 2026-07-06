@@ -19,9 +19,9 @@ type Tool = {
 }
 
 const tools: Tool[] = [
-  { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#0B7A5C' },
-  { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#0B7A5C' },
-  { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#0B7A5C' },
+  { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#818CF8' },
+  { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#60A5FA' },
+  { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#F59E0B' },
   { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0B7A5C' },
 ]
 
@@ -50,40 +50,41 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
   )
 
   return (
-    <Link
-      href={href}
-      onClick={onClose}
-      target={isExternal ? '_blank' : undefined}
-      rel={isExternal ? 'noopener noreferrer' : undefined}
-      className={clsx(
-        'nav-item group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-100',
-        active
-          ? 'font-semibold'
-          : 'font-medium hover:bg-black/5 [data-theme=dark_]:hover:bg-white/5'
-      )}
-      style={active ? {
-        background: `${accent}14`,
-        color: accent,
-      } : { color: 'var(--sidebar-nav-text)' }}
-    >
-      <Icon
-        size={14}
-        style={{ color: active ? accent : 'var(--sidebar-nav-text)', flexShrink: 0 }}
-        className="transition-colors"
-      />
-      <span className="flex-1 leading-none">{label}</span>
+    <div className="group/nav relative">
+      <Link
+        href={href}
+        onClick={onClose}
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
+        className={clsx(
+          'nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-100',
+          active ? 'font-semibold pr-9' : 'font-medium'
+        )}
+        style={active ? {
+          background: `${accent}14`,
+          color: accent,
+        } : { color: 'var(--sidebar-nav-text)' }}
+      >
+        <Icon
+          size={14}
+          style={{ color: active ? accent : 'var(--muted)', flexShrink: 0 }}
+          className="transition-colors"
+        />
+        <span className="flex-1 truncate leading-none">{label}</span>
+      </Link>
       {active && !isExternal && (
         <Link
           href={href.replace('/jobs', '/jobs/new')}
-          onClick={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onClose?.() }}
           title={`New ${label} job`}
-          className="p-1 rounded-md transition-colors opacity-60 hover:opacity-100"
+          aria-label={`New ${label} job`}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 group-hover/nav:opacity-100"
           style={{ color: accent }}
         >
           <Plus size={12} />
         </Link>
       )}
-    </Link>
+    </div>
   )
 }
 
@@ -119,7 +120,8 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   return (
     <aside
       style={{
-        width: 220,
+        width: 224,
+        height: '100%',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -180,7 +182,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
+          className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
           style={{ color: 'var(--sidebar-footer-text)' }}
         >
           {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
@@ -190,7 +192,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
         {/* Sign out */}
         <button
           onClick={signOut}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
+          className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
           style={{ color: 'var(--sidebar-footer-text)' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--sidebar-footer-text)')}
