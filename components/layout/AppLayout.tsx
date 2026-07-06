@@ -31,12 +31,10 @@ export default function AppLayout({ children, title }: { children: React.ReactNo
 
   return (
     <div
-      className="flex"
+      className="flex gap-2.5 p-3 md:gap-0 md:p-0"
       style={{
         height: '100vh',
         overflow: 'hidden',
-        padding: '12px',
-        gap: '10px',
         background: 'var(--bg)',
       }}
     >
