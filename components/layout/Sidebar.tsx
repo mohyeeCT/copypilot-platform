@@ -70,7 +70,7 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
           style={{ color: active ? accent : 'var(--muted)', flexShrink: 0 }}
           className="transition-colors"
         />
-        <span className="flex-1 truncate leading-none">{label}</span>
+        <span className="flex-1 truncate leading-[1.2]">{label}</span>
       </Link>
       {active && !isExternal && (
         <Link
