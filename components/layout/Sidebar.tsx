@@ -138,9 +138,12 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
             <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
           </div>
           <span style={{
+            display: 'inline-block',
             fontSize: '0.9375rem',
             fontWeight: 700,
+            lineHeight: 1.35,
             letterSpacing: '-0.03em',
+            paddingBottom: 1,
             color: 'var(--text)',
           }}>
             CopyPilot
