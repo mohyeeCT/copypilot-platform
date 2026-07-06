@@ -164,16 +164,20 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
         {/* Page header */}
         <div className="flex min-w-0 flex-col gap-4 mb-7 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2.5 mb-0.5">
+            <div className="flex min-w-0 items-center gap-3 mb-0.5">
               <div
-                className="w-7 h-7 rounded-lg flex shrink-0 items-center justify-center"
-                style={{ background: `${tool.accent}18`, border: `1px solid ${tool.accent}30` }}
+                className="w-10 h-10 rounded-xl flex shrink-0 items-center justify-center"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text)',
+                }}
               >
-                <Icon size={14} style={{ color: tool.accent }} />
+                <Icon size={18} />
               </div>
               <h1 className="truncate whitespace-nowrap text-xl font-bold tracking-tight">{tool.label}</h1>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 pl-9">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 pl-[52px]">
               <p className="text-sm whitespace-nowrap" style={{ color: 'var(--muted)' }}>
                 {jobs.length > 0 ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''}` : 'No jobs yet'}
               </p>
