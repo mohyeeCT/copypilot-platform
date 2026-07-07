@@ -123,6 +123,14 @@ const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
+const CATEGORY_OPTIONS_BY_SOURCE: Record<SourceFilter, CategoryFilter[]> = {
+  all: CATEGORY_OPTIONS.map(option => option.value),
+  news: ['all', 'news', 'directory', 'jobs', 'listicle', 'profile', 'other'],
+  blogs: ['all', 'blog', 'directory', 'jobs', 'listicle', 'profile', 'other'],
+  forums: ['all', 'forum', 'directory', 'jobs', 'listicle', 'profile', 'other'],
+  organizations: ['all', 'organization', 'directory', 'jobs', 'listicle', 'profile', 'other'],
+}
+
 const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
   { value: 'best', label: 'Best mentions' },
   { value: 'review', label: 'Needs review' },
@@ -462,6 +470,11 @@ function parseCategory(params: URLSearchParams): CategoryFilter {
   return CATEGORY_OPTIONS.some(option => option.value === value) ? value as CategoryFilter : 'all'
 }
 
+function categoryOptionsForSource(sourceType: SourceFilter) {
+  const allowed = new Set(CATEGORY_OPTIONS_BY_SOURCE[sourceType] || CATEGORY_OPTIONS_BY_SOURCE.all)
+  return CATEGORY_OPTIONS.filter(option => allowed.has(option.value))
+}
+
 function parseReviewMode(params: URLSearchParams): ReviewMode {
   const value = params.get('view')
   return REVIEW_MODE_OPTIONS.some(option => option.value === value) ? value as ReviewMode : 'best'
@@ -526,6 +539,7 @@ export default function BrandMentionAlertDetailPage() {
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
+  const categoryOptions = useMemo(() => categoryOptionsForSource(sourceType), [sourceType])
 
   const apiMentionQuery = useMemo(
     () => buildMentionQuery(sentiment, sourceType, relevance, quality, category),
@@ -547,6 +561,13 @@ export default function BrandMentionAlertDetailPage() {
     setReviewMode(parseReviewMode(params))
     setFiltersReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!filtersReady) return
+    if (!categoryOptions.some(option => option.value === category)) {
+      setCategory('all')
+    }
+  }, [category, categoryOptions, filtersReady])
 
   const load = useCallback(async () => {
     if (!filtersReady) return
@@ -609,6 +630,15 @@ export default function BrandMentionAlertDetailPage() {
     }
   }
 
+  function handleSourceTypeChange(value: string) {
+    const nextSourceType = value as SourceFilter
+    const nextCategoryOptions = categoryOptionsForSource(nextSourceType)
+    setSourceType(nextSourceType)
+    if (!nextCategoryOptions.some(option => option.value === category)) {
+      setCategory('all')
+    }
+  }
+
   function downloadCsv() {
     if (!displayedMentions.length) return
     const csv = buildMentionsCsv(displayedMentions)
@@ -642,6 +672,7 @@ export default function BrandMentionAlertDetailPage() {
         </Link>
 
         <JobLauncherShell
+          compact
           eyebrow="Brand Pulse alert"
           title={alert?.label || 'Brand Pulse alert'}
           description={alert ? `${alert.keyword || 'No keyword'} - ${titleCase(alert.alert_type)} alert` : 'Loading alert details.'}
@@ -749,7 +780,7 @@ export default function BrandMentionAlertDetailPage() {
                 <label className="mb-1 block text-xs font-semibold text-muted">Source type</label>
                 <CustomSelect
                   value={sourceType}
-                  onChange={value => setSourceType(value as SourceFilter)}
+                  onChange={handleSourceTypeChange}
                   options={SOURCE_OPTIONS}
                 />
               </div>
@@ -774,7 +805,7 @@ export default function BrandMentionAlertDetailPage() {
                 <CustomSelect
                   value={category}
                   onChange={value => setCategory(value as CategoryFilter)}
-                  options={CATEGORY_OPTIONS}
+                  options={categoryOptions}
                 />
               </div>
               <div className="flex items-end">

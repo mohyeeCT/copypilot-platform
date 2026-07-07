@@ -17,6 +17,7 @@ type JobLauncherShellProps = {
   description?: string
   summary?: ReactNode
   actions?: ReactNode
+  compact?: boolean
 }
 
 export function JobLauncherShell({
@@ -26,9 +27,10 @@ export function JobLauncherShell({
   description,
   summary,
   actions,
+  compact = false,
 }: JobLauncherShellProps) {
   return (
-    <div className="job-launcher">
+    <div className={`job-launcher${compact ? ' job-launcher--compact' : ''}`}>
       <div className="job-launcher-hero">
         <div>
           <p className="job-launcher-eyebrow">{eyebrow}</p>

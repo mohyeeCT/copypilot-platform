@@ -677,6 +677,31 @@
     border-radius: var(--radius);
     background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
   }
+  .job-launcher--compact .job-launcher-hero {
+    grid-template-columns: minmax(260px, 1fr) minmax(540px, 860px);
+    align-items: center;
+    padding: 14px 16px;
+  }
+  .job-launcher--compact .job-launcher-hero-panel {
+    min-height: 0;
+    padding: 10px;
+    justify-content: center;
+  }
+  .job-launcher--compact .job-summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+  .job-launcher--compact .job-summary-item {
+    flex: 1 1 96px;
+    min-width: 92px;
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+  .job-launcher--compact .job-summary-item dd {
+    margin-top: 2px;
+  }
   .job-launcher-actions {
     display: flex;
     justify-content: flex-end;
@@ -809,8 +834,14 @@
     grid-template-columns: 1fr;
     padding: 14px;
   }
+  .job-launcher--compact .job-launcher-hero {
+    grid-template-columns: 1fr;
+  }
   .job-summary-bar {
     grid-template-columns: 1fr;
+  }
+  .job-launcher--compact .job-summary-bar {
+    justify-content: stretch;
   }
   .form-grid-4col {
     grid-template-columns: 1fr !important;
