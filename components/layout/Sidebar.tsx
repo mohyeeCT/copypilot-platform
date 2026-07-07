@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  HelpCircle, FileText, Tag, Layers, Braces,
+  HelpCircle, FileText, Tag, Layers, Radar, Braces,
   Link2, Settings, LogOut, Plus, Sun, Moon
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -16,6 +16,7 @@ type Tool = {
   icon: React.ElementType
   accent: string
   soon?: boolean
+  newHref?: string
 }
 
 const tools: Tool[] = [
@@ -25,17 +26,23 @@ const tools: Tool[] = [
   { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0B7A5C' },
 ]
 
+const insights: Tool[] = [
+  { href: '/brand-mentions', label: 'Brand Mentions', icon: Radar, accent: '#0B7A5C', newHref: '/brand-mentions/new' },
+]
+
 const other: Tool[] = [
   { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#94A3B8' },
   { href: '/indexer/jobs',    label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
   { href: '/settings',        label: 'Settings', icon: Settings, accent: '#94A3B8' },
 ]
 
-function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
+function NavItem({ href, label, icon: Icon, accent, soon, newHref, active, onClose }: {
   href: string; label: string; icon: React.ElementType
-  accent: string; soon?: boolean; active: boolean; onClose?: () => void
+  accent: string; soon?: boolean; newHref?: string; active: boolean; onClose?: () => void
 }) {
   const isExternal = href.startsWith('http')
+  const quickActionHref = newHref ?? (href.endsWith('/jobs') ? href.replace('/jobs', '/jobs/new') : undefined)
+  const quickActionLabel = href.endsWith('/jobs') ? `New ${label} job` : `New ${label}`
 
   if (soon) return (
     <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs opacity-35 cursor-not-allowed select-none" style={{ color: 'var(--muted)' }}>
@@ -72,12 +79,12 @@ function NavItem({ href, label, icon: Icon, accent, soon, active, onClose }: {
         />
         <span className="flex-1 truncate leading-[1.2]">{label}</span>
       </Link>
-      {active && !isExternal && (
+      {active && !isExternal && quickActionHref && (
         <Link
-          href={href.replace('/jobs', '/jobs/new')}
+          href={quickActionHref}
           onClick={e => { e.stopPropagation(); onClose?.() }}
-          title={`New ${label} job`}
-          aria-label={`New ${label} job`}
+          title={quickActionLabel}
+          aria-label={quickActionLabel}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 group-hover/nav:opacity-100"
           style={{ color: accent }}
         >
@@ -160,6 +167,16 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           <p className="px-3 mb-1.5 label-caps">Tools</p>
           <div className="space-y-1.5">
             {tools.map(t => (
+              <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
+            ))}
+          </div>
+        </div>
+
+        {/* Insights */}
+        <div>
+          <p className="px-3 mb-1.5 label-caps">Insights</p>
+          <div className="space-y-1.5">
+            {insights.map(t => (
               <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
             ))}
           </div>
