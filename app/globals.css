@@ -30,6 +30,8 @@
   --accent-tint:    #D2EDE4;
   --accent-subtle:  rgba(11, 122, 92, 0.10);
   --accent-ring:    rgba(11, 122, 92, 0.18);
+  --button-primary: color-mix(in srgb, var(--accent) 88%, black);
+  --button-primary-hover: color-mix(in srgb, var(--accent) 76%, black);
 
   /* Semantic */
   --error:          #C62828;
@@ -243,7 +245,7 @@
     letter-spacing: -0.01em;
     padding: 8px 16px;
     border-radius: var(--radius);
-    background: var(--accent);
+    background: var(--button-primary);
     color: #fff;
     box-shadow: var(--shadow-accent), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
     transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s;
@@ -254,7 +256,7 @@
     isolation: isolate;
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
+    background: var(--button-primary-hover);
     box-shadow: 0 2px 6px rgba(11,122,92,0.28), 0 6px 18px rgba(11,122,92,0.18);
     transform: translateY(-1px);
   }
