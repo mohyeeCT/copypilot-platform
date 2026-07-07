@@ -132,7 +132,7 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
 ]
 
 const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
-const LOW_VALUE_MENTION_CATEGORIES = new Set(['directory', 'jobs', 'listicle', 'profile'])
+const LOW_VALUE_MENTION_CATEGORIES = new Set(['directory', 'jobs', 'profile'])
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
