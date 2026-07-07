@@ -35,11 +35,18 @@ type BrandMention = RecordValue & {
   url?: string | null
   link?: string | null
   domain?: string | null
+  snippet?: string | null
   source?: string | null
   source_type?: string | null
   sentiment?: string | null
   relevance?: number | string | null
   relevance_score?: number | string | null
+  quality_label?: string | null
+  quality_score?: number | string | null
+  quality_reasons?: string[] | null
+  mention_category?: string | null
+  duplicate_key?: string | null
+  duplicate_count?: number | string | null
   domain_rank?: number | string | null
   published_at?: string | null
   published?: string | null
@@ -67,6 +74,9 @@ type CrawlRun = RecordValue & {
 
 type FilterValue = 'all' | 'positive' | 'neutral' | 'negative' | 'unknown'
 type SourceFilter = 'all' | 'news' | 'blogs' | 'forums' | 'organizations'
+type RelevanceFilter = 'all' | 'high' | 'medium' | 'low'
+type QualityFilter = 'all' | 'strong' | 'useful' | 'low' | 'noise'
+type CategoryFilter = 'all' | 'news' | 'blog' | 'forum' | 'organization' | 'directory' | 'jobs' | 'listicle' | 'profile' | 'other'
 
 const SENTIMENT_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All sentiment' },
@@ -84,7 +94,35 @@ const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: 'organizations', label: 'Organizations' },
 ]
 
-const CSV_HEADERS = ['Title', 'URL', 'Domain', 'Source', 'Sentiment', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
+const RELEVANCE_OPTIONS: { value: RelevanceFilter; label: string }[] = [
+  { value: 'all', label: 'All relevance' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+]
+
+const QUALITY_OPTIONS: { value: QualityFilter; label: string }[] = [
+  { value: 'all', label: 'All quality' },
+  { value: 'strong', label: 'Strong' },
+  { value: 'useful', label: 'Useful' },
+  { value: 'low', label: 'Low' },
+  { value: 'noise', label: 'Noise' },
+]
+
+const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
+  { value: 'all', label: 'All categories' },
+  { value: 'news', label: 'News' },
+  { value: 'blog', label: 'Blog' },
+  { value: 'forum', label: 'Forum' },
+  { value: 'organization', label: 'Organization' },
+  { value: 'directory', label: 'Directory' },
+  { value: 'jobs', label: 'Jobs' },
+  { value: 'listicle', label: 'Listicle' },
+  { value: 'profile', label: 'Profile' },
+  { value: 'other', label: 'Other' },
+]
+
+const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -164,6 +202,10 @@ function mentionTitle(mention: BrandMention) {
   return stringField(mention, ['title', 'headline', 'name'], 'Untitled mention')
 }
 
+function mentionSnippet(mention: BrandMention) {
+  return stringField(mention, ['snippet', 'description', 'excerpt'])
+}
+
 function mentionUrl(mention: BrandMention) {
   return stringField(mention, ['url', 'link'])
 }
@@ -178,6 +220,29 @@ function mentionSource(mention: BrandMention) {
 
 function mentionSentiment(mention: BrandMention) {
   return stringField(mention, ['sentiment'], 'unknown')
+}
+
+function mentionQualityLabel(mention: BrandMention) {
+  return stringField(mention, ['quality_label'], 'unknown')
+}
+
+function mentionQualityScore(mention: BrandMention) {
+  const score = numberField(mention, ['quality_score'])
+  return score === null ? '-' : score
+}
+
+function mentionQualityReasons(mention: BrandMention) {
+  return Array.isArray(mention.quality_reasons)
+    ? mention.quality_reasons.filter(reason => typeof reason === 'string' && reason.trim())
+    : []
+}
+
+function mentionCategory(mention: BrandMention) {
+  return stringField(mention, ['mention_category'], 'other')
+}
+
+function mentionDuplicateCount(mention: BrandMention) {
+  return numberField(mention, ['duplicate_count']) ?? 1
 }
 
 function mentionRelevance(mention: BrandMention) {
@@ -207,10 +272,15 @@ function quoteCsv(value: unknown) {
 function buildMentionsCsv(mentions: BrandMention[]) {
   const rows = mentions.map(mention => [
     mentionTitle(mention),
+    mentionSnippet(mention),
     mentionUrl(mention),
     mentionDomain(mention),
+    mentionCategory(mention),
     mentionSource(mention),
     mentionSentiment(mention),
+    mentionQualityLabel(mention),
+    mentionQualityScore(mention),
+    mentionQualityReasons(mention).join('; '),
     mentionRelevance(mention),
     mentionDomainRank(mention),
     mentionPublished(mention),
@@ -226,10 +296,19 @@ function safeFileName(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'brand-mentions'
 }
 
-function buildMentionQuery(sentiment: FilterValue, sourceType: SourceFilter) {
+function buildMentionQuery(
+  sentiment: FilterValue,
+  sourceType: SourceFilter,
+  relevance: RelevanceFilter,
+  quality: QualityFilter,
+  category: CategoryFilter,
+) {
   const params = new URLSearchParams()
   if (sentiment !== 'all') params.set('sentiment', sentiment)
   if (sourceType !== 'all') params.set('source_type', sourceType)
+  if (relevance !== 'all') params.set('relevance', relevance)
+  if (quality !== 'all') params.set('quality_label', quality)
+  if (category !== 'all') params.set('mention_category', category)
   return params.toString()
 }
 
@@ -241,6 +320,21 @@ function parseSentiment(params: URLSearchParams): FilterValue {
 function parseSourceType(params: URLSearchParams): SourceFilter {
   const value = params.get('source_type') || params.get('source')
   return SOURCE_OPTIONS.some(option => option.value === value) ? value as SourceFilter : 'all'
+}
+
+function parseRelevance(params: URLSearchParams): RelevanceFilter {
+  const value = params.get('relevance')
+  return RELEVANCE_OPTIONS.some(option => option.value === value) ? value as RelevanceFilter : 'all'
+}
+
+function parseQuality(params: URLSearchParams): QualityFilter {
+  const value = params.get('quality_label') || params.get('quality')
+  return QUALITY_OPTIONS.some(option => option.value === value) ? value as QualityFilter : 'all'
+}
+
+function parseCategory(params: URLSearchParams): CategoryFilter {
+  const value = params.get('mention_category') || params.get('category')
+  return CATEGORY_OPTIONS.some(option => option.value === value) ? value as CategoryFilter : 'all'
 }
 
 function isSettingsError(message: string) {
@@ -261,6 +355,22 @@ function SentimentBadge({ sentiment }: { sentiment: string }) {
   )
 }
 
+function QualityBadge({ label, score }: { label: string; score: number | string }) {
+  const normalized = label.toLowerCase()
+  const styles = normalized === 'strong'
+    ? { background: 'rgba(11,122,92,0.10)', borderColor: 'rgba(11,122,92,0.24)', color: 'var(--success)' }
+    : normalized === 'useful'
+      ? { background: 'rgba(0,119,102,0.08)', borderColor: 'rgba(0,119,102,0.18)', color: 'var(--accent)' }
+      : normalized === 'noise'
+        ? { background: 'rgba(198,41,41,0.08)', borderColor: 'rgba(198,41,41,0.20)', color: 'var(--error)' }
+        : { background: 'rgba(124,118,111,0.10)', borderColor: 'rgba(124,118,111,0.20)', color: 'var(--muted)' }
+  return (
+    <span className="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold capitalize" style={styles}>
+      {label || 'unknown'}{score !== '-' ? ` ${score}` : ''}
+    </span>
+  )
+}
+
 async function getSessionToken() {
   const sb = createClient()
   const { data: { session } } = await sb.auth.getSession()
@@ -273,6 +383,9 @@ export default function BrandMentionAlertDetailPage() {
   const alertId = Array.isArray(params.id) ? params.id[0] : params.id as string
   const [sentiment, setSentiment] = useState<FilterValue>('all')
   const [sourceType, setSourceType] = useState<SourceFilter>('all')
+  const [relevance, setRelevance] = useState<RelevanceFilter>('all')
+  const [quality, setQuality] = useState<QualityFilter>('all')
+  const [category, setCategory] = useState<CategoryFilter>('all')
   const [filtersReady, setFiltersReady] = useState(false)
   const [alert, setAlert] = useState<BrandMentionAlert | null>(null)
   const [mentions, setMentions] = useState<BrandMention[]>([])
@@ -283,12 +396,18 @@ export default function BrandMentionAlertDetailPage() {
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
 
-  const mentionQuery = useMemo(() => buildMentionQuery(sentiment, sourceType), [sentiment, sourceType])
+  const mentionQuery = useMemo(
+    () => buildMentionQuery(sentiment, sourceType, relevance, quality, category),
+    [category, quality, relevance, sentiment, sourceType],
+  )
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setSentiment(parseSentiment(params))
     setSourceType(parseSourceType(params))
+    setRelevance(parseRelevance(params))
+    setQuality(parseQuality(params))
+    setCategory(parseCategory(params))
     setFiltersReady(true)
   }, [])
 
@@ -368,6 +487,8 @@ export default function BrandMentionAlertDetailPage() {
   }
 
   const negativeCount = mentions.filter(mention => mentionSentiment(mention).toLowerCase() === 'negative').length
+  const usefulCount = mentions.filter(mention => ['strong', 'useful'].includes(mentionQualityLabel(mention).toLowerCase())).length
+  const noiseCount = mentions.filter(mention => mentionQualityLabel(mention).toLowerCase() === 'noise').length
   const domains = new Set(mentions.map(mentionDomain).filter(Boolean)).size
   const lastCrawl = alert?.last_crawl_at || alert?.last_crawled_at || alert?.last_crawl
 
@@ -386,6 +507,8 @@ export default function BrandMentionAlertDetailPage() {
             <JobSummaryBar
               summaryItems={[
                 { label: 'Loaded mentions', value: mentions.length },
+                { label: 'Useful', value: usefulCount },
+                { label: 'Noise', value: noiseCount },
                 { label: 'Negative', value: negativeCount },
                 { label: 'Domains', value: domains },
                 { label: 'State', value: alert?.active === false ? 'Paused' : 'Active' },
@@ -450,7 +573,7 @@ export default function BrandMentionAlertDetailPage() {
           </div>
 
           <JobSection title="Mention filters" description="Filters reload the mention list and are reflected in the URL.">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-muted">Sentiment</label>
                 <CustomSelect
@@ -467,11 +590,38 @@ export default function BrandMentionAlertDetailPage() {
                   options={SOURCE_OPTIONS}
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted">Relevance</label>
+                <CustomSelect
+                  value={relevance}
+                  onChange={value => setRelevance(value as RelevanceFilter)}
+                  options={RELEVANCE_OPTIONS}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted">Quality</label>
+                <CustomSelect
+                  value={quality}
+                  onChange={value => setQuality(value as QualityFilter)}
+                  options={QUALITY_OPTIONS}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted">Mention category</label>
+                <CustomSelect
+                  value={category}
+                  onChange={value => setCategory(value as CategoryFilter)}
+                  options={CATEGORY_OPTIONS}
+                />
+              </div>
               <div className="flex items-end">
                 <JobSummaryPills
                   items={[
                     { label: sentiment === 'all' ? 'All sentiment' : sentiment, tone: sentiment === 'negative' ? 'muted' : 'neutral' },
                     { label: sourceType === 'all' ? 'All sources' : sourceType, tone: 'accent' },
+                    { label: relevance === 'all' ? 'All relevance' : relevance, tone: 'neutral' },
+                    { label: quality === 'all' ? 'All quality' : quality, tone: quality === 'noise' ? 'muted' : 'accent' },
+                    { label: category === 'all' ? 'All categories' : category, tone: 'neutral' },
                   ]}
                 />
               </div>
@@ -491,8 +641,10 @@ export default function BrandMentionAlertDetailPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Title</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">URL</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Domain</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Source</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Sentiment</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Quality</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Relevance</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Domain rank</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Discovered</th>
@@ -502,10 +654,23 @@ export default function BrandMentionAlertDetailPage() {
                     {mentions.map((mention, index) => {
                       const url = mentionUrl(mention)
                       const title = mentionTitle(mention)
+                      const snippet = mentionSnippet(mention)
+                      const reasons = mentionQualityReasons(mention)
+                      const duplicateCount = mentionDuplicateCount(mention)
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-sm px-4 py-3">
                             <div className="line-clamp-2 font-semibold text-text">{title}</div>
+                            {snippet && (
+                              <p className="mt-1 line-clamp-2 text-xs text-muted">
+                                <span className="font-semibold">Snippet:</span> {snippet}
+                              </p>
+                            )}
+                            {duplicateCount > 1 && (
+                              <span className="mt-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted">
+                                {duplicateCount} similar
+                              </span>
+                            )}
                           </td>
                           <td className="max-w-xs px-4 py-3">
                             {url ? (
@@ -516,8 +681,17 @@ export default function BrandMentionAlertDetailPage() {
                             ) : '-'}
                           </td>
                           <td className="px-4 py-3 text-xs text-muted">{mentionDomain(mention) || '-'}</td>
+                          <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionCategory(mention))}</td>
                           <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionSource(mention))}</td>
                           <td className="px-4 py-3"><SentimentBadge sentiment={mentionSentiment(mention)} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex max-w-xs flex-col gap-1">
+                              <QualityBadge label={mentionQualityLabel(mention)} score={mentionQualityScore(mention)} />
+                              {reasons.length > 0 && (
+                                <span className="line-clamp-2 text-xs text-muted">{reasons.join('; ')}</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted">{mentionRelevance(mention)}</td>
                           <td className="px-4 py-3 text-xs text-muted">{mentionDomainRank(mention)}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionDiscovered(mention))}</td>
