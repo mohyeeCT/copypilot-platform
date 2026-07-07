@@ -202,9 +202,13 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
           <div className="card text-center" style={{ padding: '64px 32px' }}>
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-              style={{ background: `${tool.accent}12`, border: `1px solid ${tool.accent}25` }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text)',
+              }}
             >
-              <Icon size={24} style={{ color: tool.accent }} />
+              <Icon size={24} />
             </div>
             <h3 className="font-semibold mb-2">{tool.emptyTitle}</h3>
             <p className="text-sm mb-7 max-w-xs mx-auto leading-relaxed" style={{ color: 'var(--muted)' }}>
@@ -243,7 +247,11 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                 >
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                    style={{ background: `${tool.accent}14`, border: `1px solid ${tool.accent}28`, color: tool.accent }}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text)',
+                    }}
                   >
                     <StatIcon size={14} />
                   </span>
