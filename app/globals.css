@@ -45,9 +45,10 @@
   --tool-neutral:   #94A3B8;   /* slate   — Indexer / Settings */
 
   /* Corner radii */
-  --radius:         8px;    /* inputs, buttons, nav items */
-  --radius-lg:      14px;   /* cards */
-  --radius-xl:      16px;   /* hero panels, dropzones */
+  --radius:         8px;    /* surfaces, inputs, buttons, nav items */
+  --radius-lg:      8px;    /* cards and panels */
+  --radius-xl:      8px;    /* hero panels and dropzones */
+  --radius-icon:    4px;    /* small icon tiles */
   --radius-badge:   6px;    /* badges, chips */
 
   /* Shadows — two-layer Virgil-style */
@@ -171,7 +172,7 @@
   .input-base {
     width: 100%;
     border: 1.5px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 7px 11px;
     font-size: 0.875rem;
     font-family: var(--font-sans), Inter, sans-serif;
@@ -241,7 +242,7 @@
     font-weight: 600;
     letter-spacing: -0.01em;
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--accent);
     color: #fff;
     box-shadow: var(--shadow-accent), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
@@ -276,7 +277,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     padding: 7px 14px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: 1.5px solid var(--border);
     background: transparent;
     color: var(--text);
@@ -315,7 +316,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 7px;
-    border-radius: 6px;
+    border-radius: var(--radius-badge);
     font-size: 0.6875rem;
     font-weight: 500;
     font-family: var(--font-mono), 'JetBrains Mono', monospace;
@@ -328,7 +329,7 @@
     align-items: center;
     gap: 9px;
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-size: 0.875rem;
     font-weight: 500;
     transition: background 0.12s ease-in-out, color 0.12s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out;
@@ -351,7 +352,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: var(--radius);
     border: none;
     background: transparent;
     cursor: pointer;
@@ -363,7 +364,7 @@
 
   /* Dropdown panel */
   .dropdown-menu {
-    border-radius: 10px;
+    border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--surface-raised);
     backdrop-filter: blur(12px);
@@ -401,7 +402,7 @@
     justify-content: space-between;
     gap: 8px;
     border: 1.5px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 7px 11px;
     font-size: 0.875rem;
     font-family: var(--font-sans), Inter, sans-serif;
@@ -434,7 +435,7 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    border-radius: 14px;
+    border-radius: var(--radius);
     border: 1px solid var(--border);
     background: rgba(250,248,244,0.92);
     backdrop-filter: blur(14px);
@@ -570,7 +571,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 5px;
+    border-radius: var(--radius-icon);
     border: 1.5px solid var(--border);
     background: var(--surface-raised);
     color: #fff;
@@ -595,14 +596,14 @@
     align-items: center;
     gap: 2px;
     padding: 3px;
-    border-radius: 9px;
+    border-radius: var(--radius);
     border: 1px solid var(--border-subtle);
     background: var(--surface);
     box-shadow: inset 1px 1px 3px rgba(0,0,0,.06);
   }
   .cp-segment {
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--radius);
     padding: 6px 10px;
     background: transparent;
     color: var(--muted);
@@ -634,7 +635,7 @@
     align-items: stretch;
     padding: 18px;
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: var(--radius);
     background:
       linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 94%, var(--accent) 6%), var(--surface));
     box-shadow: var(--shadow-sm);
@@ -671,7 +672,7 @@
     min-height: 164px;
     padding: 12px;
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
   }
   .job-launcher-actions {
@@ -686,7 +687,7 @@
   .job-section {
     padding: 16px;
     border: 1px solid var(--border-subtle);
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--surface);
     box-shadow: var(--shadow-xs);
   }
@@ -724,7 +725,7 @@
     justify-content: center;
     padding: 9px;
     border: 1px solid var(--border-subtle);
-    border-radius: 7px;
+    border-radius: var(--radius);
     background: var(--surface);
   }
   .job-summary-item dt {
@@ -837,5 +838,5 @@
 button:focus-visible, a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }

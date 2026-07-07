@@ -168,6 +168,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               <div
                 className="w-10 h-10 rounded-xl flex shrink-0 items-center justify-center"
                 style={{
+                  borderRadius: 'var(--radius-icon)',
                   background: 'var(--surface)',
                   border: '1px solid var(--border-subtle)',
                   color: 'var(--text)',
@@ -203,6 +204,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
               style={{
+                borderRadius: 'var(--radius-icon)',
                 background: 'var(--surface)',
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text)',
@@ -248,6 +250,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
                     style={{
+                      borderRadius: 'var(--radius-icon)',
                       background: 'var(--surface)',
                       border: '1px solid var(--border-subtle)',
                       color: 'var(--text)',
