@@ -571,7 +571,7 @@ export default function BrandMentionAlertDetailPage() {
       setRuns(extractList<CrawlRun>(runsData, ['runs', 'items', 'results', 'data']))
       setLoadError('')
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to load brand mention alert.')
+      setLoadError(error instanceof Error ? error.message : 'Failed to load Brand Pulse alert.')
     } finally {
       if (shouldClearLoading) setLoading(false)
     }
@@ -635,15 +635,15 @@ export default function BrandMentionAlertDetailPage() {
   const lastCrawl = alert?.last_crawl_at || alert?.last_crawled_at || alert?.last_crawl
 
   return (
-    <AppLayout title="Brand Mention Alert">
+    <AppLayout title="Brand Pulse Alert">
       <div className="max-w-full">
         <Link href="/brand-mentions" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
-          <ArrowLeft size={16} /> Back to Brand Mentions
+          <ArrowLeft size={16} /> Back to Brand Pulse
         </Link>
 
         <JobLauncherShell
-          eyebrow="Brand mention alert"
-          title={alert?.label || 'Brand mention alert'}
+          eyebrow="Brand Pulse alert"
+          title={alert?.label || 'Brand Pulse alert'}
           description={alert ? `${alert.keyword || 'No keyword'} - ${titleCase(alert.alert_type)} alert` : 'Loading alert details.'}
           summary={
             <JobSummaryBar

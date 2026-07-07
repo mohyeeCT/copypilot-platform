@@ -141,30 +141,30 @@ export default function NewBrandMentionAlertPage() {
       const id = createdAlertId(created)
       router.push(id ? `/brand-mentions/${id}` : '/brand-mentions')
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to create brand mention alert.')
+      setError(submitError instanceof Error ? submitError.message : 'Failed to create Brand Pulse alert.')
       setSubmitting(false)
     }
   }
 
   if (checkingSession) {
     return (
-      <AppLayout title="New Brand Mention Alert">
+      <AppLayout title="New Brand Pulse Alert">
         <div className="text-sm text-muted">Checking session...</div>
       </AppLayout>
     )
   }
 
   return (
-    <AppLayout title="New Brand Mention Alert">
+    <AppLayout title="New Brand Pulse Alert">
       <div className="max-w-full">
         <Link href="/brand-mentions" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
-          <ArrowLeft size={16} /> Back to Brand Mentions
+          <ArrowLeft size={16} /> Back to Brand Pulse
         </Link>
 
         <form onSubmit={handleSubmit}>
           <JobLauncherShell
             eyebrow="Insights"
-            title="New Brand Mention Alert"
+            title="New Brand Pulse Alert"
             description="Create an operational alert for brand, competitor, or keyword monitoring."
             summary={
               <JobSummaryBar
@@ -201,7 +201,7 @@ export default function NewBrandMentionAlertPage() {
                         value={label}
                         onChange={event => setLabel(event.target.value)}
                         className="input-base"
-                        placeholder="Acme brand mentions"
+                        placeholder="Acme Brand Pulse"
                         required
                       />
                     </div>

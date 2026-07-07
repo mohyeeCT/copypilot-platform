@@ -27,7 +27,7 @@ const tools: Tool[] = [
 ]
 
 const insights: Tool[] = [
-  { href: '/brand-mentions', label: 'Brand Mentions', icon: Radar, accent: '#0B7A5C', newHref: '/brand-mentions/new' },
+  { href: '/brand-mentions', label: 'Brand Pulse', icon: Radar, accent: '#0B7A5C', newHref: '/brand-mentions/new' },
 ]
 
 const other: Tool[] = [

@@ -145,7 +145,7 @@ export default function BrandMentionsOverviewPage() {
       setAlerts(alertList.length > 0 ? alertList : overviewAlerts)
       setLoadError('')
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to load brand mention alerts.')
+      setLoadError(error instanceof Error ? error.message : 'Failed to load Brand Pulse alerts.')
     } finally {
       if (shouldClearLoading) setLoading(false)
     }
@@ -162,12 +162,12 @@ export default function BrandMentionsOverviewPage() {
   const pausedCount = alerts.filter(alert => alert.active === false).length
 
   return (
-    <AppLayout title="Brand Mentions">
+    <AppLayout title="Brand Pulse">
       <div className="max-w-full">
         <JobLauncherShell
           eyebrow="Insights"
-          title="Brand Mentions"
-          description="Monitor live brand, competitor, and keyword mention alerts from external sources."
+          title="Brand Pulse"
+          description="Monitor live brand, competitor, and keyword signals from external sources."
           summary={
             <JobSummaryBar
               summaryItems={[
@@ -215,16 +215,16 @@ export default function BrandMentionsOverviewPage() {
           </div>
 
           {loading ? (
-            <div className="text-sm text-muted">Loading brand mention alerts...</div>
+            <div className="text-sm text-muted">Loading Brand Pulse alerts...</div>
           ) : loadError ? (
             <div className="rounded-lg border p-4" style={{ background: 'rgba(198,41,41,0.08)', borderColor: 'rgba(198,41,41,0.24)' }}>
-              <p className="text-sm font-semibold text-error">Failed to load brand mentions</p>
+              <p className="text-sm font-semibold text-error">Failed to load Brand Pulse</p>
               <p className="mt-1 text-sm text-muted">{loadError}</p>
               <button onClick={() => void load()} className="btn-ghost mt-3 text-xs">Retry</button>
             </div>
           ) : alerts.length === 0 ? (
             <div className="card py-14 text-center">
-              <p className="text-sm font-semibold text-text">No brand mention alerts yet.</p>
+              <p className="text-sm font-semibold text-text">No Brand Pulse alerts yet.</p>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted">
                 Create the first alert to start tracking brand, competitor, or keyword mentions.
               </p>
