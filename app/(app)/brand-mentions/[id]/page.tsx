@@ -39,6 +39,11 @@ type BrandMention = RecordValue & {
   source?: string | null
   source_type?: string | null
   sentiment?: string | null
+  provider_sentiment?: string | null
+  provider_sentiment_score?: number | string | null
+  provider_positive_score?: number | string | null
+  provider_neutral_score?: number | string | null
+  provider_negative_score?: number | string | null
   relevance?: number | string | null
   relevance_score?: number | string | null
   quality_label?: string | null
@@ -139,7 +144,7 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
   { value: 'all', label: 'All mentions' },
 ]
 
-const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
+const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
@@ -257,6 +262,38 @@ function mentionSource(mention: BrandMention) {
 
 function mentionSentiment(mention: BrandMention) {
   return stringField(mention, ['sentiment'], 'unknown')
+}
+
+function mentionProviderSentiment(mention: BrandMention) {
+  return stringField(mention, ['provider_sentiment'])
+}
+
+function mentionProviderSentimentScore(mention: BrandMention) {
+  return numberField(mention, ['provider_sentiment_score'])
+}
+
+function mentionProviderPositiveScore(mention: BrandMention) {
+  return numberField(mention, ['provider_positive_score'])
+}
+
+function mentionProviderNeutralScore(mention: BrandMention) {
+  return numberField(mention, ['provider_neutral_score'])
+}
+
+function mentionProviderNegativeScore(mention: BrandMention) {
+  return numberField(mention, ['provider_negative_score'])
+}
+
+function formatProviderScore(value: number | null) {
+  return value === null ? '-' : value.toFixed(3)
+}
+
+function providerSentimentSummary(mention: BrandMention) {
+  const providerSentiment = mentionProviderSentiment(mention)
+  const providerScore = mentionProviderSentimentScore(mention)
+  if (!providerSentiment) return ''
+  const label = titleCase(providerSentiment)
+  return `${label} ${formatProviderScore(providerScore)}`
 }
 
 function mentionQualityLabel(mention: BrandMention) {
@@ -471,6 +508,11 @@ function buildMentionsCsv(mentions: BrandMention[]) {
     mentionCategory(mention),
     mentionSource(mention),
     mentionSentiment(mention),
+    mentionProviderSentiment(mention),
+    mentionProviderSentimentScore(mention) ?? '',
+    mentionProviderPositiveScore(mention) ?? '',
+    mentionProviderNeutralScore(mention) ?? '',
+    mentionProviderNegativeScore(mention) ?? '',
     mentionQualityLabel(mention),
     mentionQualityScore(mention),
     mentionQualityReasons(mention).join('; '),
@@ -1035,6 +1077,7 @@ export default function BrandMentionAlertDetailPage() {
                       const snippet = mentionSnippet(mention)
                       const reasons = mentionQualityReasons(mention)
                       const duplicateCount = mentionDuplicateCount(mention)
+                      const providerSummary = providerSentimentSummary(mention)
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-sm px-4 py-3">
@@ -1061,7 +1104,16 @@ export default function BrandMentionAlertDetailPage() {
                           <td className="px-4 py-3 text-xs text-muted">{mentionDomain(mention) || '-'}</td>
                           <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionCategory(mention))}</td>
                           <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionSource(mention))}</td>
-                          <td className="px-4 py-3"><SentimentBadge sentiment={mentionSentiment(mention)} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex min-w-36 flex-col gap-1">
+                              <SentimentBadge sentiment={mentionSentiment(mention)} />
+                              {providerSummary && (
+                                <span className="text-xs text-muted">
+                                  <span className="font-semibold">DFS sentiment:</span> {providerSummary}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex max-w-xs flex-col gap-1">
                               <QualityBadge label={mentionQualityLabel(mention)} score={mentionQualityScore(mention)} />
