@@ -53,6 +53,7 @@ type BrandMention = RecordValue & {
   duplicate_key?: string | null
   duplicate_count?: number | string | null
   domain_rank?: number | string | null
+  latest_crawl_status?: string | null
   published_at?: string | null
   published?: string | null
   discovered_at?: string | null
@@ -66,6 +67,7 @@ type CrawlRun = RecordValue & {
   trigger_type?: string | null
   new_mentions?: number | string | null
   updated_mentions?: number | string | null
+  seen_mentions?: number | string | null
   dfs_rows?: number | string | null
   dataforseo_rows?: number | string | null
   estimated_cost_usd?: number | string | null
@@ -82,6 +84,7 @@ type SourceFilter = 'all' | 'news' | 'blogs' | 'forums' | 'organizations'
 type RelevanceFilter = 'all' | 'high' | 'medium' | 'low'
 type QualityFilter = 'all' | 'strong' | 'useful' | 'low' | 'noise'
 type CategoryFilter = 'all' | 'news' | 'blog' | 'forum' | 'organization' | 'directory' | 'jobs' | 'listicle' | 'profile' | 'other'
+type CrawlStatusFilter = 'all' | 'new' | 'updated' | 'seen'
 type ReviewMode = 'best' | 'review' | 'low-value' | 'noise' | 'all'
 
 const SENTIMENT_OPTIONS: { value: FilterValue; label: string }[] = [
@@ -136,6 +139,13 @@ const CATEGORY_OPTIONS_BY_SOURCE: Record<SourceFilter, CategoryFilter[]> = {
   organizations: ['all', 'organization', 'directory', 'jobs', 'listicle', 'profile', 'other'],
 }
 
+const CRAWL_STATUS_OPTIONS: { value: CrawlStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All crawl status' },
+  { value: 'new', label: 'New' },
+  { value: 'updated', label: 'Updated' },
+  { value: 'seen', label: 'Seen again' },
+]
+
 const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
   { value: 'best', label: 'Best mentions' },
   { value: 'review', label: 'Needs review' },
@@ -144,7 +154,7 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
   { value: 'all', label: 'All mentions' },
 ]
 
-const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
+const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Latest crawl status', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
@@ -318,6 +328,10 @@ function mentionQualityReasons(mention: BrandMention) {
 
 function mentionCategory(mention: BrandMention) {
   return stringField(mention, ['mention_category'], 'other')
+}
+
+function mentionCrawlStatus(mention: BrandMention) {
+  return stringField(mention, ['latest_crawl_status'])
 }
 
 function mentionDuplicateCount(mention: BrandMention) {
@@ -507,6 +521,10 @@ function reviewModeLabel(reviewMode: ReviewMode) {
   return REVIEW_MODE_OPTIONS.find(option => option.value === reviewMode)?.label || 'Best mentions'
 }
 
+function crawlStatusLabel(status: CrawlStatusFilter | string) {
+  return CRAWL_STATUS_OPTIONS.find(option => option.value === status)?.label || titleCase(status)
+}
+
 function quoteCsv(value: unknown) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }
@@ -525,6 +543,7 @@ function buildMentionsCsv(mentions: BrandMention[]) {
     mentionProviderPositiveScore(mention) ?? '',
     mentionProviderNeutralScore(mention) ?? '',
     mentionProviderNegativeScore(mention) ?? '',
+    mentionCrawlStatus(mention) ? crawlStatusLabel(mentionCrawlStatus(mention)) : '',
     mentionQualityLabel(mention),
     mentionQualityScore(mention),
     mentionQualityReasons(mention).join('; '),
@@ -549,6 +568,7 @@ function buildMentionQuery(
   relevance: RelevanceFilter,
   quality: QualityFilter,
   category: CategoryFilter,
+  crawlStatus: CrawlStatusFilter,
 ) {
   const params = new URLSearchParams()
   if (sentiment !== 'all') params.set('sentiment', sentiment)
@@ -556,6 +576,7 @@ function buildMentionQuery(
   if (relevance !== 'all') params.set('relevance', relevance)
   if (quality !== 'all') params.set('quality_label', quality)
   if (category !== 'all') params.set('mention_category', category)
+  if (crawlStatus !== 'all') params.set('crawl_status', crawlStatus)
   return params.toString()
 }
 
@@ -565,9 +586,10 @@ function buildPageQuery(
   relevance: RelevanceFilter,
   quality: QualityFilter,
   category: CategoryFilter,
+  crawlStatus: CrawlStatusFilter,
   reviewMode: ReviewMode,
 ) {
-  const params = new URLSearchParams(buildMentionQuery(sentiment, sourceType, relevance, quality, category))
+  const params = new URLSearchParams(buildMentionQuery(sentiment, sourceType, relevance, quality, category, crawlStatus))
   params.set('view', reviewMode)
   return params.toString()
 }
@@ -595,6 +617,11 @@ function parseQuality(params: URLSearchParams): QualityFilter {
 function parseCategory(params: URLSearchParams): CategoryFilter {
   const value = params.get('mention_category') || params.get('category')
   return CATEGORY_OPTIONS.some(option => option.value === value) ? value as CategoryFilter : 'all'
+}
+
+function parseCrawlStatus(params: URLSearchParams): CrawlStatusFilter {
+  const value = params.get('crawl_status') || params.get('crawl')
+  return CRAWL_STATUS_OPTIONS.some(option => option.value === value) ? value as CrawlStatusFilter : 'all'
 }
 
 function categoryOptionsForSource(sourceType: SourceFilter) {
@@ -670,6 +697,20 @@ function ReviewBadge({ label }: { label: string }) {
   )
 }
 
+function CrawlStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase()
+  const styles = normalized === 'new'
+    ? { background: 'rgba(11,122,92,0.10)', borderColor: 'rgba(11,122,92,0.24)', color: 'var(--success)' }
+    : normalized === 'updated'
+      ? { background: 'rgba(198,123,0,0.10)', borderColor: 'rgba(198,123,0,0.24)', color: 'var(--warning)' }
+      : { background: 'rgba(124,118,111,0.10)', borderColor: 'rgba(124,118,111,0.20)', color: 'var(--muted)' }
+  return (
+    <span className="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold" style={styles}>
+      {crawlStatusLabel(normalized)}
+    </span>
+  )
+}
+
 async function getSessionToken() {
   const sb = createClient()
   const { data: { session } } = await sb.auth.getSession()
@@ -685,6 +726,7 @@ export default function BrandMentionAlertDetailPage() {
   const [relevance, setRelevance] = useState<RelevanceFilter>('all')
   const [quality, setQuality] = useState<QualityFilter>('all')
   const [category, setCategory] = useState<CategoryFilter>('all')
+  const [crawlStatus, setCrawlStatus] = useState<CrawlStatusFilter>('all')
   const [reviewMode, setReviewMode] = useState<ReviewMode>('best')
   const [filtersReady, setFiltersReady] = useState(false)
   const [alert, setAlert] = useState<BrandMentionAlert | null>(null)
@@ -701,13 +743,13 @@ export default function BrandMentionAlertDetailPage() {
   const selectedDfsGuardrail = dfsRowGuardrailText(selectedDfsRows)
 
   const apiMentionQuery = useMemo(
-    () => buildMentionQuery(sentiment, sourceType, relevance, quality, category),
-    [category, quality, relevance, sentiment, sourceType],
+    () => buildMentionQuery(sentiment, sourceType, relevance, quality, category, crawlStatus),
+    [category, crawlStatus, quality, relevance, sentiment, sourceType],
   )
 
   const pageQuery = useMemo(
-    () => buildPageQuery(sentiment, sourceType, relevance, quality, category, reviewMode),
-    [category, quality, relevance, reviewMode, sentiment, sourceType],
+    () => buildPageQuery(sentiment, sourceType, relevance, quality, category, crawlStatus, reviewMode),
+    [category, crawlStatus, quality, relevance, reviewMode, sentiment, sourceType],
   )
 
   useEffect(() => {
@@ -717,6 +759,7 @@ export default function BrandMentionAlertDetailPage() {
     setRelevance(parseRelevance(params))
     setQuality(parseQuality(params))
     setCategory(parseCategory(params))
+    setCrawlStatus(parseCrawlStatus(params))
     setReviewMode(parseReviewMode(params))
     setFiltersReady(true)
   }, [])
@@ -1011,7 +1054,7 @@ export default function BrandMentionAlertDetailPage() {
                 })}
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-muted">Sentiment</label>
                 <CustomSelect
@@ -1052,7 +1095,15 @@ export default function BrandMentionAlertDetailPage() {
                   options={categoryOptions}
                 />
               </div>
-              <div className="flex items-end">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-muted">Latest crawl</label>
+                <CustomSelect
+                  value={crawlStatus}
+                  onChange={value => setCrawlStatus(value as CrawlStatusFilter)}
+                  options={CRAWL_STATUS_OPTIONS}
+                />
+              </div>
+              <div className="flex items-end md:col-span-2 xl:col-span-6">
                 <JobSummaryPills
                   items={[
                     { label: reviewModeLabel(reviewMode), tone: reviewMode === 'noise' ? 'muted' : 'accent' },
@@ -1061,6 +1112,7 @@ export default function BrandMentionAlertDetailPage() {
                     { label: relevance === 'all' ? 'All relevance' : relevance, tone: 'neutral' },
                     { label: quality === 'all' ? 'All quality' : quality, tone: quality === 'noise' ? 'muted' : 'accent' },
                     { label: category === 'all' ? 'All categories' : category, tone: 'neutral' },
+                    { label: crawlStatus === 'all' ? 'All crawl status' : crawlStatusLabel(crawlStatus), tone: crawlStatus === 'new' ? 'accent' : 'neutral' },
                   ]}
                 />
               </div>
@@ -1096,6 +1148,7 @@ export default function BrandMentionAlertDetailPage() {
                       const sentimentConfidence = mentionSentimentConfidence(mention)
                       const mismatch = hasSentimentMismatch(mention)
                       const domainRank = mentionDomainRank(mention)
+                      const latestCrawlStatus = mentionCrawlStatus(mention)
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-2xl px-4 py-3">
@@ -1128,7 +1181,12 @@ export default function BrandMentionAlertDetailPage() {
                               {sentimentConfidence && <span className="text-xs text-muted">DFS {sentimentConfidence}</span>}
                             </div>
                           </td>
-                          <td className="px-4 py-3">{mismatch ? <ReviewBadge label="Mismatch" /> : <span className="text-xs text-muted">-</span>}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex min-w-24 flex-col items-start gap-1">
+                              {latestCrawlStatus ? <CrawlStatusBadge status={latestCrawlStatus} /> : <span className="text-xs text-muted">-</span>}
+                              {mismatch && <ReviewBadge label="Mismatch" />}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex min-w-24 flex-col gap-1">
                               <QualityBadge label={mentionQualityLabel(mention)} score={mentionQualityScore(mention)} />
@@ -1163,6 +1221,7 @@ export default function BrandMentionAlertDetailPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Trigger</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">New</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Updated</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Seen</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">DFS rows</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Cost</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Started</th>
@@ -1179,6 +1238,7 @@ export default function BrandMentionAlertDetailPage() {
                           <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(stringField(run, ['trigger', 'trigger_type'], 'manual'))}</td>
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['new_mentions', 'new_count']) ?? 0}</td>
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['updated_mentions', 'updated_count']) ?? 0}</td>
+                          <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['seen_mentions', 'seen_count']) ?? 0}</td>
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['dfs_rows', 'dataforseo_rows', 'rows']) ?? 0}</td>
                           <td className="px-4 py-3 text-xs text-muted">{cost === null ? '-' : `$${cost.toFixed(4)}`}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(stringField(run, ['started_at', 'created_at']))}</td>
