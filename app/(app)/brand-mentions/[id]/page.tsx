@@ -398,6 +398,13 @@ function mentionTimeValue(mention: BrandMention) {
   return Number.isNaN(time) ? 0 : time
 }
 
+function crawlRunTimeValue(run: CrawlRun) {
+  const value = stringField(run, ['started_at', 'created_at'])
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
 function mentionCoverageTimeValue(mention: BrandMention) {
   const published = mentionPublished(mention)
   if (published) {
@@ -682,6 +689,12 @@ function confirmHighDfsRows(rows: number) {
   return window.confirm(`Run a ${rows}-row DFS crawl? Estimated DFS cost is ${formatEstimatedDfsCost(rows)}.`)
 }
 
+function formatCrawlRunCost(run: CrawlRun | null) {
+  if (!run) return '-'
+  const cost = numberField(run, ['estimated_cost_usd', 'cost_usd', 'cost'])
+  return cost === null ? '-' : `$${cost.toFixed(4)}`
+}
+
 function SentimentBadge({ sentiment }: { sentiment: string }) {
   const normalized = sentiment.toLowerCase()
   const styles = normalized === 'negative'
@@ -865,6 +878,21 @@ export default function BrandMentionAlertDetailPage() {
     }
   }
 
+  function applyQuickReviewFilter(filter: 'new' | 'updated' | 'review') {
+    if (filter === 'new') {
+      setCrawlStatus('new')
+      setReviewMode('all')
+      return
+    }
+    if (filter === 'updated') {
+      setCrawlStatus('updated')
+      setReviewMode('all')
+      return
+    }
+    setCrawlStatus('all')
+    setReviewMode('review')
+  }
+
   function downloadCsv() {
     if (!displayedMentions.length) return
     const csv = buildMentionsCsv(displayedMentions)
@@ -892,6 +920,17 @@ export default function BrandMentionAlertDetailPage() {
   const sourceMix = useMemo(() => buildCountItems(mentions, mentionSource), [mentions])
   const categoryMix = useMemo(() => buildCountItems(mentions, mentionCategory), [mentions])
   const uniqueDomainCount = useMemo(() => new Set(mentions.map(mentionDomain).filter(Boolean)).size, [mentions])
+  const latestCrawlRun = useMemo(
+    () => [...runs].sort((a, b) => crawlRunTimeValue(b) - crawlRunTimeValue(a))[0] || null,
+    [runs],
+  )
+  const latestCrawlSummaryItems = useMemo(() => [
+    { label: 'New', value: numberField(latestCrawlRun || {}, ['new_mentions', 'new_count']) ?? 0 },
+    { label: 'Updated', value: numberField(latestCrawlRun || {}, ['updated_mentions', 'updated_count']) ?? 0 },
+    { label: 'Seen again', value: numberField(latestCrawlRun || {}, ['seen_mentions', 'seen_count']) ?? 0 },
+    { label: 'Rows checked', value: numberField(latestCrawlRun || {}, ['dfs_rows', 'dataforseo_rows', 'rows']) ?? 0 },
+    { label: 'Cost', value: formatCrawlRunCost(latestCrawlRun) },
+  ], [latestCrawlRun])
   const lastCrawl = alert?.last_crawl_at || alert?.last_crawled_at || alert?.last_crawl
 
   return (
@@ -1056,6 +1095,41 @@ export default function BrandMentionAlertDetailPage() {
           </JobSection>
 
           <JobSection title="Mention filters" description="Filters reload the mention list and are reflected in the URL.">
+            {latestCrawlRun && (
+              <div className="brand-pulse-latest-crawl-strip mb-4 flex flex-col gap-3 rounded-lg border border-border bg-bg/60 p-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex min-w-0 flex-wrap gap-2">
+                  {latestCrawlSummaryItems.map(item => (
+                    <div key={item.label} className="min-w-24 rounded-md border border-border bg-surface px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{item.label}</p>
+                      <p className="mt-1 text-sm font-semibold text-text">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyQuickReviewFilter('new')}
+                    className="btn-ghost text-xs"
+                  >
+                    New only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyQuickReviewFilter('updated')}
+                    className="btn-ghost text-xs"
+                  >
+                    Updated only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyQuickReviewFilter('review')}
+                    className="btn-ghost text-xs"
+                  >
+                    Needs review
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="mb-4">
               <label className="mb-2 block text-xs font-semibold text-muted">Review mode</label>
               <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-bg p-1">
