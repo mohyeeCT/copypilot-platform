@@ -154,6 +154,7 @@ const CATEGORY_ORDER: Record<string, number> = {
   profile: 7,
   jobs: 8,
 }
+const DAY_MS = 24 * 60 * 60 * 1000
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -318,6 +319,75 @@ function mentionTimeValue(mention: BrandMention) {
   return Number.isNaN(time) ? 0 : time
 }
 
+function mentionCoverageTimeValue(mention: BrandMention) {
+  const published = mentionPublished(mention)
+  if (published) {
+    const publishedTime = new Date(published).getTime()
+    if (!Number.isNaN(publishedTime)) return publishedTime
+  }
+  return mentionTimeValue(mention)
+}
+
+function dateKeyFromTime(time: number) {
+  return new Date(time).toISOString().slice(0, 10)
+}
+
+function formatDayLabel(key: string) {
+  const date = new Date(`${key}T00:00:00.000Z`)
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+function buildRecentMentionDays(mentions: BrandMention[], days = 30) {
+  const times = mentions
+    .map(mentionCoverageTimeValue)
+    .filter(time => time > 0)
+  const latestTime = times.length ? Math.max(...times) : Date.now()
+  const latest = new Date(latestTime)
+  const latestDay = Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), latest.getUTCDate())
+  const firstDay = latestDay - ((days - 1) * DAY_MS)
+  const counts = new Map<string, number>()
+
+  for (const time of times) {
+    if (time < firstDay || time >= latestDay + DAY_MS) continue
+    const key = dateKeyFromTime(time)
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+
+  const maxCount = Math.max(1, ...counts.values())
+  return Array.from({ length: days }, (_, index) => {
+    const time = firstDay + (index * DAY_MS)
+    const key = dateKeyFromTime(time)
+    const value = counts.get(key) || 0
+    return {
+      key,
+      label: formatDayLabel(key),
+      value,
+      share: (value / maxCount) * 100,
+    }
+  })
+}
+
+function buildCountItems(
+  mentions: BrandMention[],
+  valueForMention: (mention: BrandMention) => string,
+  limit = 5,
+) {
+  const counts = new Map<string, number>()
+  for (const mention of mentions) {
+    const label = titleCase(valueForMention(mention) || 'unknown')
+    counts.set(label, (counts.get(label) || 0) + 1)
+  }
+  const maxCount = Math.max(1, ...counts.values())
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([label, value]) => ({
+      label,
+      value,
+      share: (value / maxCount) * 100,
+    }))
+}
+
 function isNoiseMention(mention: BrandMention) {
   return mentionQualityLabel(mention).toLowerCase() === 'noise'
 }
@@ -357,14 +427,14 @@ function sortMentionsByValue(mentions: BrandMention[]) {
     const relevanceDelta = (RELEVANCE_ORDER[mentionRelevanceLevel(a)] ?? 9) - (RELEVANCE_ORDER[mentionRelevanceLevel(b)] ?? 9)
     if (relevanceDelta !== 0) return relevanceDelta
 
-    const categoryDelta = (CATEGORY_ORDER[mentionCategory(a).toLowerCase()] ?? 9) - (CATEGORY_ORDER[mentionCategory(b).toLowerCase()] ?? 9)
-    if (categoryDelta !== 0) return categoryDelta
-
     const qualityDelta = (QUALITY_ORDER[mentionQualityLabel(a).toLowerCase()] ?? 9) - (QUALITY_ORDER[mentionQualityLabel(b).toLowerCase()] ?? 9)
     if (qualityDelta !== 0) return qualityDelta
 
     const scoreDelta = mentionQualityScoreValue(b) - mentionQualityScoreValue(a)
     if (scoreDelta !== 0) return scoreDelta
+
+    const categoryDelta = (CATEGORY_ORDER[mentionCategory(a).toLowerCase()] ?? 9) - (CATEGORY_ORDER[mentionCategory(b).toLowerCase()] ?? 9)
+    if (categoryDelta !== 0) return categoryDelta
 
     const duplicateDelta = mentionDuplicateCount(a) - mentionDuplicateCount(b)
     if (duplicateDelta !== 0) return duplicateDelta
@@ -662,6 +732,10 @@ export default function BrandMentionAlertDetailPage() {
   const highValueCount = mentions.filter(isHighValueMention).length
   const lowValueCount = mentions.filter(mention => isLowValueMention(mention) && !isNoiseMention(mention)).length
   const noiseCount = mentions.filter(isNoiseMention).length
+  const recentMentionDays = useMemo(() => buildRecentMentionDays(mentions), [mentions])
+  const sourceMix = useMemo(() => buildCountItems(mentions, mentionSource), [mentions])
+  const categoryMix = useMemo(() => buildCountItems(mentions, mentionCategory), [mentions])
+  const uniqueDomainCount = useMemo(() => new Set(mentions.map(mentionDomain).filter(Boolean)).size, [mentions])
   const lastCrawl = alert?.last_crawl_at || alert?.last_crawled_at || alert?.last_crawl
 
   return (
@@ -744,6 +818,68 @@ export default function BrandMentionAlertDetailPage() {
               <p className="mt-2 text-sm font-semibold text-text">{alert?.mention_count ?? alert?.total_mentions ?? mentions.length}</p>
             </div>
           </div>
+
+          <JobSection title="Coverage snapshot" description={`${mentions.length} loaded mentions across ${uniqueDomainCount} domains.`}>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              <div className="min-w-0 lg:col-span-2">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Mention activity</p>
+                  <p className="text-xs text-muted">Last {recentMentionDays.length} days</p>
+                </div>
+                <div className="flex h-24 items-end gap-1">
+                  {recentMentionDays.map(day => (
+                    <div key={day.key} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                      <div
+                        className="w-full rounded-t-sm border border-accent/20 bg-accent/20"
+                        style={{ height: `${Math.max(day.value ? 12 : 2, day.share)}%` }}
+                        title={`${day.label}: ${day.value} mentions`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex justify-between text-xs text-muted">
+                  <span>{recentMentionDays[0]?.label || '-'}</span>
+                  <span>{recentMentionDays[recentMentionDays.length - 1]?.label || '-'}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Source mix</p>
+                  <div className="space-y-2">
+                    {(sourceMix.length ? sourceMix : [{ label: 'No sources', value: 0, share: 0 }]).map(item => (
+                      <div key={item.label}>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate font-semibold text-text">{item.label}</span>
+                          <span className="text-muted">{item.value}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-bg">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Category mix</p>
+                  <div className="space-y-2">
+                    {(categoryMix.length ? categoryMix : [{ label: 'No categories', value: 0, share: 0 }]).map(item => (
+                      <div key={item.label}>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate font-semibold text-text">{item.label}</span>
+                          <span className="text-muted">{item.value}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-bg">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </JobSection>
 
           <JobSection title="Mention filters" description="Filters reload the mention list and are reflected in the URL.">
             <div className="mb-4">
@@ -842,6 +978,7 @@ export default function BrandMentionAlertDetailPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Quality</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Relevance</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Domain rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Published</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Discovered</th>
                     </tr>
                   </thead>
@@ -889,6 +1026,7 @@ export default function BrandMentionAlertDetailPage() {
                           </td>
                           <td className="px-4 py-3 text-xs text-muted">{mentionRelevance(mention)}</td>
                           <td className="px-4 py-3 text-xs text-muted">{mentionDomainRank(mention)}</td>
+                          <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionPublished(mention))}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionDiscovered(mention))}</td>
                         </tr>
                       )
