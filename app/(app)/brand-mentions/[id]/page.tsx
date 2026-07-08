@@ -260,12 +260,16 @@ function mentionSource(mention: BrandMention) {
   return stringField(mention, ['source_type', 'source'], 'unknown')
 }
 
-function mentionSentiment(mention: BrandMention) {
-  return stringField(mention, ['sentiment'], 'unknown')
-}
-
 function mentionProviderSentiment(mention: BrandMention) {
   return stringField(mention, ['provider_sentiment'])
+}
+
+function mentionLocalSentiment(mention: BrandMention) {
+  return stringField(mention, ['sentiment'])
+}
+
+function mentionSentiment(mention: BrandMention) {
+  return stringField(mention, ['provider_sentiment', 'sentiment'], 'unknown')
 }
 
 function mentionProviderSentimentScore(mention: BrandMention) {
@@ -288,12 +292,9 @@ function formatProviderScore(value: number | null) {
   return value === null ? '-' : value.toFixed(3)
 }
 
-function providerSentimentSummary(mention: BrandMention) {
-  const providerSentiment = mentionProviderSentiment(mention)
+function mentionSentimentConfidence(mention: BrandMention) {
   const providerScore = mentionProviderSentimentScore(mention)
-  if (!providerSentiment) return ''
-  const label = titleCase(providerSentiment)
-  return `${label} ${formatProviderScore(providerScore)}`
+  return providerScore === null ? '' : formatProviderScore(providerScore)
 }
 
 function mentionQualityLabel(mention: BrandMention) {
@@ -448,8 +449,19 @@ function isLowValueMention(mention: BrandMention) {
   )
 }
 
+function hasSentimentMismatch(mention: BrandMention) {
+  const providerSentiment = mentionProviderSentiment(mention).toLowerCase()
+  const localSentiment = mentionLocalSentiment(mention).toLowerCase()
+  if (!providerSentiment || !localSentiment) return false
+  if (providerSentiment === 'unknown' || localSentiment === 'unknown') return false
+  return providerSentiment !== localSentiment
+    && (providerSentiment === 'negative' || localSentiment === 'negative')
+}
+
 function needsReviewMention(mention: BrandMention) {
   return (
+    hasSentimentMismatch(mention)
+    ||
     isHighValueMention(mention)
     || mentionSentiment(mention).toLowerCase() === 'negative'
     || (mentionRelevanceLevel(mention) === 'medium' && !isNoiseMention(mention))
@@ -646,6 +658,14 @@ function QualityBadge({ label, score }: { label: string; score: number | string 
   return (
     <span className="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold capitalize" style={styles}>
       {label || 'unknown'}{score !== '-' ? ` ${score}` : ''}
+    </span>
+  )
+}
+
+function ReviewBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+      {label}
     </span>
   )
 }
@@ -1057,15 +1077,11 @@ export default function BrandMentionAlertDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Title</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">URL</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Domain</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Category</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Source</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Sentiment</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Mention</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Signal</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Review</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Quality</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Relevance</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Domain rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Published</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Discovered</th>
                     </tr>
@@ -1075,55 +1091,55 @@ export default function BrandMentionAlertDetailPage() {
                       const url = mentionUrl(mention)
                       const title = mentionTitle(mention)
                       const snippet = mentionSnippet(mention)
-                      const reasons = mentionQualityReasons(mention)
                       const duplicateCount = mentionDuplicateCount(mention)
-                      const providerSummary = providerSentimentSummary(mention)
+                      const domain = mentionDomain(mention)
+                      const sentimentConfidence = mentionSentimentConfidence(mention)
+                      const mismatch = hasSentimentMismatch(mention)
+                      const domainRank = mentionDomainRank(mention)
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
-                          <td className="max-w-sm px-4 py-3">
+                          <td className="max-w-2xl px-4 py-3">
                             <div className="line-clamp-2 font-semibold text-text">{title}</div>
                             {snippet && (
                               <p className="mt-1 line-clamp-2 text-xs text-muted">
                                 <span className="font-semibold">Snippet:</span> {snippet}
                               </p>
                             )}
-                            {duplicateCount > 1 && (
-                              <span className="mt-2 inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted">
-                                {duplicateCount} similar
-                              </span>
-                            )}
-                          </td>
-                          <td className="max-w-xs px-4 py-3">
-                            {url ? (
-                              <a href={url} target="_blank" rel="noreferrer" className="inline-flex max-w-xs items-center gap-1 truncate font-mono text-xs text-accent hover:underline">
-                                <span className="truncate">{url}</span>
-                                <ExternalLink size={11} />
-                              </a>
-                            ) : '-'}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted">{mentionDomain(mention) || '-'}</td>
-                          <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionCategory(mention))}</td>
-                          <td className="px-4 py-3 text-xs capitalize text-muted">{titleCase(mentionSource(mention))}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex min-w-36 flex-col gap-1">
-                              <SentimentBadge sentiment={mentionSentiment(mention)} />
-                              {providerSummary && (
-                                <span className="text-xs text-muted">
-                                  <span className="font-semibold">DFS sentiment:</span> {providerSummary}
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+                              {url ? (
+                                <a href={url} target="_blank" rel="noreferrer" className="inline-flex max-w-xs items-center gap-1 truncate font-mono text-accent hover:underline">
+                                  <span className="truncate">{domain || url}</span>
+                                  <ExternalLink size={11} />
+                                </a>
+                              ) : (
+                                <span>{domain || '-'}</span>
+                              )}
+                              {domainRank !== '-' && <span>Rank {domainRank}</span>}
+                              {duplicateCount > 1 && (
+                                <span className="inline-flex rounded-full border border-border px-2 py-0.5 font-semibold text-muted">
+                                  {duplicateCount} similar
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex max-w-xs flex-col gap-1">
-                              <QualityBadge label={mentionQualityLabel(mention)} score={mentionQualityScore(mention)} />
-                              {reasons.length > 0 && (
-                                <span className="line-clamp-2 text-xs text-muted">{reasons.join('; ')}</span>
-                              )}
+                            <div className="flex min-w-28 flex-col gap-1">
+                              <SentimentBadge sentiment={mentionSentiment(mention)} />
+                              {sentimentConfidence && <span className="text-xs text-muted">DFS {sentimentConfidence}</span>}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted">{mentionRelevance(mention)}</td>
-                          <td className="px-4 py-3 text-xs text-muted">{mentionDomainRank(mention)}</td>
+                          <td className="px-4 py-3">{mismatch ? <ReviewBadge label="Mismatch" /> : <span className="text-xs text-muted">-</span>}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex min-w-24 flex-col gap-1">
+                              <QualityBadge label={mentionQualityLabel(mention)} score={mentionQualityScore(mention)} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex min-w-28 flex-col gap-1 text-xs text-muted">
+                              <span className="font-semibold text-text">{titleCase(mentionCategory(mention))}</span>
+                              <span>{titleCase(mentionSource(mention))}</span>
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionPublished(mention))}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionDiscovered(mention))}</td>
                         </tr>
