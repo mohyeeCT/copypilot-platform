@@ -165,9 +165,9 @@ export default function BrandMentionsOverviewPage() {
     <AppLayout title="Brand Pulse">
       <div className="max-w-full">
         <JobLauncherShell
+          compact
           eyebrow="Insights"
           title="Brand Pulse"
-          description="Monitor live brand, competitor, and keyword signals from external sources."
           summary={
             <JobSummaryBar
               summaryItems={[
@@ -191,7 +191,7 @@ export default function BrandMentionsOverviewPage() {
             </div>
           }
         >
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          <div className="brand-pulse-overview-metrics grid grid-cols-1 gap-3 lg:grid-cols-4">
             <div className="card p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Configured</p>
               <p className="mt-2 text-2xl font-bold text-text">{alerts.length}</p>

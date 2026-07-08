@@ -794,8 +794,8 @@ export default function BrandMentionAlertDetailPage() {
             />
           }
           actions={
-            <div className="flex max-w-xl flex-col items-stretch gap-2 sm:items-end">
-              <div className="w-full rounded-lg border border-border bg-bg p-2 sm:w-auto sm:min-w-[23rem]">
+            <div className="brand-pulse-crawl-actions">
+              <div className="brand-pulse-dfs-selector">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
                   <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
@@ -821,7 +821,7 @@ export default function BrandMentionAlertDetailPage() {
                   <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
                 )}
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="brand-pulse-action-buttons">
                 <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
                   <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                   Refresh
@@ -878,63 +878,53 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </div>
 
-          <JobSection title="Coverage snapshot" description={`${mentions.length} loaded mentions across ${uniqueDomainCount} domains.`}>
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <div className="min-w-0 lg:col-span-2">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Mention activity</p>
-                  <p className="text-xs text-muted">Last {recentMentionDays.length} days</p>
+          <JobSection title="Coverage snapshot" description={`${mentions.length} mentions across ${uniqueDomainCount} domains.`} className="brand-pulse-coverage">
+            <div className="brand-pulse-coverage-strip">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Activity</p>
+                  <p className="text-xs text-muted">{recentMentionDays.length} days</p>
                 </div>
-                <div className="flex h-24 items-end gap-1">
+                <div className="flex h-10 items-end gap-1">
                   {recentMentionDays.map(day => (
-                    <div key={day.key} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                    <div key={day.key} className="flex min-w-0 flex-1 items-end">
                       <div
-                        className="w-full rounded-t-sm border border-accent/20 bg-accent/20"
-                        style={{ height: `${Math.max(day.value ? 12 : 2, day.share)}%` }}
+                        className="w-full rounded-t-sm bg-accent/25"
+                        style={{ height: `${Math.max(day.value ? 10 : 2, day.share)}%` }}
                         title={`${day.label}: ${day.value} mentions`}
                       />
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex justify-between text-xs text-muted">
-                  <span>{recentMentionDays[0]?.label || '-'}</span>
-                  <span>{recentMentionDays[recentMentionDays.length - 1]?.label || '-'}</span>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Source mix</p>
+                <div className="space-y-1.5">
+                  {(sourceMix.length ? sourceMix.slice(0, 3) : [{ label: 'No sources', value: 0, share: 0 }]).map(item => (
+                    <div key={item.label} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                      </div>
+                      <span className="w-6 text-right text-muted">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Source mix</p>
-                  <div className="space-y-2">
-                    {(sourceMix.length ? sourceMix : [{ label: 'No sources', value: 0, share: 0 }]).map(item => (
-                      <div key={item.label}>
-                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                          <span className="truncate font-semibold text-text">{item.label}</span>
-                          <span className="text-muted">{item.value}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-bg">
-                          <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
-                        </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Category mix</p>
+                <div className="space-y-1.5">
+                  {(categoryMix.length ? categoryMix.slice(0, 3) : [{ label: 'No categories', value: 0, share: 0 }]).map(item => (
+                    <div key={item.label} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                        <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Category mix</p>
-                  <div className="space-y-2">
-                    {(categoryMix.length ? categoryMix : [{ label: 'No categories', value: 0, share: 0 }]).map(item => (
-                      <div key={item.label}>
-                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                          <span className="truncate font-semibold text-text">{item.label}</span>
-                          <span className="text-muted">{item.value}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-bg">
-                          <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      <span className="w-6 text-right text-muted">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
