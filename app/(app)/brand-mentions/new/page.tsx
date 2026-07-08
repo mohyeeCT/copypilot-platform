@@ -30,8 +30,11 @@ const SOURCES: { value: SourceType; label: string; description: string }[] = [
 ]
 
 const MIN_RESULTS_PER_CRAWL = 10
-const MAX_RESULTS_PER_CRAWL = 100
+const MAX_RESULTS_PER_CRAWL = 1000
 const DEFAULT_RESULTS_PER_CRAWL = 50
+const DFS_ROW_PRESETS = [50, 100, 250, 500, 1000]
+const DFS_REQUEST_BASE_COST_USD = 0.024
+const DFS_ROW_COST_USD = 0.000036
 
 async function getSessionToken() {
   const sb = createClient()
@@ -48,6 +51,10 @@ function normalizeMaxResultsDraft(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return DEFAULT_RESULTS_PER_CRAWL
   return clampMaxResults(Number(trimmed))
+}
+
+function formatEstimatedDfsCost(rows: number) {
+  return `$${(DFS_REQUEST_BASE_COST_USD + (DFS_ROW_COST_USD * rows)).toFixed(4)}`
 }
 
 function createdAlertId(value: unknown): string | null {
@@ -73,6 +80,7 @@ export default function NewBrandMentionAlertPage() {
   const [submitting, setSubmitting] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState('')
+  const normalizedMaxResultsPreview = normalizeMaxResultsDraft(maxResultsInput)
 
   useEffect(() => {
     let mounted = true
@@ -171,7 +179,7 @@ export default function NewBrandMentionAlertPage() {
                 summaryItems={[
                   { label: 'Type', value: alertType },
                   { label: 'Sources', value: sources.length },
-                  { label: 'Max results', value: maxResultsInput.trim() || DEFAULT_RESULTS_PER_CRAWL },
+                  { label: 'DFS rows', value: normalizedMaxResultsPreview },
                   { label: 'State', value: active ? 'Active' : 'Paused' },
                 ]}
               />
@@ -226,7 +234,7 @@ export default function NewBrandMentionAlertPage() {
                       />
                     </div>
                     <div>
-                      <label htmlFor="brand-mention-max-results" className="mb-1 block text-xs font-semibold text-muted">Max results per crawl</label>
+                      <label htmlFor="brand-mention-max-results" className="mb-1 block text-xs font-semibold text-muted">DFS rows per crawl</label>
                       <input
                         id="brand-mention-max-results"
                         name="max_results_per_crawl"
@@ -240,6 +248,27 @@ export default function NewBrandMentionAlertPage() {
                         onBlur={() => setMaxResultsInput(String(normalizeMaxResultsDraft(maxResultsInput)))}
                         className="input-base"
                       />
+                      <div className="mt-2 flex flex-wrap gap-1 rounded-lg border border-border bg-bg p-1">
+                        {DFS_ROW_PRESETS.map(preset => {
+                          const activePreset = normalizedMaxResultsPreview === preset
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setMaxResultsInput(String(preset))}
+                              className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                              style={activePreset ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                              aria-pressed={activePreset}
+                            >
+                              {preset}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
+                        <span>Estimated DFS cost</span>
+                        <span className="font-semibold text-text">{formatEstimatedDfsCost(normalizedMaxResultsPreview)}</span>
+                      </div>
                     </div>
                   </div>
                 </JobSection>
@@ -294,7 +323,7 @@ export default function NewBrandMentionAlertPage() {
                     <JobSummaryPills
                       items={[
                         { label: `${sources.length} sources`, tone: sources.length > 0 ? 'accent' : 'muted' },
-                        { label: `${maxResultsInput.trim() || DEFAULT_RESULTS_PER_CRAWL} max`, tone: 'neutral' },
+                        { label: `${normalizedMaxResultsPreview} DFS rows`, tone: 'neutral' },
                         { label: active ? 'Active' : 'Paused', tone: active ? 'success' : 'muted' },
                       ]}
                     />
