@@ -8,7 +8,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
-import { brandMentionsApi } from '@/lib/api/brand-mentions'
+import { brandMentionsApi, type BrandMentionCrawlPayload } from '@/lib/api/brand-mentions'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,7 +70,11 @@ type CrawlRun = RecordValue & {
   updated_mentions?: number | string | null
   seen_mentions?: number | string | null
   dfs_rows?: number | string | null
+  requested_rows?: number | string | null
+  dfs_total_count?: number | string | null
   dataforseo_rows?: number | string | null
+  pull_mode?: string | null
+  crawl_filters?: RecordValue | null
   estimated_cost_usd?: number | string | null
   cost?: number | string | null
   cost_usd?: number | string | null
@@ -109,6 +113,8 @@ type BrandMentionSummaryInsight = RecordValue & {
   refreshed_at?: string | null
 }
 
+type BrandMentionSentimentInsight = BrandMentionSummaryInsight
+
 type FilterValue = 'all' | 'positive' | 'neutral' | 'negative' | 'unknown'
 type SourceFilter = 'all' | 'news' | 'blogs' | 'forums' | 'organizations'
 type RelevanceFilter = 'all' | 'high' | 'medium' | 'low'
@@ -117,6 +123,7 @@ type CategoryFilter = 'all' | 'news' | 'blog' | 'forum' | 'organization' | 'dire
 type CrawlStatusFilter = 'all' | 'new' | 'updated' | 'seen'
 type ReviewMode = 'best' | 'review' | 'low-value' | 'noise' | 'all'
 type DfsPullMode = 'newest' | 'best_quality' | 'negative_watch' | 'one_per_domain'
+type DfsProviderSentimentFilter = 'all' | 'positive' | 'neutral' | 'negative'
 
 const SENTIMENT_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All sentiment' },
@@ -224,6 +231,12 @@ const DFS_PULL_MODE_OPTIONS: { value: DfsPullMode; label: string }[] = [
   { value: 'negative_watch', label: 'Negative watch' },
   { value: 'one_per_domain', label: 'One per domain' },
 ]
+const DFS_PROVIDER_SENTIMENT_OPTIONS: { value: DfsProviderSentimentFilter; label: string }[] = [
+  { value: 'all', label: 'Any sentiment' },
+  { value: 'positive', label: 'Positive' },
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'negative', label: 'Negative' },
+]
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -250,16 +263,24 @@ function extractAlert(value: unknown): BrandMentionAlert | null {
   return null
 }
 
-function extractSummaryInsight(value: unknown): BrandMentionSummaryInsight | null {
+function extractInsight(value: unknown, insightType: 'summary' | 'sentiment'): BrandMentionSummaryInsight | null {
   const record = asRecord(value)
-  if (record.payload !== undefined || record.insight_type === 'summary') {
+  if (record.payload !== undefined || record.insight_type === insightType) {
     return record as BrandMentionSummaryInsight
   }
   const nested = asRecord(record.data)
-  if (nested.payload !== undefined || nested.insight_type === 'summary') {
+  if (nested.payload !== undefined || nested.insight_type === insightType) {
     return nested as BrandMentionSummaryInsight
   }
   return null
+}
+
+function extractSummaryInsight(value: unknown): BrandMentionSummaryInsight | null {
+  return extractInsight(value, 'summary')
+}
+
+function extractSentimentInsight(value: unknown): BrandMentionSentimentInsight | null {
+  return extractInsight(value, 'sentiment')
 }
 
 function stringField(record: RecordValue, keys: string[], fallback = '') {
@@ -503,6 +524,22 @@ function summarySentimentItems(payload: BrandPulseSummaryPayload | null) {
     }))
 }
 
+function summaryEmotionItems(payload: BrandPulseSummaryPayload | null, limit = 4) {
+  const emotions = asRecord(payload?.sentiment_connotations)
+  return Object.keys(emotions)
+    .map(label => {
+      const value = numberField(emotions, [label])
+      return value === null ? null : { label: titleCase(label), value, share: 0 }
+    })
+    .filter((item): item is { label: string; value: number; share: number } => item !== null)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit)
+    .map((item, _index, list) => ({
+      ...item,
+      share: (item.value / Math.max(1, ...list.map(entry => entry.value))) * 100,
+    }))
+}
+
 function topSummaryItemLabel(items: { label: string; value: number }[]) {
   if (!items.length) return '-'
   return `${items[0].label} ${formatInteger(items[0].value)}`
@@ -721,8 +758,35 @@ function dfsRowGuardrailText(rows: number) {
   return ''
 }
 
-function dfsPullModeLabel(mode: DfsPullMode) {
-  return DFS_PULL_MODE_OPTIONS.find(option => option.value === mode)?.label || 'Newest mentions'
+function dfsPullModeLabel(mode: string) {
+  return DFS_PULL_MODE_OPTIONS.find(option => option.value === mode)?.label || titleCase(mode)
+}
+
+function buildDfsCrawlFilters(
+  country: string,
+  language: string,
+  providerSentiment: DfsProviderSentimentFilter,
+  includeDomain: string,
+  excludeDomain: string,
+  dateFrom: string,
+) {
+  const filters: NonNullable<BrandMentionCrawlPayload['filters']> = {}
+  if (country.trim()) filters.country = country.trim().toUpperCase()
+  if (language.trim()) filters.language = language.trim().toLowerCase()
+  if (providerSentiment !== 'all') filters.provider_sentiment = providerSentiment
+  if (includeDomain.trim()) filters.include_domain = includeDomain.trim()
+  if (excludeDomain.trim()) filters.exclude_domain = excludeDomain.trim()
+  if (dateFrom.trim()) filters.date_from = dateFrom.trim()
+  return filters
+}
+
+function activeFilterCount(filters?: Record<string, unknown> | null) {
+  return Object.values(filters || {}).filter(value => value !== undefined && value !== null && String(value).trim()).length
+}
+
+function formatCrawlFilters(filters?: RecordValue | null) {
+  const count = activeFilterCount(filters)
+  return count === 0 ? '' : `${count} filter${count === 1 ? '' : 's'}`
 }
 
 function confirmHighDfsRows(rows: number) {
@@ -812,18 +876,40 @@ export default function BrandMentionAlertDetailPage() {
   const [mentions, setMentions] = useState<BrandMention[]>([])
   const [runs, setRuns] = useState<CrawlRun[]>([])
   const [coverageInsight, setCoverageInsight] = useState<BrandMentionSummaryInsight | null>(null)
+  const [sentimentInsight, setSentimentInsight] = useState<BrandMentionSentimentInsight | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [coverageInsightError, setCoverageInsightError] = useState('')
   const [coverageInsightRefreshing, setCoverageInsightRefreshing] = useState(false)
+  const [sentimentInsightError, setSentimentInsightError] = useState('')
+  const [sentimentInsightRefreshing, setSentimentInsightRefreshing] = useState(false)
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
+  const [showDfsFilters, setShowDfsFilters] = useState(false)
+  const [dfsCountry, setDfsCountry] = useState('')
+  const [dfsLanguage, setDfsLanguage] = useState('')
+  const [dfsProviderSentiment, setDfsProviderSentiment] = useState<DfsProviderSentimentFilter>('all')
+  const [dfsIncludeDomain, setDfsIncludeDomain] = useState('')
+  const [dfsExcludeDomain, setDfsExcludeDomain] = useState('')
+  const [dfsDateFrom, setDfsDateFrom] = useState('')
   const categoryOptions = useMemo(() => categoryOptionsForSource(sourceType), [sourceType])
   const selectedDfsCost = formatEstimatedDfsCost(selectedDfsRows)
   const selectedDfsGuardrail = dfsRowGuardrailText(selectedDfsRows)
+  const selectedDfsFilters = useMemo(
+    () => buildDfsCrawlFilters(
+      dfsCountry,
+      dfsLanguage,
+      dfsProviderSentiment,
+      dfsIncludeDomain,
+      dfsExcludeDomain,
+      dfsDateFrom,
+    ),
+    [dfsCountry, dfsDateFrom, dfsExcludeDomain, dfsIncludeDomain, dfsLanguage, dfsProviderSentiment],
+  )
+  const selectedDfsFilterCount = activeFilterCount(selectedDfsFilters)
 
   const apiMentionQuery = useMemo(
     () => buildMentionQuery(sentiment, sourceType, relevance, quality, category, crawlStatus),
@@ -888,6 +974,18 @@ export default function BrandMentionAlertDetailPage() {
             : 'Coverage insight unavailable.',
         )
       }
+      try {
+        const sentimentData = await brandMentionsApi.getSentimentInsight(token, alertId)
+        setSentimentInsight(extractSentimentInsight(sentimentData))
+        setSentimentInsightError('')
+      } catch (sentimentError) {
+        setSentimentInsight(null)
+        setSentimentInsightError(
+          sentimentError instanceof Error
+            ? sentimentError.message
+            : 'Sentiment insight unavailable.',
+        )
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Failed to load Brand Pulse alert.')
     } finally {
@@ -917,7 +1015,12 @@ export default function BrandMentionAlertDetailPage() {
         return
       }
 
-      await brandMentionsApi.crawlAlert(token, alertId, { max_results_per_crawl: selectedDfsRows, pull_mode: selectedDfsPullMode })
+      const payload: BrandMentionCrawlPayload = {
+        max_results_per_crawl: selectedDfsRows,
+        pull_mode: selectedDfsPullMode,
+      }
+      if (selectedDfsFilterCount > 0) payload.filters = selectedDfsFilters
+      await brandMentionsApi.crawlAlert(token, alertId, payload)
       await load()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Manual crawl failed.'
@@ -945,6 +1048,26 @@ export default function BrandMentionAlertDetailPage() {
       )
     } finally {
       setCoverageInsightRefreshing(false)
+    }
+  }
+
+  async function handleRefreshSentimentInsight() {
+    setSentimentInsightError('')
+    setSentimentInsightRefreshing(true)
+    try {
+      const token = await getSessionToken()
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const insightData = await brandMentionsApi.refreshSentimentInsight(token, alertId)
+      setSentimentInsight(extractSentimentInsight(insightData))
+    } catch (error) {
+      setSentimentInsightError(
+        error instanceof Error ? error.message : 'Sentiment insight refresh failed.',
+      )
+    } finally {
+      setSentimentInsightRefreshing(false)
     }
   }
 
@@ -1030,6 +1153,27 @@ export default function BrandMentionAlertDetailPage() {
     coverageRank,
     coverageTotalCount,
   ])
+  const sentimentPayload = useMemo(() => summaryPayload(sentimentInsight), [sentimentInsight])
+  const sentimentOverviewItems = useMemo(
+    () => summarySentimentItems(sentimentPayload),
+    [sentimentPayload],
+  )
+  const sentimentEmotionItems = useMemo(
+    () => summaryEmotionItems(sentimentPayload),
+    [sentimentPayload],
+  )
+  const sentimentTotalCount = (
+    numberField(asRecord(sentimentPayload), ['total_count'])
+    ?? numberField(asRecord(sentimentInsight), ['total_count'])
+  )
+  const sentimentInsightSummaryItems = useMemo(() => [
+    { label: 'Analyzed mentions', value: formatInteger(sentimentTotalCount) },
+    { label: 'Positive', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['positive'])) },
+    { label: 'Neutral', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['neutral'])) },
+    { label: 'Negative', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['negative'])) },
+    { label: 'Top emotion', value: topSummaryItemLabel(sentimentEmotionItems) },
+    { label: 'Cost', value: formatInsightCost(sentimentInsight) },
+  ], [sentimentEmotionItems, sentimentInsight, sentimentPayload, sentimentTotalCount])
   const latestCrawlRun = useMemo(
     () => [...runs].sort((a, b) => crawlRunTimeValue(b) - crawlRunTimeValue(a))[0] || null,
     [runs],
@@ -1103,6 +1247,79 @@ export default function BrandMentionAlertDetailPage() {
                       <p className="sr-only">Selected pull mode: {dfsPullModeLabel(selectedDfsPullMode)}</p>
                     </div>
                   </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDfsFilters(value => !value)}
+                      className="btn-ghost gap-2 px-2 py-1 text-xs"
+                      aria-expanded={showDfsFilters}
+                    >
+                      <Settings size={12} />
+                      Filters{selectedDfsFilterCount ? ` ${selectedDfsFilterCount}` : ''}
+                    </button>
+                    {selectedDfsFilterCount > 0 && (
+                      <span className="text-xs text-muted">{selectedDfsFilterCount} active</span>
+                    )}
+                  </div>
+                  {showDfsFilters && (
+                    <div className="brand-pulse-dfs-filter-grid mt-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">Country</label>
+                        <input
+                          value={dfsCountry}
+                          onChange={event => setDfsCountry(event.target.value)}
+                          placeholder="US"
+                          maxLength={3}
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">Language</label>
+                        <input
+                          value={dfsLanguage}
+                          onChange={event => setDfsLanguage(event.target.value)}
+                          placeholder="en"
+                          maxLength={8}
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">Provider sentiment</label>
+                        <CustomSelect
+                          value={dfsProviderSentiment}
+                          onChange={value => setDfsProviderSentiment(value as DfsProviderSentimentFilter)}
+                          options={DFS_PROVIDER_SENTIMENT_OPTIONS}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">Include domain</label>
+                        <input
+                          value={dfsIncludeDomain}
+                          onChange={event => setDfsIncludeDomain(event.target.value)}
+                          placeholder="example.com"
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">Exclude domain</label>
+                        <input
+                          value={dfsExcludeDomain}
+                          onChange={event => setDfsExcludeDomain(event.target.value)}
+                          placeholder="example.com"
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-muted">From date</label>
+                        <input
+                          type="date"
+                          value={dfsDateFrom}
+                          onChange={event => setDfsDateFrom(event.target.value)}
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
                   {selectedDfsGuardrail && (
                     <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
                   )}
@@ -1165,30 +1382,41 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </div>
 
-          <JobSection title="Coverage snapshot" description="On-demand DataForSEO database coverage for this alert keyword." className="brand-pulse-coverage">
+          <JobSection title="DFS insights" description="On-demand DataForSEO database coverage and sentiment for this alert keyword." className="brand-pulse-coverage">
             <div className="brand-pulse-insight-header">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">DFS summary</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Coverage summary</p>
                 <p className="mt-1 text-xs text-muted">
                   {coverageInsight?.refreshed_at ? `Updated ${formatDate(coverageInsight.refreshed_at)}` : 'No DFS summary yet.'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => void handleRefreshSummaryInsight()}
-                disabled={coverageInsightRefreshing}
-                className="btn-ghost gap-2 text-xs"
-              >
-                <RefreshCw size={13} className={coverageInsightRefreshing ? 'animate-spin' : ''} />
-                {coverageInsightRefreshing ? 'Refreshing...' : 'Refresh DFS insight'}
-              </button>
+              <div className="brand-pulse-insight-actions">
+                <button
+                  type="button"
+                  onClick={() => void handleRefreshSummaryInsight()}
+                  disabled={coverageInsightRefreshing}
+                  className="btn-ghost gap-2 text-xs"
+                >
+                  <RefreshCw size={13} className={coverageInsightRefreshing ? 'animate-spin' : ''} />
+                  {coverageInsightRefreshing ? 'Refreshing...' : 'Refresh summary'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleRefreshSentimentInsight()}
+                  disabled={sentimentInsightRefreshing}
+                  className="btn-ghost gap-2 text-xs"
+                >
+                  <RefreshCw size={13} className={sentimentInsightRefreshing ? 'animate-spin' : ''} />
+                  {sentimentInsightRefreshing ? 'Refreshing...' : 'Refresh sentiment'}
+                </button>
+              </div>
             </div>
-            {coverageInsightError && (
+            {(coverageInsightError || sentimentInsightError) && (
               <p
                 className="mt-3 rounded-md border px-3 py-2 text-xs text-warning"
                 style={{ background: 'rgba(198,123,0,0.08)', borderColor: 'rgba(198,123,0,0.24)' }}
               >
-                {coverageInsightError}
+                {coverageInsightError || sentimentInsightError}
               </p>
             )}
             <div className="mt-3">
@@ -1217,6 +1445,35 @@ export default function BrandMentionAlertDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : null}
+            {sentimentPayload ? (
+              <div className="brand-pulse-sentiment-overview">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Sentiment overview</p>
+                  <JobSummaryBar summaryItems={sentimentInsightSummaryItems} />
+                </div>
+                <div className="brand-pulse-insight-grid brand-pulse-insight-grid--compact">
+                  {[
+                    { title: 'Provider sentiment', items: sentimentOverviewItems },
+                    { title: 'Emotion signals', items: sentimentEmotionItems },
+                  ].map(group => (
+                    <div key={group.title} className="brand-pulse-insight-list">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+                      <div className="space-y-1.5">
+                        {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
+                          <div key={item.label} className="flex items-center gap-2 text-xs">
+                            <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                              <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                            </div>
+                            <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : null}
 
@@ -1453,6 +1710,7 @@ export default function BrandMentionAlertDetailPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">New</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Updated</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Seen</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Pull</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">DFS rows</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Cost</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Started</th>
@@ -1463,6 +1721,10 @@ export default function BrandMentionAlertDetailPage() {
                     {runs.map((run, index) => {
                       const cost = numberField(run, ['estimated_cost_usd', 'cost_usd', 'cost'])
                       const error = stringField(run, ['error', 'last_error'])
+                      const returnedRows = numberField(run, ['dfs_rows', 'dataforseo_rows', 'rows']) ?? 0
+                      const requestedRows = numberField(run, ['requested_rows'])
+                      const indexedRows = numberField(run, ['dfs_total_count'])
+                      const filterLabel = formatCrawlFilters(asRecord(run.crawl_filters))
                       return (
                         <tr key={run.id || index} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="px-4 py-3 text-xs font-semibold capitalize text-text">{titleCase(stringField(run, ['status'], 'unknown'))}</td>
@@ -1470,7 +1732,18 @@ export default function BrandMentionAlertDetailPage() {
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['new_mentions', 'new_count']) ?? 0}</td>
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['updated_mentions', 'updated_count']) ?? 0}</td>
                           <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['seen_mentions', 'seen_count']) ?? 0}</td>
-                          <td className="px-4 py-3 text-xs text-muted">{numberField(run, ['dfs_rows', 'dataforseo_rows', 'rows']) ?? 0}</td>
+                          <td className="px-4 py-3 text-xs text-muted">
+                            <div className="flex min-w-28 flex-col gap-0.5">
+                              <span className="font-semibold text-text">{dfsPullModeLabel(stringField(run, ['pull_mode'], 'newest'))}</span>
+                              {filterLabel && <span>{filterLabel}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted">
+                            <div className="flex min-w-24 flex-col gap-0.5">
+                              <span>{requestedRows ? `${returnedRows} / ${requestedRows}` : returnedRows}</span>
+                              {indexedRows !== null && <span>Indexed {formatInteger(indexedRows)}</span>}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted">{cost === null ? '-' : `$${cost.toFixed(4)}`}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(stringField(run, ['started_at', 'created_at']))}</td>
                           <td className="max-w-xs px-4 py-3 text-xs text-muted">{error ? <span className="line-clamp-2 text-error">{error}</span> : '-'}</td>

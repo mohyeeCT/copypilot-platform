@@ -26,6 +26,14 @@ export type BrandMentionAlertPayload = {
 export type BrandMentionCrawlPayload = {
   max_results_per_crawl?: number
   pull_mode?: 'newest' | 'best_quality' | 'negative_watch' | 'one_per_domain'
+  filters?: {
+    country?: string
+    language?: string
+    provider_sentiment?: 'positive' | 'neutral' | 'negative'
+    include_domain?: string
+    exclude_domain?: string
+    date_from?: string
+  }
 }
 
 export type BrandMentionProfilePayload = {
@@ -70,6 +78,12 @@ export const brandMentionsApi = {
     f(`/api/brand-mentions/alerts/${id}/insights/summary`, token),
   refreshSummaryInsight: (token: string, id: string) =>
     f(`/api/brand-mentions/alerts/${id}/insights/summary`, token, {
+      method: 'POST',
+    }),
+  getSentimentInsight: (token: string, id: string) =>
+    f(`/api/brand-mentions/alerts/${id}/insights/sentiment`, token),
+  refreshSentimentInsight: (token: string, id: string) =>
+    f(`/api/brand-mentions/alerts/${id}/insights/sentiment`, token, {
       method: 'POST',
     }),
   crawlAlert: (token: string, id: string, payload?: BrandMentionCrawlPayload) =>
