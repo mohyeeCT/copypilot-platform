@@ -846,6 +846,24 @@
   .brand-pulse-coverage .job-section-header {
     margin-bottom: 10px;
   }
+  .brand-pulse-insight-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .brand-pulse-insight-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .brand-pulse-insight-list {
+    min-width: 0;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
   .brand-pulse-coverage-strip {
     display: grid;
     grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(160px, 1fr);
@@ -899,6 +917,9 @@
     flex: 1 1 auto;
   }
   .brand-pulse-coverage-strip {
+    grid-template-columns: 1fr;
+  }
+  .brand-pulse-insight-grid {
     grid-template-columns: 1fr;
   }
   .form-grid-4col {

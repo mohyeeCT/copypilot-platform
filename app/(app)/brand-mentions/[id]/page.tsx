@@ -80,6 +80,35 @@ type CrawlRun = RecordValue & {
   last_error?: string | null
 }
 
+type InsightCountItem = RecordValue & {
+  count?: number | string | null
+  code?: string | null
+  type?: string | null
+  domain?: string | null
+}
+
+type BrandPulseSummaryPayload = RecordValue & {
+  total_count?: number | string | null
+  rank?: number | string | null
+  top_domains?: InsightCountItem[] | null
+  page_types?: InsightCountItem[] | null
+  countries?: InsightCountItem[] | null
+  languages?: InsightCountItem[] | null
+  connotation_types?: Record<string, number | string | null> | null
+  sentiment_connotations?: Record<string, number | string | null> | null
+}
+
+type BrandMentionSummaryInsight = RecordValue & {
+  id?: string
+  alert_id?: string
+  insight_type?: string | null
+  keyword?: string | null
+  payload?: BrandPulseSummaryPayload | null
+  total_count?: number | string | null
+  estimated_cost_usd?: number | string | null
+  refreshed_at?: string | null
+}
+
 type FilterValue = 'all' | 'positive' | 'neutral' | 'negative' | 'unknown'
 type SourceFilter = 'all' | 'news' | 'blogs' | 'forums' | 'organizations'
 type RelevanceFilter = 'all' | 'high' | 'medium' | 'low'
@@ -187,6 +216,7 @@ const CAUTION_DFS_ROW_THRESHOLD = 250
 const HIGH_DFS_ROW_CONFIRMATION_THRESHOLD = 500
 const DFS_REQUEST_BASE_COST_USD = 0.024
 const DFS_ROW_COST_USD = 0.000036
+const INTEGER_FORMAT = new Intl.NumberFormat('en-US')
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -210,6 +240,18 @@ function extractAlert(value: unknown): BrandMentionAlert | null {
   const alert = asRecord(record.alert)
   if (typeof alert.id === 'string') return alert as BrandMentionAlert
   if (typeof record.id === 'string') return record as BrandMentionAlert
+  return null
+}
+
+function extractSummaryInsight(value: unknown): BrandMentionSummaryInsight | null {
+  const record = asRecord(value)
+  if (record.payload !== undefined || record.insight_type === 'summary') {
+    return record as BrandMentionSummaryInsight
+  }
+  const nested = asRecord(record.data)
+  if (nested.payload !== undefined || nested.insight_type === 'summary') {
+    return nested as BrandMentionSummaryInsight
+  }
   return null
 }
 
@@ -472,6 +514,65 @@ function buildCountItems(
       value,
       share: (value / maxCount) * 100,
     }))
+}
+
+function formatInteger(value: number | null) {
+  return value === null ? '-' : INTEGER_FORMAT.format(value)
+}
+
+function summaryPayload(insight: BrandMentionSummaryInsight | null): BrandPulseSummaryPayload | null {
+  return insight?.payload && typeof insight.payload === 'object' ? insight.payload : null
+}
+
+function summaryCountItems(
+  payload: BrandPulseSummaryPayload | null,
+  key: 'countries' | 'languages' | 'page_types' | 'top_domains',
+  labelKeys: string[],
+  limit = 4,
+) {
+  const items = payload?.[key]
+  if (!Array.isArray(items)) return []
+  return items
+    .map(item => {
+      const record = asRecord(item)
+      const label = stringField(record, labelKeys)
+      const value = numberField(record, ['count'])
+      return label && value !== null
+        ? { label: titleCase(label), value, share: 0 }
+        : null
+    })
+    .filter((item): item is { label: string; value: number; share: number } => item !== null)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit)
+    .map((item, _index, list) => ({
+      ...item,
+      share: (item.value / Math.max(1, ...list.map(entry => entry.value))) * 100,
+    }))
+}
+
+function summarySentimentItems(payload: BrandPulseSummaryPayload | null) {
+  const sentiment = asRecord(payload?.connotation_types)
+  return ['positive', 'neutral', 'negative']
+    .map(label => {
+      const value = numberField(sentiment, [label])
+      return value === null ? null : { label: titleCase(label), value, share: 0 }
+    })
+    .filter((item): item is { label: string; value: number; share: number } => item !== null)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .map((item, _index, list) => ({
+      ...item,
+      share: (item.value / Math.max(1, ...list.map(entry => entry.value))) * 100,
+    }))
+}
+
+function topSummaryItemLabel(items: { label: string; value: number }[]) {
+  if (!items.length) return '-'
+  return `${items[0].label} ${formatInteger(items[0].value)}`
+}
+
+function formatInsightCost(insight: BrandMentionSummaryInsight | null) {
+  const cost = numberField(asRecord(insight), ['estimated_cost_usd', 'cost_usd', 'cost'])
+  return cost === null ? '-' : `$${cost.toFixed(4)}`
 }
 
 function isNoiseMention(mention: BrandMention) {
@@ -768,8 +869,11 @@ export default function BrandMentionAlertDetailPage() {
   const [alert, setAlert] = useState<BrandMentionAlert | null>(null)
   const [mentions, setMentions] = useState<BrandMention[]>([])
   const [runs, setRuns] = useState<CrawlRun[]>([])
+  const [coverageInsight, setCoverageInsight] = useState<BrandMentionSummaryInsight | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [coverageInsightError, setCoverageInsightError] = useState('')
+  const [coverageInsightRefreshing, setCoverageInsightRefreshing] = useState(false)
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
@@ -829,6 +933,18 @@ export default function BrandMentionAlertDetailPage() {
       setMentions(extractList<BrandMention>(mentionsData, ['mentions', 'items', 'results', 'data']))
       setRuns(extractList<CrawlRun>(runsData, ['runs', 'items', 'results', 'data']))
       setLoadError('')
+      try {
+        const insightData = await brandMentionsApi.getSummaryInsight(token, alertId)
+        setCoverageInsight(extractSummaryInsight(insightData))
+        setCoverageInsightError('')
+      } catch (insightError) {
+        setCoverageInsight(null)
+        setCoverageInsightError(
+          insightError instanceof Error
+            ? insightError.message
+            : 'Coverage insight unavailable.',
+        )
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Failed to load Brand Pulse alert.')
     } finally {
@@ -866,6 +982,26 @@ export default function BrandMentionAlertDetailPage() {
       setShowSettingsCta(isSettingsError(message))
     } finally {
       setCrawling(false)
+    }
+  }
+
+  async function handleRefreshSummaryInsight() {
+    setCoverageInsightError('')
+    setCoverageInsightRefreshing(true)
+    try {
+      const token = await getSessionToken()
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const insightData = await brandMentionsApi.refreshSummaryInsight(token, alertId)
+      setCoverageInsight(extractSummaryInsight(insightData))
+    } catch (error) {
+      setCoverageInsightError(
+        error instanceof Error ? error.message : 'Coverage insight refresh failed.',
+      )
+    } finally {
+      setCoverageInsightRefreshing(false)
     }
   }
 
@@ -920,6 +1056,41 @@ export default function BrandMentionAlertDetailPage() {
   const sourceMix = useMemo(() => buildCountItems(mentions, mentionSource), [mentions])
   const categoryMix = useMemo(() => buildCountItems(mentions, mentionCategory), [mentions])
   const uniqueDomainCount = useMemo(() => new Set(mentions.map(mentionDomain).filter(Boolean)).size, [mentions])
+  const coveragePayload = useMemo(() => summaryPayload(coverageInsight), [coverageInsight])
+  const coverageCountryItems = useMemo(
+    () => summaryCountItems(coveragePayload, 'countries', ['code']),
+    [coveragePayload],
+  )
+  const coverageLanguageItems = useMemo(
+    () => summaryCountItems(coveragePayload, 'languages', ['code']),
+    [coveragePayload],
+  )
+  const coveragePageTypeItems = useMemo(
+    () => summaryCountItems(coveragePayload, 'page_types', ['type']),
+    [coveragePayload],
+  )
+  const coverageSentimentItems = useMemo(
+    () => summarySentimentItems(coveragePayload),
+    [coveragePayload],
+  )
+  const coverageTotalCount = (
+    numberField(asRecord(coveragePayload), ['total_count'])
+    ?? numberField(asRecord(coverageInsight), ['total_count'])
+  )
+  const coverageRank = numberField(asRecord(coveragePayload), ['rank'])
+  const coverageInsightSummaryItems = useMemo(() => [
+    { label: 'DFS mentions', value: formatInteger(coverageTotalCount) },
+    { label: 'DFS rank', value: formatInteger(coverageRank) },
+    { label: 'Top country', value: topSummaryItemLabel(coverageCountryItems) },
+    { label: 'Top language', value: topSummaryItemLabel(coverageLanguageItems) },
+    { label: 'Cost', value: formatInsightCost(coverageInsight) },
+  ], [
+    coverageCountryItems,
+    coverageInsight,
+    coverageLanguageItems,
+    coverageRank,
+    coverageTotalCount,
+  ])
   const latestCrawlRun = useMemo(
     () => [...runs].sort((a, b) => crawlRunTimeValue(b) - crawlRunTimeValue(a))[0] || null,
     [runs],
@@ -1042,8 +1213,62 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </div>
 
-          <JobSection title="Coverage snapshot" description={`${mentions.length} mentions across ${uniqueDomainCount} domains.`} className="brand-pulse-coverage">
-            <div className="brand-pulse-coverage-strip">
+          <JobSection title="Coverage snapshot" description={`${mentions.length} loaded mentions across ${uniqueDomainCount} domains.`} className="brand-pulse-coverage">
+            <div className="brand-pulse-insight-header">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">DFS summary</p>
+                <p className="mt-1 text-xs text-muted">
+                  {coverageInsight?.refreshed_at ? `Updated ${formatDate(coverageInsight.refreshed_at)}` : 'No DFS summary yet.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleRefreshSummaryInsight()}
+                disabled={coverageInsightRefreshing}
+                className="btn-ghost gap-2 text-xs"
+              >
+                <RefreshCw size={13} className={coverageInsightRefreshing ? 'animate-spin' : ''} />
+                {coverageInsightRefreshing ? 'Refreshing...' : 'Refresh DFS insight'}
+              </button>
+            </div>
+            {coverageInsightError && (
+              <p
+                className="mt-3 rounded-md border px-3 py-2 text-xs text-warning"
+                style={{ background: 'rgba(198,123,0,0.08)', borderColor: 'rgba(198,123,0,0.24)' }}
+              >
+                {coverageInsightError}
+              </p>
+            )}
+            <div className="mt-3">
+              <JobSummaryBar summaryItems={coverageInsightSummaryItems} />
+            </div>
+            {coveragePayload ? (
+              <div className="brand-pulse-insight-grid">
+                {[
+                  { title: 'Top countries', items: coverageCountryItems },
+                  { title: 'Top languages', items: coverageLanguageItems },
+                  { title: 'DFS source mix', items: coveragePageTypeItems },
+                  { title: 'DFS sentiment', items: coverageSentimentItems },
+                ].map(group => (
+                  <div key={group.title} className="brand-pulse-insight-list">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+                    <div className="space-y-1.5">
+                      {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
+                        <div key={item.label} className="flex items-center gap-2 text-xs">
+                          <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                            <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                          </div>
+                          <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="brand-pulse-coverage-strip mt-4">
               <div className="min-w-0">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">Activity</p>

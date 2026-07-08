@@ -65,6 +65,12 @@ export const brandMentionsApi = {
   deleteAlert: (token: string, id: string) => f(`/api/brand-mentions/alerts/${id}`, token, { method: 'DELETE' }),
   listMentions: (token: string, id: string, params = '') =>
     f(`/api/brand-mentions/alerts/${id}/mentions${q(params)}`, token),
+  getSummaryInsight: (token: string, id: string) =>
+    f(`/api/brand-mentions/alerts/${id}/insights/summary`, token),
+  refreshSummaryInsight: (token: string, id: string) =>
+    f(`/api/brand-mentions/alerts/${id}/insights/summary`, token, {
+      method: 'POST',
+    }),
   crawlAlert: (token: string, id: string, payload?: BrandMentionCrawlPayload) =>
     f(`/api/brand-mentions/alerts/${id}/crawl`, token, {
       method: 'POST',
