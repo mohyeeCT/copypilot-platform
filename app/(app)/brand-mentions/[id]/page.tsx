@@ -156,6 +156,17 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
 ]
 
 const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Latest crawl status', 'Latest crawl changes', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
+const CRAWL_CHANGE_LABELS: Record<string, string> = {
+  title: 'Title',
+  snippet: 'Snippet text',
+  source_type: 'Source type',
+  sentiment_score: 'Sentiment score',
+  provider_sentiment: 'Provider sentiment',
+  provider_sentiment_score: 'Provider sentiment score',
+  provider_positive_score: 'Provider positive score',
+  provider_neutral_score: 'Provider neutral score',
+  provider_negative_score: 'Provider negative score',
+}
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
@@ -342,7 +353,7 @@ function mentionCrawlChangeSummary(mention: BrandMention) {
 }
 
 function formatCrawlChangeSummary(fields: string[]) {
-  return fields.map(field => titleCase(field)).join(', ')
+  return fields.map(field => CRAWL_CHANGE_LABELS[field] || titleCase(field)).join(', ')
 }
 
 function mentionDuplicateCount(mention: BrandMention) {
