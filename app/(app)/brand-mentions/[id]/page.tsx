@@ -155,6 +155,12 @@ const CATEGORY_ORDER: Record<string, number> = {
   jobs: 8,
 }
 const DAY_MS = 24 * 60 * 60 * 1000
+const DFS_ROW_PRESETS = [50, 100, 250, 500, 1000]
+const DEFAULT_DFS_ROWS_PER_CRAWL = 50
+const CAUTION_DFS_ROW_THRESHOLD = 250
+const HIGH_DFS_ROW_CONFIRMATION_THRESHOLD = 500
+const DFS_REQUEST_BASE_COST_USD = 0.024
+const DFS_ROW_COST_USD = 0.000036
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -554,6 +560,27 @@ function isSettingsError(message: string) {
   return /409|conflict|credential|settings|missing/i.test(message)
 }
 
+function formatEstimatedDfsCost(rows: number) {
+  return `$${(DFS_REQUEST_BASE_COST_USD + (DFS_ROW_COST_USD * rows)).toFixed(4)}`
+}
+
+function dfsRowGuardrailText(rows: number) {
+  if (rows >= HIGH_DFS_ROW_CONFIRMATION_THRESHOLD) {
+    return 'High-depth crawl. Confirm before running.'
+  }
+  if (rows >= CAUTION_DFS_ROW_THRESHOLD) {
+    return 'Broader crawl. Use when you need wider coverage.'
+  }
+  return ''
+}
+
+function confirmHighDfsRows(rows: number) {
+  if (rows < HIGH_DFS_ROW_CONFIRMATION_THRESHOLD || typeof window === 'undefined') {
+    return true
+  }
+  return window.confirm(`Run a ${rows}-row DFS crawl? Estimated DFS cost is ${formatEstimatedDfsCost(rows)}.`)
+}
+
 function SentimentBadge({ sentiment }: { sentiment: string }) {
   const normalized = sentiment.toLowerCase()
   const styles = normalized === 'negative'
@@ -609,7 +636,10 @@ export default function BrandMentionAlertDetailPage() {
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
+  const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const categoryOptions = useMemo(() => categoryOptionsForSource(sourceType), [sourceType])
+  const selectedDfsCost = formatEstimatedDfsCost(selectedDfsRows)
+  const selectedDfsGuardrail = dfsRowGuardrailText(selectedDfsRows)
 
   const apiMentionQuery = useMemo(
     () => buildMentionQuery(sentiment, sourceType, relevance, quality, category),
@@ -679,9 +709,10 @@ export default function BrandMentionAlertDetailPage() {
   useEffect(() => { void load() }, [load])
 
   async function handleCrawl() {
-    setCrawling(true)
     setCrawlError('')
     setShowSettingsCta(false)
+    if (!confirmHighDfsRows(selectedDfsRows)) return
+    setCrawling(true)
     try {
       const token = await getSessionToken()
       if (!token) {
@@ -689,7 +720,7 @@ export default function BrandMentionAlertDetailPage() {
         return
       }
 
-      await brandMentionsApi.crawlAlert(token, alertId)
+      await brandMentionsApi.crawlAlert(token, alertId, { max_results_per_crawl: selectedDfsRows })
       await load()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Manual crawl failed.'
@@ -763,19 +794,47 @@ export default function BrandMentionAlertDetailPage() {
             />
           }
           actions={
-            <div className="flex flex-wrap justify-end gap-2">
-              <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Refresh
-              </button>
-              <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
-                <Download size={14} />
-                Export CSV
-              </button>
-              <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
-                <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
-                {crawling ? 'Crawling...' : 'Run Crawl'}
-              </button>
+            <div className="flex max-w-xl flex-col items-stretch gap-2 sm:items-end">
+              <div className="w-full rounded-lg border border-border bg-bg p-2 sm:w-auto sm:min-w-[23rem]">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
+                  <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {DFS_ROW_PRESETS.map(preset => {
+                    const active = selectedDfsRows === preset
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setSelectedDfsRows(preset)}
+                        className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                        style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                        aria-pressed={active}
+                      >
+                        {preset}
+                      </button>
+                    )
+                  })}
+                </div>
+                {selectedDfsGuardrail && (
+                  <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
+                )}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+                <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
+                  <Download size={14} />
+                  Export CSV
+                </button>
+                <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
+                  <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
+                  {crawling ? 'Crawling...' : 'Run Crawl'}
+                </button>
+              </div>
             </div>
           }
         >

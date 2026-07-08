@@ -22,6 +22,10 @@ export type BrandMentionAlertPayload = {
   active: boolean
 }
 
+export type BrandMentionCrawlPayload = {
+  max_results_per_crawl?: number
+}
+
 export const brandMentionsApi = {
   overview: (token: string) => f('/api/brand-mentions/overview', token),
   listAlerts: (token: string) => f('/api/brand-mentions/alerts', token),
@@ -39,7 +43,10 @@ export const brandMentionsApi = {
   deleteAlert: (token: string, id: string) => f(`/api/brand-mentions/alerts/${id}`, token, { method: 'DELETE' }),
   listMentions: (token: string, id: string, params = '') =>
     f(`/api/brand-mentions/alerts/${id}/mentions${q(params)}`, token),
-  crawlAlert: (token: string, id: string) =>
-    f(`/api/brand-mentions/alerts/${id}/crawl`, token, { method: 'POST' }),
+  crawlAlert: (token: string, id: string, payload?: BrandMentionCrawlPayload) =>
+    f(`/api/brand-mentions/alerts/${id}/crawl`, token, {
+      method: 'POST',
+      body: payload ? JSON.stringify(payload) : undefined,
+    }),
   listRuns: (token: string, id: string) => f(`/api/brand-mentions/alerts/${id}/runs`, token),
 }
