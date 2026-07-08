@@ -140,7 +140,6 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
 ]
 
 const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
-const LOW_VALUE_MENTION_CATEGORIES = new Set(['directory', 'jobs', 'profile'])
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
@@ -405,12 +404,10 @@ function isHighValueMention(mention: BrandMention) {
 
 function isLowValueMention(mention: BrandMention) {
   const quality = mentionQualityLabel(mention).toLowerCase()
-  const category = mentionCategory(mention).toLowerCase()
   return (
     mentionRelevanceLevel(mention) === 'low'
     || quality === 'low'
     || quality === 'noise'
-    || LOW_VALUE_MENTION_CATEGORIES.has(category)
   )
 }
 
@@ -782,58 +779,58 @@ export default function BrandMentionAlertDetailPage() {
           title={alert?.label || 'Brand Pulse alert'}
           description={alert ? `${alert.keyword || 'No keyword'} - ${titleCase(alert.alert_type)} alert` : 'Loading alert details.'}
           summary={
-            <JobSummaryBar
-              summaryItems={[
-                { label: 'Loaded mentions', value: mentions.length },
-                { label: 'High value', value: highValueCount },
-                { label: 'Low value', value: lowValueCount },
-                { label: 'Noise', value: noiseCount },
-                { label: 'Negative', value: negativeCount },
-                { label: 'State', value: alert?.active === false ? 'Paused' : 'Active' },
-              ]}
-            />
-          }
-          actions={
-            <div className="brand-pulse-crawl-actions">
-              <div className="brand-pulse-dfs-selector">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
-                  <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+            <div className="brand-pulse-summary-controls">
+              <JobSummaryBar
+                summaryItems={[
+                  { label: 'Loaded mentions', value: mentions.length },
+                  { label: 'High value', value: highValueCount },
+                  { label: 'Low value', value: lowValueCount },
+                  { label: 'Noise', value: noiseCount },
+                  { label: 'Negative', value: negativeCount },
+                  { label: 'State', value: alert?.active === false ? 'Paused' : 'Active' },
+                ]}
+              />
+              <div className="brand-pulse-crawl-actions">
+                <div className="brand-pulse-dfs-selector">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
+                    <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {DFS_ROW_PRESETS.map(preset => {
+                      const active = selectedDfsRows === preset
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setSelectedDfsRows(preset)}
+                          className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                          style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                          aria-pressed={active}
+                        >
+                          {preset}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {selectedDfsGuardrail && (
+                    <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
+                  )}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {DFS_ROW_PRESETS.map(preset => {
-                    const active = selectedDfsRows === preset
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setSelectedDfsRows(preset)}
-                        className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                        style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
-                        aria-pressed={active}
-                      >
-                        {preset}
-                      </button>
-                    )
-                  })}
+                <div className="brand-pulse-action-buttons">
+                  <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    Refresh
+                  </button>
+                  <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                  <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
+                    <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
+                    {crawling ? 'Crawling...' : 'Run Crawl'}
+                  </button>
                 </div>
-                {selectedDfsGuardrail && (
-                  <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
-                )}
-              </div>
-              <div className="brand-pulse-action-buttons">
-                <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
-                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
-                <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
-                  <Download size={14} />
-                  Export CSV
-                </button>
-                <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
-                  <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
-                  {crawling ? 'Crawling...' : 'Run Crawl'}
-                </button>
               </div>
             </div>
           }
