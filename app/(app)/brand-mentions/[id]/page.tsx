@@ -54,6 +54,7 @@ type BrandMention = RecordValue & {
   duplicate_count?: number | string | null
   domain_rank?: number | string | null
   latest_crawl_status?: string | null
+  latest_crawl_change_summary?: string[] | null
   published_at?: string | null
   published?: string | null
   discovered_at?: string | null
@@ -154,7 +155,7 @@ const REVIEW_MODE_OPTIONS: { value: ReviewMode; label: string }[] = [
   { value: 'all', label: 'All mentions' },
 ]
 
-const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Latest crawl status', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
+const CSV_HEADERS = ['Title', 'Snippet', 'URL', 'Domain', 'Category', 'Source', 'Sentiment', 'Provider sentiment', 'Provider sentiment score', 'Provider positive score', 'Provider neutral score', 'Provider negative score', 'Latest crawl status', 'Latest crawl changes', 'Quality', 'Quality Score', 'Quality Reasons', 'Relevance', 'Domain Rank', 'Published', 'Discovered']
 const QUALITY_ORDER: Record<string, number> = { strong: 0, useful: 1, low: 2, noise: 3 }
 const RELEVANCE_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 }
 const CATEGORY_ORDER: Record<string, number> = {
@@ -332,6 +333,16 @@ function mentionCategory(mention: BrandMention) {
 
 function mentionCrawlStatus(mention: BrandMention) {
   return stringField(mention, ['latest_crawl_status'])
+}
+
+function mentionCrawlChangeSummary(mention: BrandMention) {
+  return Array.isArray(mention.latest_crawl_change_summary)
+    ? mention.latest_crawl_change_summary.filter(field => typeof field === 'string' && field.trim())
+    : []
+}
+
+function formatCrawlChangeSummary(fields: string[]) {
+  return fields.map(field => titleCase(field)).join(', ')
 }
 
 function mentionDuplicateCount(mention: BrandMention) {
@@ -544,6 +555,7 @@ function buildMentionsCsv(mentions: BrandMention[]) {
     mentionProviderNeutralScore(mention) ?? '',
     mentionProviderNegativeScore(mention) ?? '',
     mentionCrawlStatus(mention) ? crawlStatusLabel(mentionCrawlStatus(mention)) : '',
+    formatCrawlChangeSummary(mentionCrawlChangeSummary(mention)),
     mentionQualityLabel(mention),
     mentionQualityScore(mention),
     mentionQualityReasons(mention).join('; '),
@@ -1149,6 +1161,7 @@ export default function BrandMentionAlertDetailPage() {
                       const mismatch = hasSentimentMismatch(mention)
                       const domainRank = mentionDomainRank(mention)
                       const latestCrawlStatus = mentionCrawlStatus(mention)
+                      const crawlChangeSummary = mentionCrawlChangeSummary(mention)
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-2xl px-4 py-3">
@@ -1184,6 +1197,11 @@ export default function BrandMentionAlertDetailPage() {
                           <td className="px-4 py-3">
                             <div className="flex min-w-24 flex-col items-start gap-1">
                               {latestCrawlStatus ? <CrawlStatusBadge status={latestCrawlStatus} /> : <span className="text-xs text-muted">-</span>}
+                              {latestCrawlStatus === 'updated' && crawlChangeSummary.length > 0 && (
+                                <span className="max-w-36 text-xs text-muted">
+                                  Changed: {formatCrawlChangeSummary(crawlChangeSummary)}
+                                </span>
+                              )}
                               {mismatch && <ReviewBadge label="Mismatch" />}
                             </div>
                           </td>
