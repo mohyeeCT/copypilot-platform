@@ -13,6 +13,7 @@ const q = (params: string) => {
 }
 
 export type BrandMentionAlertPayload = {
+  profile_id?: string
   label: string
   keyword: string
   alert_type: 'brand' | 'competitor' | 'keyword'
@@ -26,8 +27,29 @@ export type BrandMentionCrawlPayload = {
   max_results_per_crawl?: number
 }
 
+export type BrandMentionProfilePayload = {
+  name: string
+}
+
 export const brandMentionsApi = {
   overview: (token: string) => f('/api/brand-mentions/overview', token),
+  listProfiles: (token: string) => f('/api/brand-mentions/profiles', token),
+  createProfile: (token: string, payload: BrandMentionProfilePayload) =>
+    f('/api/brand-mentions/profiles', token, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getProfile: (token: string, id: string) => f(`/api/brand-mentions/profiles/${id}`, token),
+  updateProfile: (token: string, id: string, payload: Partial<BrandMentionProfilePayload>) =>
+    f(`/api/brand-mentions/profiles/${id}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  createProfileAlert: (token: string, profileId: string, payload: BrandMentionAlertPayload) =>
+    f(`/api/brand-mentions/profiles/${profileId}/alerts`, token, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   listAlerts: (token: string) => f('/api/brand-mentions/alerts', token),
   createAlert: (token: string, payload: BrandMentionAlertPayload) =>
     f('/api/brand-mentions/alerts', token, {
