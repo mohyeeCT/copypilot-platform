@@ -1,15 +1,28 @@
 // Base fetch utility — all tool API files use this
+const API_RETRY_DELAYS_MS = [500, 1500]
+const RETRYABLE_STATUSES = new Set([502, 503, 504])
+
+function isSafeRead(options: RequestInit) {
+  return !options.method || options.method.toUpperCase() === 'GET'
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 export async function apiFetch(baseUrl: string, path: string, token: string, options: RequestInit = {}) {
   const url = `${baseUrl.replace(/\/+$/, '')}${path}`
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  })
-  if (!res.ok) {
+  for (let attempt = 0; attempt <= API_RETRY_DELAYS_MS.length; attempt += 1) {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    })
+    if (res.ok) return res.json()
+
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     if (
       res.status === 429 &&
@@ -19,9 +32,14 @@ export async function apiFetch(baseUrl: string, path: string, token: string, opt
       window.dispatchEvent(new CustomEvent('api-rate-limit', { detail: err.detail || 'Too many requests. Please try again shortly.' }))
       throw new Error('Rate limit displayed')
     }
+
+    if (isSafeRead(options) && RETRYABLE_STATUSES.has(res.status) && attempt < API_RETRY_DELAYS_MS.length) {
+      await delay(API_RETRY_DELAYS_MS[attempt])
+      continue
+    }
+
     throw new Error(err.detail || 'Request failed')
   }
-  return res.json()
 }
 
 // Settings and brand profiles are shared across all tools.
