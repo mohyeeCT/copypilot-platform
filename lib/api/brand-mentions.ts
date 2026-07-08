@@ -25,6 +25,7 @@ export type BrandMentionAlertPayload = {
 
 export type BrandMentionCrawlPayload = {
   max_results_per_crawl?: number
+  pull_mode?: 'newest' | 'best_quality' | 'negative_watch' | 'one_per_domain'
 }
 
 export type BrandMentionProfilePayload = {

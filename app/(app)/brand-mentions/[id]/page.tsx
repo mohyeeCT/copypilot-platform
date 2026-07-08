@@ -116,6 +116,7 @@ type QualityFilter = 'all' | 'strong' | 'useful' | 'low' | 'noise'
 type CategoryFilter = 'all' | 'news' | 'blog' | 'forum' | 'organization' | 'directory' | 'jobs' | 'listicle' | 'profile' | 'other'
 type CrawlStatusFilter = 'all' | 'new' | 'updated' | 'seen'
 type ReviewMode = 'best' | 'review' | 'low-value' | 'noise' | 'all'
+type DfsPullMode = 'newest' | 'best_quality' | 'negative_watch' | 'one_per_domain'
 
 const SENTIMENT_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All sentiment' },
@@ -211,11 +212,18 @@ const CATEGORY_ORDER: Record<string, number> = {
 }
 const DFS_ROW_PRESETS = [50, 100, 250, 500, 1000]
 const DEFAULT_DFS_ROWS_PER_CRAWL = 50
+const DEFAULT_DFS_PULL_MODE: DfsPullMode = 'newest'
 const CAUTION_DFS_ROW_THRESHOLD = 250
 const HIGH_DFS_ROW_CONFIRMATION_THRESHOLD = 500
 const DFS_REQUEST_BASE_COST_USD = 0.024
 const DFS_ROW_COST_USD = 0.000036
 const INTEGER_FORMAT = new Intl.NumberFormat('en-US')
+const DFS_PULL_MODE_OPTIONS: { value: DfsPullMode; label: string }[] = [
+  { value: 'newest', label: 'Newest mentions' },
+  { value: 'best_quality', label: 'Best quality' },
+  { value: 'negative_watch', label: 'Negative watch' },
+  { value: 'one_per_domain', label: 'One per domain' },
+]
 
 function asRecord(value: unknown): RecordValue {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {}
@@ -713,6 +721,10 @@ function dfsRowGuardrailText(rows: number) {
   return ''
 }
 
+function dfsPullModeLabel(mode: DfsPullMode) {
+  return DFS_PULL_MODE_OPTIONS.find(option => option.value === mode)?.label || 'Newest mentions'
+}
+
 function confirmHighDfsRows(rows: number) {
   if (rows < HIGH_DFS_ROW_CONFIRMATION_THRESHOLD || typeof window === 'undefined') {
     return true
@@ -808,6 +820,7 @@ export default function BrandMentionAlertDetailPage() {
   const [crawlError, setCrawlError] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
+  const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
   const categoryOptions = useMemo(() => categoryOptionsForSource(sourceType), [sourceType])
   const selectedDfsCost = formatEstimatedDfsCost(selectedDfsRows)
   const selectedDfsGuardrail = dfsRowGuardrailText(selectedDfsRows)
@@ -904,7 +917,7 @@ export default function BrandMentionAlertDetailPage() {
         return
       }
 
-      await brandMentionsApi.crawlAlert(token, alertId, { max_results_per_crawl: selectedDfsRows })
+      await brandMentionsApi.crawlAlert(token, alertId, { max_results_per_crawl: selectedDfsRows, pull_mode: selectedDfsPullMode })
       await load()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Manual crawl failed.'
@@ -1056,26 +1069,39 @@ export default function BrandMentionAlertDetailPage() {
               />
               <div className="brand-pulse-crawl-actions">
                 <div className="brand-pulse-dfs-selector">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
-                    <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {DFS_ROW_PRESETS.map(preset => {
-                      const active = selectedDfsRows === preset
-                      return (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setSelectedDfsRows(preset)}
-                          className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
-                          aria-pressed={active}
-                        >
-                          {preset}
-                        </button>
-                      )
-                    })}
+                  <div className="brand-pulse-dfs-control-grid">
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
+                        <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {DFS_ROW_PRESETS.map(preset => {
+                          const active = selectedDfsRows === preset
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setSelectedDfsRows(preset)}
+                              className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                              style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                              aria-pressed={active}
+                            >
+                              {preset}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Pull</label>
+                      <CustomSelect
+                        value={selectedDfsPullMode}
+                        onChange={value => setSelectedDfsPullMode(value as DfsPullMode)}
+                        options={DFS_PULL_MODE_OPTIONS}
+                      />
+                      <p className="sr-only">Selected pull mode: {dfsPullModeLabel(selectedDfsPullMode)}</p>
+                    </div>
                   </div>
                   {selectedDfsGuardrail && (
                     <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
