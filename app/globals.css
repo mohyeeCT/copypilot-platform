@@ -899,28 +899,6 @@
     background: color-mix(in srgb, currentColor 10%, transparent);
     font-size: 0.68rem;
   }
-  .brand-pulse-mentions-toolbar {
-    position: sticky;
-    top: 10px;
-    z-index: 25;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 10px;
-    padding: 0 0 8px;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-  }
-  .brand-pulse-mentions-actions {
-    display: flex;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-  }
   .brand-pulse-evidence {
     margin-top: 8px;
     max-width: 100%;
@@ -1117,16 +1095,6 @@
     grid-template-columns: 1fr;
   }
   .brand-pulse-action-buttons > * {
-    flex: 1 1 auto;
-  }
-  .brand-pulse-mentions-toolbar {
-    position: static;
-    align-items: stretch;
-  }
-  .brand-pulse-mentions-actions {
-    justify-content: stretch;
-  }
-  .brand-pulse-mentions-actions > * {
     flex: 1 1 auto;
   }
   .brand-pulse-evidence-grid {

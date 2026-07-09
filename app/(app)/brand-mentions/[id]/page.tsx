@@ -228,7 +228,6 @@ const CATEGORY_ORDER: Record<string, number> = {
 const DFS_ROW_PRESETS = [50, 100, 250, 500, 1000]
 const DEFAULT_DFS_ROWS_PER_CRAWL = 50
 const DEFAULT_DFS_PULL_MODE: DfsPullMode = 'newest'
-const MENTION_PAGE_SIZE_OPTIONS = [50, 100, 250]
 const DEFAULT_MENTION_PAGE_SIZE = 50
 const CAUTION_DFS_ROW_THRESHOLD = 250
 const HIGH_DFS_ROW_CONFIRMATION_THRESHOLD = 500
@@ -971,7 +970,6 @@ export default function BrandMentionAlertDetailPage() {
   const [showSettingsCta, setShowSettingsCta] = useState(false)
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
-  const [mentionPageSize, setMentionPageSize] = useState(DEFAULT_MENTION_PAGE_SIZE)
   const [visibleMentionLimit, setVisibleMentionLimit] = useState(DEFAULT_MENTION_PAGE_SIZE)
   const [showDfsFilters, setShowDfsFilters] = useState(false)
   const [showDfsInsightDetails, setShowDfsInsightDetails] = useState(false)
@@ -1329,8 +1327,8 @@ export default function BrandMentionAlertDetailPage() {
   )
   const hiddenMentionCount = Math.max(0, displayedMentions.length - visibleMentions.length)
   useEffect(() => {
-    setVisibleMentionLimit(mentionPageSize)
-  }, [alertId, category, crawlStatus, mentionPageSize, quality, relevance, reviewMode, sentiment, sourceType])
+    setVisibleMentionLimit(DEFAULT_MENTION_PAGE_SIZE)
+  }, [alertId, category, crawlStatus, quality, relevance, reviewMode, sentiment, sourceType])
   const negativeCount = mentions.filter(mention => mentionSentiment(mention).toLowerCase() === 'negative').length
   const highValueCount = mentions.filter(isHighValueMention).length
   const lowValueCount = mentions.filter(mention => isLowValueMention(mention) && !isNoiseMention(mention)).length
@@ -1869,45 +1867,6 @@ export default function BrandMentionAlertDetailPage() {
               <div className="py-8 text-center text-sm text-muted">No mentions match the current review mode and filters.</div>
             ) : (
               <>
-                <div className="brand-pulse-mentions-toolbar">
-                  <div className="brand-pulse-mentions-actions">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="mr-1 text-xs font-semibold text-muted">Rows</span>
-                      {MENTION_PAGE_SIZE_OPTIONS.map(size => {
-                        const active = mentionPageSize === size
-                        return (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => {
-                              setMentionPageSize(size)
-                              setVisibleMentionLimit(size)
-                            }}
-                            className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
-                            style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
-                            aria-pressed={active}
-                          >
-                            {size}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
-                      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                      Refresh
-                    </button>
-                    <ExportMenu
-                      onCsv={downloadCsv}
-                      onXlsx={downloadXlsx}
-                      onGoogleSheets={exportGoogleSheets}
-                      sheetsLoading={exportingSheets}
-                    />
-                    <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
-                      <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
-                      {crawling ? 'Running...' : 'Run Pulse'}
-                    </button>
-                  </div>
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -2119,7 +2078,7 @@ export default function BrandMentionAlertDetailPage() {
                   <div className="mt-4 flex justify-center">
                     <button
                       type="button"
-                      onClick={() => setVisibleMentionLimit(current => Math.min(current + mentionPageSize, displayedMentions.length))}
+                      onClick={() => setVisibleMentionLimit(current => Math.min(current + DEFAULT_MENTION_PAGE_SIZE, displayedMentions.length))}
                       className="btn-ghost text-sm"
                     >
                       Load more ({hiddenMentionCount} remaining)
