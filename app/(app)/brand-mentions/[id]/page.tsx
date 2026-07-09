@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Download, ExternalLink, RefreshCw, Settings } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw, Settings } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -889,6 +889,8 @@ export default function BrandMentionAlertDetailPage() {
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
   const [showDfsFilters, setShowDfsFilters] = useState(false)
+  const [showDfsInsightDetails, setShowDfsInsightDetails] = useState(false)
+  const [showCrawlHistory, setShowCrawlHistory] = useState(false)
   const [dfsCountry, setDfsCountry] = useState('')
   const [dfsLanguage, setDfsLanguage] = useState('')
   const [dfsProviderSentiment, setDfsProviderSentiment] = useState<DfsProviderSentimentFilter>('all')
@@ -1174,6 +1176,26 @@ export default function BrandMentionAlertDetailPage() {
     { label: 'Top emotion', value: topSummaryItemLabel(sentimentEmotionItems) },
     { label: 'Cost', value: formatInsightCost(sentimentInsight) },
   ], [sentimentEmotionItems, sentimentInsight, sentimentPayload, sentimentTotalCount])
+  const latestInsightRefresh = useMemo(() => {
+    const timestamps = [coverageInsight?.refreshed_at, sentimentInsight?.refreshed_at]
+      .map(value => value ? new Date(value).getTime() : Number.NaN)
+      .filter(value => Number.isFinite(value))
+    return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null
+  }, [coverageInsight?.refreshed_at, sentimentInsight?.refreshed_at])
+  const insightCostTotal = useMemo(() => {
+    const coverageCost = numberField(asRecord(coverageInsight), ['estimated_cost_usd', 'cost_usd', 'cost'])
+    const sentimentCost = numberField(asRecord(sentimentInsight), ['estimated_cost_usd', 'cost_usd', 'cost'])
+    if (coverageCost === null && sentimentCost === null) return '-'
+    return `$${((coverageCost ?? 0) + (sentimentCost ?? 0)).toFixed(4)}`
+  }, [coverageInsight, sentimentInsight])
+  const dfsInsightSnapshotItems = useMemo(() => [
+    { label: 'Indexed mentions', value: formatInteger(coverageTotalCount) },
+    { label: 'Positive', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['positive'])) },
+    { label: 'Neutral', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['neutral'])) },
+    { label: 'Negative', value: formatInteger(numberField(asRecord(sentimentPayload?.connotation_types), ['negative'])) },
+    { label: 'Last refreshed', value: formatDate(latestInsightRefresh) },
+    { label: 'Cost', value: insightCostTotal },
+  ], [coverageTotalCount, insightCostTotal, latestInsightRefresh, sentimentPayload])
   const latestCrawlRun = useMemo(
     () => [...runs].sort((a, b) => crawlRunTimeValue(b) - crawlRunTimeValue(a))[0] || null,
     [runs],
@@ -1382,15 +1404,21 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </div>
 
-          <JobSection title="DFS insights" description="On-demand DataForSEO database coverage and sentiment for this alert keyword." className="brand-pulse-coverage">
+          <JobSection title="DFS insights" className="brand-pulse-coverage">
             <div className="brand-pulse-insight-header">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Coverage summary</p>
-                <p className="mt-1 text-xs text-muted">
-                  {coverageInsight?.refreshed_at ? `Updated ${formatDate(coverageInsight.refreshed_at)}` : 'No DFS summary yet.'}
-                </p>
+              <div className="brand-pulse-insight-summary">
+                <JobSummaryBar summaryItems={dfsInsightSnapshotItems} />
               </div>
               <div className="brand-pulse-insight-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowDfsInsightDetails(value => !value)}
+                  className="btn-ghost gap-2 text-xs"
+                  aria-expanded={showDfsInsightDetails}
+                >
+                  {showDfsInsightDetails ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  {showDfsInsightDetails ? 'Hide details' : 'Details'}
+                </button>
                 <button
                   type="button"
                   onClick={() => void handleRefreshSummaryInsight()}
@@ -1419,63 +1447,68 @@ export default function BrandMentionAlertDetailPage() {
                 {coverageInsightError || sentimentInsightError}
               </p>
             )}
-            <div className="mt-3">
-              <JobSummaryBar summaryItems={coverageInsightSummaryItems} />
-            </div>
-            {coveragePayload ? (
-              <div className="brand-pulse-insight-grid">
-                {[
-                  { title: 'Top countries', items: coverageCountryItems },
-                  { title: 'Top languages', items: coverageLanguageItems },
-                  { title: 'DFS source mix', items: coveragePageTypeItems },
-                  { title: 'DFS sentiment', items: coverageSentimentItems },
-                ].map(group => (
-                  <div key={group.title} className="brand-pulse-insight-list">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
-                    <div className="space-y-1.5">
-                      {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
-                        <div key={item.label} className="flex items-center gap-2 text-xs">
-                          <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
-                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
-                            <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+            {showDfsInsightDetails && (
+              <div className="brand-pulse-insight-details">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Coverage details</p>
+                  <JobSummaryBar summaryItems={coverageInsightSummaryItems} />
+                </div>
+                {coveragePayload ? (
+                  <div className="brand-pulse-insight-grid">
+                    {[
+                      { title: 'Top countries', items: coverageCountryItems },
+                      { title: 'Top languages', items: coverageLanguageItems },
+                      { title: 'DFS source mix', items: coveragePageTypeItems },
+                      { title: 'DFS sentiment', items: coverageSentimentItems },
+                    ].map(group => (
+                      <div key={group.title} className="brand-pulse-insight-list">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+                        <div className="space-y-1.5">
+                          {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
+                            <div key={item.label} className="flex items-center gap-2 text-xs">
+                              <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                                <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                              </div>
+                              <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {sentimentPayload ? (
+                  <div className="brand-pulse-sentiment-overview">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Sentiment overview</p>
+                      <JobSummaryBar summaryItems={sentimentInsightSummaryItems} />
+                    </div>
+                    <div className="brand-pulse-insight-grid brand-pulse-insight-grid--compact">
+                      {[
+                        { title: 'Provider sentiment', items: sentimentOverviewItems },
+                        { title: 'Emotion signals', items: sentimentEmotionItems },
+                      ].map(group => (
+                        <div key={group.title} className="brand-pulse-insight-list">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+                          <div className="space-y-1.5">
+                            {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
+                              <div key={item.label} className="flex items-center gap-2 text-xs">
+                                <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
+                                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
+                                  <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
+                                </div>
+                                <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
+                              </div>
+                            ))}
                           </div>
-                          <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                ) : null}
               </div>
-            ) : null}
-            {sentimentPayload ? (
-              <div className="brand-pulse-sentiment-overview">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Sentiment overview</p>
-                  <JobSummaryBar summaryItems={sentimentInsightSummaryItems} />
-                </div>
-                <div className="brand-pulse-insight-grid brand-pulse-insight-grid--compact">
-                  {[
-                    { title: 'Provider sentiment', items: sentimentOverviewItems },
-                    { title: 'Emotion signals', items: sentimentEmotionItems },
-                  ].map(group => (
-                    <div key={group.title} className="brand-pulse-insight-list">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
-                      <div className="space-y-1.5">
-                        {(group.items.length ? group.items : [{ label: '-', value: 0, share: 0 }]).map(item => (
-                          <div key={item.label} className="flex items-center gap-2 text-xs">
-                            <span className="min-w-0 flex-1 truncate font-semibold text-text">{item.label}</span>
-                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-bg">
-                              <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
-                            </div>
-                            <span className="w-12 text-right text-muted">{formatInteger(item.value)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            )}
 
           </JobSection>
 
@@ -1697,10 +1730,22 @@ export default function BrandMentionAlertDetailPage() {
             )}
           </JobSection>
 
-          <JobSection title="Recent crawl runs" description="Operational history for this alert.">
+          <JobSection title="Recent crawl runs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted">{runs.length} crawl {runs.length === 1 ? 'run' : 'runs'} recorded.</p>
+              <button
+                type="button"
+                onClick={() => setShowCrawlHistory(value => !value)}
+                className="btn-ghost gap-2 text-xs"
+                aria-expanded={showCrawlHistory}
+              >
+                {showCrawlHistory ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {showCrawlHistory ? 'Hide crawl history' : 'Show crawl history'}
+              </button>
+            </div>
             {runs.length === 0 ? (
               <div className="py-6 text-sm text-muted">No crawl runs recorded yet.</div>
-            ) : (
+            ) : showCrawlHistory ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -1753,7 +1798,7 @@ export default function BrandMentionAlertDetailPage() {
                   </tbody>
                 </table>
               </div>
-            )}
+            ) : null}
           </JobSection>
         </JobLauncherShell>
       </div>

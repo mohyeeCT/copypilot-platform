@@ -110,6 +110,7 @@ export default function PageCopyJobPage() {
   const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [exportingSheets, setExportingSheets] = useState(false)
   const [exportingLinksSheets, setExportingLinksSheets] = useState(false)
+  const jobStatus = job?.status
 
   useEffect(() => {
     const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false); setRerunningSections(new Set()) }
@@ -132,14 +133,14 @@ export default function PageCopyJobPage() {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
+    if (jobStatus !== 'running' && jobStatus !== 'cancelling') return
     const t = setInterval(load, 3000) // 3s poll — page copy is slow
     return () => clearInterval(t)
-  }, [job, load])
+  }, [jobStatus, load])
 
   useEffect(() => {
-    if (job && job.status !== 'running' && job.status !== 'cancelling') setCancelling(false)
-  }, [job?.status])
+    if (jobStatus && jobStatus !== 'running' && jobStatus !== 'cancelling') setCancelling(false)
+  }, [jobStatus])
 
   function markUpdated(indices: number[], results: PageCopyResult[]) {
     const successful = indices.filter(i => {
