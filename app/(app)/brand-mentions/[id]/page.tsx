@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw, Settings } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw, Settings, Star, XCircle } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -52,6 +52,10 @@ type BrandMention = RecordValue & {
   mention_category?: string | null
   duplicate_key?: string | null
   duplicate_count?: number | string | null
+  review_status?: string | null
+  favorite?: boolean | null
+  review_note?: string | null
+  reviewed_at?: string | null
   domain_rank?: number | string | null
   latest_crawl_status?: string | null
   latest_crawl_change_summary?: string[] | null
@@ -124,6 +128,7 @@ type CrawlStatusFilter = 'all' | 'new' | 'updated' | 'seen'
 type ReviewMode = 'best' | 'review' | 'low-value' | 'noise' | 'all'
 type DfsPullMode = 'newest' | 'best_quality' | 'negative_watch' | 'one_per_domain'
 type DfsProviderSentimentFilter = 'all' | 'positive' | 'neutral' | 'negative'
+type ReviewStatusValue = 'unreviewed' | 'approved' | 'noise' | 'false_positive'
 
 const SENTIMENT_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: 'all', label: 'All sentiment' },
@@ -434,6 +439,15 @@ function mentionDuplicateKey(mention: BrandMention) {
   return stringField(mention, ['duplicate_key'], mentionUrl(mention) || mentionTitle(mention))
 }
 
+function mentionReviewStatus(mention: BrandMention): ReviewStatusValue {
+  const value = stringField(mention, ['review_status'], 'unreviewed').toLowerCase()
+  return ['approved', 'noise', 'false_positive'].includes(value) ? value as ReviewStatusValue : 'unreviewed'
+}
+
+function reviewStatusLabel(status: ReviewStatusValue) {
+  return titleCase(status === 'false_positive' ? 'false positive' : status)
+}
+
 function mentionRelevance(mention: BrandMention) {
   if (typeof mention.relevance === 'string' && mention.relevance.trim()) return titleCase(mention.relevance)
   if (typeof mention.relevance === 'number' && Number.isFinite(mention.relevance)) return mention.relevance
@@ -582,6 +596,7 @@ function hasSentimentMismatch(mention: BrandMention) {
 }
 
 function needsReviewMention(mention: BrandMention) {
+  if (mentionReviewStatus(mention) !== 'unreviewed') return false
   return (
     hasSentimentMismatch(mention)
     ||
@@ -593,6 +608,9 @@ function needsReviewMention(mention: BrandMention) {
 
 function sortMentionsByValue(mentions: BrandMention[]) {
   return [...mentions].sort((a, b) => {
+    const favoriteDelta = Number(b.favorite === true) - Number(a.favorite === true)
+    if (favoriteDelta !== 0) return favoriteDelta
+
     const highValueDelta = Number(!isHighValueMention(a)) - Number(!isHighValueMention(b))
     if (highValueDelta !== 0) return highValueDelta
 
@@ -920,6 +938,8 @@ export default function BrandMentionAlertDetailPage() {
   const [sentimentInsightRefreshing, setSentimentInsightRefreshing] = useState(false)
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
+  const [reviewActionError, setReviewActionError] = useState('')
+  const [pendingMentionAction, setPendingMentionAction] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
@@ -1066,6 +1086,85 @@ export default function BrandMentionAlertDetailPage() {
       setShowSettingsCta(isSettingsError(message))
     } finally {
       setCrawling(false)
+    }
+  }
+
+  function applyMentionPatch(mentionId: string, patch: Partial<BrandMention>) {
+    setMentions(current => current.map(mention => mention.id === mentionId ? { ...mention, ...patch } : mention))
+  }
+
+  async function handleReviewMention(mention: BrandMention, reviewStatus: ReviewStatusValue) {
+    if (!mention.id) return
+    const actionKey = `${mention.id}:review:${reviewStatus}`
+    setReviewActionError('')
+    setPendingMentionAction(actionKey)
+    try {
+      const token = await getSessionToken()
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const updated = await brandMentionsApi.updateMentionReview(token, mention.id, { review_status: reviewStatus })
+      const feedbackPatch = reviewStatus === 'noise'
+        ? { quality_label: 'noise', quality_score: Math.min(mentionQualityScoreValue(mention), 10), relevance: 'low' }
+        : reviewStatus === 'false_positive'
+        ? { quality_label: 'noise', quality_score: 0, relevance: 'low', sentiment: 'neutral' }
+        : {}
+      applyMentionPatch(mention.id, { review_status: reviewStatus, ...feedbackPatch, ...asRecord(updated) })
+    } catch (error) {
+      setReviewActionError(error instanceof Error ? error.message : 'Review update failed.')
+    } finally {
+      setPendingMentionAction('')
+    }
+  }
+
+  async function handleFavoriteMention(mention: BrandMention) {
+    if (!mention.id) return
+    const nextFavorite = mention.favorite !== true
+    const actionKey = `${mention.id}:favorite`
+    setReviewActionError('')
+    setPendingMentionAction(actionKey)
+    try {
+      const token = await getSessionToken()
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const updated = await brandMentionsApi.updateMentionReview(token, mention.id, { favorite: nextFavorite })
+      applyMentionPatch(mention.id, { favorite: nextFavorite, ...asRecord(updated) })
+    } catch (error) {
+      setReviewActionError(error instanceof Error ? error.message : 'Favorite update failed.')
+    } finally {
+      setPendingMentionAction('')
+    }
+  }
+
+  async function handleSuppressMention(mention: BrandMention, ruleType: 'domain' | 'url' | 'duplicate_key') {
+    const value = ruleType === 'domain'
+      ? mentionDomain(mention)
+      : ruleType === 'url'
+      ? mentionUrl(mention)
+      : mentionDuplicateKey(mention)
+    if (!value) return
+    const actionKey = `${mention.id || value}:suppress:${ruleType}`
+    setReviewActionError('')
+    setPendingMentionAction(actionKey)
+    try {
+      const token = await getSessionToken()
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      await brandMentionsApi.createSuppressionRule(token, alertId, { rule_type: ruleType, value })
+      setMentions(current => current.filter(row => {
+        if (ruleType === 'domain') return mentionDomain(row) !== value
+        if (ruleType === 'url') return mentionUrl(row) !== value
+        return mentionDuplicateKey(row) !== value
+      }))
+    } catch (error) {
+      setReviewActionError(error instanceof Error ? error.message : 'Suppression rule failed.')
+    } finally {
+      setPendingMentionAction('')
     }
   }
 
@@ -1306,6 +1405,13 @@ export default function BrandMentionAlertDetailPage() {
                   Open Settings
                 </Link>
               )}
+            </div>
+          )}
+
+          {reviewActionError && (
+            <div className="rounded-lg border p-4" style={{ background: 'rgba(198,123,0,0.08)', borderColor: 'rgba(198,123,0,0.26)' }}>
+              <p className="text-sm font-semibold text-warning">Review action failed</p>
+              <p className="mt-1 text-sm text-muted">{reviewActionError}</p>
             </div>
           )}
 
@@ -1722,6 +1828,12 @@ export default function BrandMentionAlertDetailPage() {
                       const domainRank = mentionDomainRank(mention)
                       const latestCrawlStatus = mentionCrawlStatus(mention)
                       const crawlChangeSummary = mentionCrawlChangeSummary(mention)
+                      const reviewStatus = mentionReviewStatus(mention)
+                      const actionBusy = Boolean(pendingMentionAction)
+                      const favoriteBusy = pendingMentionAction === `${mention.id}:favorite`
+                      const approveBusy = pendingMentionAction === `${mention.id}:review:approved`
+                      const noiseBusy = pendingMentionAction === `${mention.id}:review:noise`
+                      const falsePositiveBusy = pendingMentionAction === `${mention.id}:review:false_positive`
                       return (
                         <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-2xl px-4 py-3">
@@ -1770,6 +1882,69 @@ export default function BrandMentionAlertDetailPage() {
                                 </span>
                               )}
                               {mismatch && <ReviewBadge label="Mismatch" />}
+                              <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[11px] font-semibold text-muted">
+                                {reviewStatusLabel(reviewStatus)}
+                              </span>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleFavoriteMention(mention)}
+                                  disabled={actionBusy}
+                                  title={mention.favorite ? 'Remove favorite' : 'Favorite'}
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs transition-colors ${mention.favorite ? 'bg-accent/10 text-accent' : 'bg-surface text-muted hover:text-accent'}`}
+                                >
+                                  <Star size={13} fill={mention.favorite ? 'currentColor' : 'none'} className={favoriteBusy ? 'animate-pulse' : ''} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleReviewMention(mention, 'approved')}
+                                  disabled={actionBusy}
+                                  title="Approve"
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs transition-colors ${reviewStatus === 'approved' ? 'bg-accent/10 text-accent' : 'bg-surface text-muted hover:text-accent'}`}
+                                >
+                                  <CheckCircle2 size={13} className={approveBusy ? 'animate-pulse' : ''} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleReviewMention(mention, 'noise')}
+                                  disabled={actionBusy}
+                                  title="Mark noise"
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs transition-colors ${reviewStatus === 'noise' ? 'bg-warning/10 text-warning' : 'bg-surface text-muted hover:text-warning'}`}
+                                >
+                                  <Ban size={13} className={noiseBusy ? 'animate-pulse' : ''} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleReviewMention(mention, 'false_positive')}
+                                  disabled={actionBusy}
+                                  title="Mark false positive"
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs transition-colors ${reviewStatus === 'false_positive' ? 'bg-error/10 text-error' : 'bg-surface text-muted hover:text-error'}`}
+                                >
+                                  <XCircle size={13} className={falsePositiveBusy ? 'animate-pulse' : ''} />
+                                </button>
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {domain && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleSuppressMention(mention, 'domain')}
+                                    disabled={actionBusy}
+                                    className="rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted hover:text-text"
+                                  >
+                                    Hide domain
+                                  </button>
+                                )}
+                                {duplicateKey && duplicateCount > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleSuppressMention(mention, 'duplicate_key')}
+                                    disabled={actionBusy}
+                                    className="rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted hover:text-text"
+                                  >
+                                    Hide group
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">

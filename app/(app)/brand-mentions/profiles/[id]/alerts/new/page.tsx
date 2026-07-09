@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic'
 
 type AlertType = BrandMentionAlertPayload['alert_type']
 type SourceType = BrandMentionAlertPayload['sources'][number]
+type CrawlFrequency = NonNullable<BrandMentionAlertPayload['crawl_frequency']>
 
 const ALERT_TYPES: { value: AlertType; label: string }[] = [
   { value: 'brand', label: 'Brand' },
@@ -27,6 +28,12 @@ const SOURCES: { value: SourceType; label: string; description: string }[] = [
   { value: 'blogs', label: 'Blogs', description: 'Blogs, guides, and independent posts' },
   { value: 'forums', label: 'Forums', description: 'Community discussions and forum threads' },
   { value: 'organizations', label: 'Organizations', description: 'Company, nonprofit, and institutional pages' },
+]
+
+const CRAWL_FREQUENCIES: { value: CrawlFrequency; label: string }[] = [
+  { value: 'manual', label: 'Manual only' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
 ]
 
 const MIN_RESULTS_PER_CRAWL = 10
@@ -78,6 +85,9 @@ export default function NewBrandPulseProfileAlertPage() {
   const [sources, setSources] = useState<SourceType[]>(['news', 'blogs', 'forums', 'organizations'])
   const [exclusionWords, setExclusionWords] = useState('')
   const [maxResultsInput, setMaxResultsInput] = useState(String(DEFAULT_RESULTS_PER_CRAWL))
+  const [crawlFrequency, setCrawlFrequency] = useState<CrawlFrequency>('manual')
+  const [digestEnabled, setDigestEnabled] = useState(false)
+  const [digestRecipients, setDigestRecipients] = useState('')
   const [active, setActive] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
@@ -150,6 +160,9 @@ export default function NewBrandPulseProfileAlertPage() {
         sources,
         exclusion_words: exclusionWords.split('\n').map(word => word.trim()).filter(Boolean),
         max_results_per_crawl: normalizedMaxResults,
+        crawl_frequency: crawlFrequency,
+        digest_enabled: digestEnabled,
+        digest_recipients: digestRecipients.split(/[\n,]+/).map(email => email.trim()).filter(Boolean),
         active,
       }
       const created = await brandMentionsApi.createProfileAlert(token, profileId, payload)
@@ -187,6 +200,7 @@ export default function NewBrandPulseProfileAlertPage() {
                   { label: 'Type', value: alertType },
                   { label: 'Sources', value: sources.length },
                   { label: 'DFS rows', value: normalizedMaxResultsPreview },
+                  { label: 'Schedule', value: crawlFrequency === 'manual' ? 'Manual' : crawlFrequency },
                   { label: 'State', value: active ? 'Active' : 'Paused' },
                 ]}
               />
@@ -316,6 +330,14 @@ export default function NewBrandPulseProfileAlertPage() {
               <div className="space-y-4 lg:col-span-2">
                 <JobSection title="Status" description="Active alerts can be crawled immediately after creation.">
                   <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Scheduled crawl</label>
+                      <CustomSelect
+                        value={crawlFrequency}
+                        onChange={value => setCrawlFrequency(value as CrawlFrequency)}
+                        options={CRAWL_FREQUENCIES}
+                      />
+                    </div>
                     <div className="flex items-start gap-3 rounded-lg border border-border p-3">
                       <StyledCheckbox
                         checked={active}
@@ -327,10 +349,32 @@ export default function NewBrandPulseProfileAlertPage() {
                         <p className="mt-1 text-xs text-muted">Keep enabled for scheduled and manual crawls.</p>
                       </div>
                     </div>
+                    <div className="space-y-3 rounded-lg border border-border p-3">
+                      <div className="flex items-start gap-3">
+                        <StyledCheckbox
+                          checked={digestEnabled}
+                          onChange={setDigestEnabled}
+                          ariaLabel="Queue crawl digest"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-text">Queue digest</p>
+                          <p className="mt-1 text-xs text-muted">Creates a digest record after scheduled crawls.</p>
+                        </div>
+                      </div>
+                      <textarea
+                        value={digestRecipients}
+                        onChange={event => setDigestRecipients(event.target.value)}
+                        className="input-base min-h-20 text-sm"
+                        placeholder={"owner@example.com\nclient@example.com"}
+                        disabled={!digestEnabled}
+                      />
+                    </div>
                     <JobSummaryPills
                       items={[
                         { label: `${sources.length} sources`, tone: sources.length > 0 ? 'accent' : 'muted' },
                         { label: `${normalizedMaxResultsPreview} DFS rows`, tone: 'neutral' },
+                        { label: crawlFrequency === 'manual' ? 'Manual crawl' : `${crawlFrequency} crawl`, tone: crawlFrequency === 'manual' ? 'muted' : 'accent' },
+                        { label: digestEnabled ? 'Digest queued' : 'No digest', tone: digestEnabled ? 'success' : 'muted' },
                         { label: active ? 'Active' : 'Paused', tone: active ? 'success' : 'muted' },
                       ]}
                     />
