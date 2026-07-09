@@ -1501,9 +1501,9 @@ export default function BrandMentionAlertDetailPage() {
               <div className="brand-pulse-dfs-selector">
                 <div className="brand-pulse-dfs-control-grid">
                   <div>
-                    <div className="flex items-center justify-between gap-3">
+                    <div>
                       <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
-                      <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+                      <p className="mt-1 text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</p>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {DFS_ROW_PRESETS.map(preset => {
