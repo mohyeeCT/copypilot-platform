@@ -906,15 +906,12 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 8px;
     margin-bottom: 10px;
-    padding: 8px 10px;
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
-    box-shadow: var(--shadow-sm);
-    backdrop-filter: blur(10px);
+    padding: 0 0 8px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
   }
   .brand-pulse-mentions-actions {
     display: flex;

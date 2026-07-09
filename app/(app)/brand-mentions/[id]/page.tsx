@@ -1870,22 +1870,6 @@ export default function BrandMentionAlertDetailPage() {
             ) : (
               <>
                 <div className="brand-pulse-mentions-toolbar">
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 text-xs font-semibold text-text">
-                      Showing {visibleMentions.length} of {displayedMentions.length} filtered mentions
-                    </div>
-                    <JobSummaryPills
-                      items={[
-                        { label: reviewModeLabel(reviewMode), tone: reviewMode === 'noise' ? 'muted' : 'accent' },
-                        { label: sentiment === 'all' ? 'All sentiment' : sentiment, tone: sentiment === 'negative' ? 'muted' : 'neutral' },
-                        { label: sourceType === 'all' ? 'All sources' : sourceType, tone: 'accent' },
-                        { label: relevance === 'all' ? 'All relevance' : relevance, tone: 'neutral' },
-                        { label: quality === 'all' ? 'All quality' : quality, tone: quality === 'noise' ? 'muted' : 'accent' },
-                        { label: category === 'all' ? 'All categories' : category, tone: 'neutral' },
-                        { label: crawlStatus === 'all' ? 'All crawl status' : crawlStatusLabel(crawlStatus), tone: crawlStatus === 'new' ? 'accent' : 'neutral' },
-                      ]}
-                    />
-                  </div>
                   <div className="brand-pulse-mentions-actions">
                     <div className="flex flex-wrap items-center gap-1">
                       <span className="mr-1 text-xs font-semibold text-muted">Rows</span>
