@@ -899,6 +899,112 @@
     background: color-mix(in srgb, currentColor 10%, transparent);
     font-size: 0.68rem;
   }
+  .brand-pulse-mentions-toolbar {
+    position: sticky;
+    top: 10px;
+    z-index: 25;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(10px);
+  }
+  .brand-pulse-mentions-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .brand-pulse-evidence {
+    margin-top: 8px;
+    max-width: 100%;
+  }
+  .brand-pulse-evidence summary {
+    display: inline-flex;
+    cursor: pointer;
+    list-style: none;
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    padding: 2px 8px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.25;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .brand-pulse-evidence summary::-webkit-details-marker {
+    display: none;
+  }
+  .brand-pulse-evidence summary:hover,
+  .brand-pulse-evidence[open] summary {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    color: var(--accent);
+  }
+  .brand-pulse-evidence-panel {
+    margin-top: 8px;
+    display: grid;
+    gap: 8px;
+    max-width: 720px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+    padding: 8px 0 8px 10px;
+  }
+  .brand-pulse-evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(110px, 1fr));
+    gap: 8px;
+  }
+  .brand-pulse-evidence-grid div,
+  .brand-pulse-evidence-text {
+    min-width: 0;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    padding: 7px 8px;
+  }
+  .brand-pulse-evidence-grid span,
+  .brand-pulse-evidence-text span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .brand-pulse-evidence-grid strong {
+    display: block;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-size: 0.78rem;
+  }
+  .brand-pulse-evidence-text p {
+    margin-top: 3px;
+    color: var(--text);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+  .brand-pulse-evidence-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .brand-pulse-evidence-chips span {
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    padding: 2px 8px;
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
   .brand-pulse-coverage {
     padding: 12px 14px;
   }
@@ -1015,6 +1121,19 @@
   }
   .brand-pulse-action-buttons > * {
     flex: 1 1 auto;
+  }
+  .brand-pulse-mentions-toolbar {
+    position: static;
+    align-items: stretch;
+  }
+  .brand-pulse-mentions-actions {
+    justify-content: stretch;
+  }
+  .brand-pulse-mentions-actions > * {
+    flex: 1 1 auto;
+  }
+  .brand-pulse-evidence-grid {
+    grid-template-columns: 1fr;
   }
   .brand-pulse-insight-grid {
     grid-template-columns: 1fr;

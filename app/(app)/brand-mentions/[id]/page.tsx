@@ -1,14 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Ban, CheckCircle2, ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw, Settings, Star, XCircle } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import { ArrowLeft, Ban, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, RefreshCw, Settings, Star, XCircle } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import ExportMenu from '@/components/ui/ExportMenu'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { brandMentionsApi, type BrandMentionCrawlPayload } from '@/lib/api/brand-mentions'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 
 export const dynamic = 'force-dynamic'
 
@@ -225,6 +228,8 @@ const CATEGORY_ORDER: Record<string, number> = {
 const DFS_ROW_PRESETS = [50, 100, 250, 500, 1000]
 const DEFAULT_DFS_ROWS_PER_CRAWL = 50
 const DEFAULT_DFS_PULL_MODE: DfsPullMode = 'newest'
+const MENTION_PAGE_SIZE_OPTIONS = [50, 100, 250]
+const DEFAULT_MENTION_PAGE_SIZE = 50
 const CAUTION_DFS_ROW_THRESHOLD = 250
 const HIGH_DFS_ROW_CONFIRMATION_THRESHOLD = 500
 const DFS_REQUEST_BASE_COST_USD = 0.024
@@ -445,7 +450,7 @@ function mentionReviewStatus(mention: BrandMention): ReviewStatusValue {
 }
 
 function reviewStatusLabel(status: ReviewStatusValue) {
-  return titleCase(status === 'false_positive' ? 'false positive' : status)
+  return titleCase(status === 'false_positive' ? 'wrong mention' : status)
 }
 
 function mentionRelevance(mention: BrandMention) {
@@ -477,6 +482,24 @@ function mentionPublished(mention: BrandMention) {
 
 function mentionDiscovered(mention: BrandMention) {
   return stringField(mention, ['discovered_at', 'created_at', 'discovered'])
+}
+
+function mentionMatchEvidence(mention: BrandMention, keyword?: string | null) {
+  const phrase = (keyword || '').trim()
+  if (!phrase) return { phrase: '-', locations: [] as string[] }
+
+  const needle = phrase.toLowerCase()
+  const fields: { label: string; value: string }[] = [
+    { label: 'Title', value: mentionTitle(mention) },
+    { label: 'Snippet', value: mentionSnippet(mention) },
+    { label: 'URL', value: mentionUrl(mention) },
+    { label: 'Domain', value: mentionDomain(mention) },
+  ]
+  const locations = fields
+    .filter(field => field.value.toLowerCase().includes(needle))
+    .map(field => field.label)
+
+  return { phrase, locations }
 }
 
 function mentionTimeValue(mention: BrandMention) {
@@ -685,33 +708,37 @@ function quoteCsv(value: unknown) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }
 
+function buildMentionsExportRows(mentions: BrandMention[]) {
+  return mentions.map(mention => ({
+    Title: mentionTitle(mention),
+    Snippet: mentionSnippet(mention),
+    URL: mentionUrl(mention),
+    Domain: mentionDomain(mention),
+    Category: mentionCategory(mention),
+    Source: mentionSource(mention),
+    Sentiment: mentionSentiment(mention),
+    'Provider sentiment': mentionProviderSentiment(mention),
+    'Provider sentiment score': mentionProviderSentimentScore(mention) ?? '',
+    'Provider positive score': mentionProviderPositiveScore(mention) ?? '',
+    'Provider neutral score': mentionProviderNeutralScore(mention) ?? '',
+    'Provider negative score': mentionProviderNegativeScore(mention) ?? '',
+    'Latest crawl status': mentionCrawlStatus(mention) ? crawlStatusLabel(mentionCrawlStatus(mention)) : '',
+    'Latest crawl changes': formatCrawlChangeSummary(mentionCrawlChangeSummary(mention)),
+    Quality: mentionQualityLabel(mention),
+    'Quality Score': mentionQualityScore(mention),
+    'Quality Reasons': mentionQualityReasons(mention).join('; '),
+    Relevance: mentionRelevance(mention),
+    'Domain Rank': mentionDomainRank(mention),
+    Published: mentionPublished(mention),
+    Discovered: mentionDiscovered(mention),
+  }))
+}
+
 function buildMentionsCsv(mentions: BrandMention[]) {
-  const rows = mentions.map(mention => [
-    mentionTitle(mention),
-    mentionSnippet(mention),
-    mentionUrl(mention),
-    mentionDomain(mention),
-    mentionCategory(mention),
-    mentionSource(mention),
-    mentionSentiment(mention),
-    mentionProviderSentiment(mention),
-    mentionProviderSentimentScore(mention) ?? '',
-    mentionProviderPositiveScore(mention) ?? '',
-    mentionProviderNeutralScore(mention) ?? '',
-    mentionProviderNegativeScore(mention) ?? '',
-    mentionCrawlStatus(mention) ? crawlStatusLabel(mentionCrawlStatus(mention)) : '',
-    formatCrawlChangeSummary(mentionCrawlChangeSummary(mention)),
-    mentionQualityLabel(mention),
-    mentionQualityScore(mention),
-    mentionQualityReasons(mention).join('; '),
-    mentionRelevance(mention),
-    mentionDomainRank(mention),
-    mentionPublished(mention),
-    mentionDiscovered(mention),
-  ])
+  const rows = buildMentionsExportRows(mentions)
   return [
     CSV_HEADERS.join(','),
-    ...rows.map(row => row.map(quoteCsv).join(',')),
+    ...rows.map(row => CSV_HEADERS.map(header => quoteCsv(row[header as keyof typeof row])).join(',')),
   ].join('\n')
 }
 
@@ -938,11 +965,14 @@ export default function BrandMentionAlertDetailPage() {
   const [sentimentInsightRefreshing, setSentimentInsightRefreshing] = useState(false)
   const [crawling, setCrawling] = useState(false)
   const [crawlError, setCrawlError] = useState('')
+  const [exportingSheets, setExportingSheets] = useState(false)
   const [reviewActionError, setReviewActionError] = useState('')
   const [pendingMentionAction, setPendingMentionAction] = useState('')
   const [showSettingsCta, setShowSettingsCta] = useState(false)
   const [selectedDfsRows, setSelectedDfsRows] = useState(DEFAULT_DFS_ROWS_PER_CRAWL)
   const [selectedDfsPullMode, setSelectedDfsPullMode] = useState<DfsPullMode>(DEFAULT_DFS_PULL_MODE)
+  const [mentionPageSize, setMentionPageSize] = useState(DEFAULT_MENTION_PAGE_SIZE)
+  const [visibleMentionLimit, setVisibleMentionLimit] = useState(DEFAULT_MENTION_PAGE_SIZE)
   const [showDfsFilters, setShowDfsFilters] = useState(false)
   const [showDfsInsightDetails, setShowDfsInsightDetails] = useState(false)
   const [showCrawlHistory, setShowCrawlHistory] = useState(false)
@@ -1081,7 +1111,7 @@ export default function BrandMentionAlertDetailPage() {
       await brandMentionsApi.crawlAlert(token, alertId, payload)
       await load()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Manual crawl failed.'
+      const message = error instanceof Error ? error.message : 'Run Pulse failed.'
       setCrawlError(message)
       setShowSettingsCta(isSettingsError(message))
     } finally {
@@ -1258,6 +1288,32 @@ export default function BrandMentionAlertDetailPage() {
     URL.revokeObjectURL(url)
   }
 
+  function downloadXlsx() {
+    if (!displayedMentions.length) return
+    const rows = buildMentionsExportRows(displayedMentions)
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: CSV_HEADERS })
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Mentions')
+    XLSX.writeFile(workbook, `${safeFileName(alert?.label || alertId)}-mentions.xlsx`)
+  }
+
+  async function exportGoogleSheets() {
+    if (!displayedMentions.length || exportingSheets) return
+    setExportingSheets(true)
+    try {
+      await exportRowsToGoogleSheets({
+        title: `${alert?.label || alert?.keyword || 'Brand Pulse'} - Brand Pulse mentions`,
+        sheet_name: 'Mentions',
+        headers: CSV_HEADERS,
+        rows: buildMentionsExportRows(displayedMentions),
+      })
+    } catch (error) {
+      window.alert(googleSheetsExportError(error))
+    } finally {
+      setExportingSheets(false)
+    }
+  }
+
   const sortedMentions = useMemo(() => sortMentionsByValue(mentions), [mentions])
   const reviewFilteredMentions = useMemo(
     () => filterMentionsByReviewMode(sortedMentions, reviewMode),
@@ -1267,6 +1323,14 @@ export default function BrandMentionAlertDetailPage() {
     () => collapseDuplicateGroups(reviewFilteredMentions, expandedDuplicateKeys),
     [expandedDuplicateKeys, reviewFilteredMentions],
   )
+  const visibleMentions = useMemo(
+    () => displayedMentions.slice(0, visibleMentionLimit),
+    [displayedMentions, visibleMentionLimit],
+  )
+  const hiddenMentionCount = Math.max(0, displayedMentions.length - visibleMentions.length)
+  useEffect(() => {
+    setVisibleMentionLimit(mentionPageSize)
+  }, [alertId, category, crawlStatus, mentionPageSize, quality, relevance, reviewMode, sentiment, sourceType])
   const negativeCount = mentions.filter(mention => mentionSentiment(mention).toLowerCase() === 'negative').length
   const highValueCount = mentions.filter(isHighValueMention).length
   const lowValueCount = mentions.filter(mention => isLowValueMention(mention) && !isNoiseMention(mention)).length
@@ -1397,7 +1461,7 @@ export default function BrandMentionAlertDetailPage() {
 
           {crawlError && (
             <div className="rounded-lg border p-4" style={{ background: 'rgba(198,123,0,0.08)', borderColor: 'rgba(198,123,0,0.26)' }}>
-              <p className="text-sm font-semibold text-warning">Manual crawl failed</p>
+              <p className="text-sm font-semibold text-warning">Run Pulse failed</p>
               <p className="mt-1 text-sm text-muted">{crawlError}</p>
               {showSettingsCta && (
                 <Link href="/settings" className="btn-ghost mt-3 gap-2 text-xs">
@@ -1553,13 +1617,16 @@ export default function BrandMentionAlertDetailPage() {
                   <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                   Refresh
                 </button>
-                <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
-                  <Download size={14} />
-                  Export CSV
-                </button>
+                <ExportMenu
+                  onCsv={downloadCsv}
+                  onXlsx={downloadXlsx}
+                  onGoogleSheets={exportGoogleSheets}
+                  sheetsLoading={exportingSheets}
+                  className={!displayedMentions.length ? 'pointer-events-none opacity-50' : ''}
+                />
                 <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
                   <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
-                  {crawling ? 'Crawling...' : 'Run Crawl'}
+                  {crawling ? 'Running...' : 'Run Pulse'}
                 </button>
               </div>
             </div>
@@ -1795,27 +1862,83 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </JobSection>
 
-          <JobSection title="Mentions" description={`${reviewModeLabel(reviewMode)}: ${displayedMentions.length} of ${mentions.length} loaded mentions.`}>
+          <JobSection title="Mentions" description={`${reviewModeLabel(reviewMode)}: showing ${visibleMentions.length} of ${displayedMentions.length} filtered mentions (${mentions.length} loaded).`}>
             {loading ? (
               <div className="text-sm text-muted">Loading mentions...</div>
             ) : displayedMentions.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted">No mentions match the current review mode and filters.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Mention</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Signal</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Review</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Quality</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Category</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Published</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Discovered</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayedMentions.map((mention, index) => {
+              <>
+                <div className="brand-pulse-mentions-toolbar">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 text-xs font-semibold text-text">
+                      Showing {visibleMentions.length} of {displayedMentions.length} filtered mentions
+                    </div>
+                    <JobSummaryPills
+                      items={[
+                        { label: reviewModeLabel(reviewMode), tone: reviewMode === 'noise' ? 'muted' : 'accent' },
+                        { label: sentiment === 'all' ? 'All sentiment' : sentiment, tone: sentiment === 'negative' ? 'muted' : 'neutral' },
+                        { label: sourceType === 'all' ? 'All sources' : sourceType, tone: 'accent' },
+                        { label: relevance === 'all' ? 'All relevance' : relevance, tone: 'neutral' },
+                        { label: quality === 'all' ? 'All quality' : quality, tone: quality === 'noise' ? 'muted' : 'accent' },
+                        { label: category === 'all' ? 'All categories' : category, tone: 'neutral' },
+                        { label: crawlStatus === 'all' ? 'All crawl status' : crawlStatusLabel(crawlStatus), tone: crawlStatus === 'new' ? 'accent' : 'neutral' },
+                      ]}
+                    />
+                  </div>
+                  <div className="brand-pulse-mentions-actions">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="mr-1 text-xs font-semibold text-muted">Rows</span>
+                      {MENTION_PAGE_SIZE_OPTIONS.map(size => {
+                        const active = mentionPageSize === size
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => {
+                              setMentionPageSize(size)
+                              setVisibleMentionLimit(size)
+                            }}
+                            className="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
+                            style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                            aria-pressed={active}
+                          >
+                            {size}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
+                      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                      Refresh
+                    </button>
+                    <ExportMenu
+                      onCsv={downloadCsv}
+                      onXlsx={downloadXlsx}
+                      onGoogleSheets={exportGoogleSheets}
+                      sheetsLoading={exportingSheets}
+                    />
+                    <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
+                      <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
+                      {crawling ? 'Running...' : 'Run Pulse'}
+                    </button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Mention</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Signal</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Review</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Quality</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Category</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Published</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted">Discovered</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleMentions.map((mention, index) => {
                       const url = mentionUrl(mention)
                       const title = mentionTitle(mention)
                       const snippet = mentionSnippet(mention)
@@ -1834,8 +1957,10 @@ export default function BrandMentionAlertDetailPage() {
                       const approveBusy = pendingMentionAction === `${mention.id}:review:approved`
                       const noiseBusy = pendingMentionAction === `${mention.id}:review:noise`
                       const falsePositiveBusy = pendingMentionAction === `${mention.id}:review:false_positive`
+                      const matchEvidence = mentionMatchEvidence(mention, alert?.keyword)
                       return (
-                        <tr key={mention.id || `${url}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-bg">
+                        <Fragment key={mention.id || `${url}-${index}`}>
+                        <tr className="border-b border-border transition-colors last:border-0 hover:bg-bg">
                           <td className="max-w-2xl px-4 py-3">
                             <div className="line-clamp-2 font-semibold text-text">{title}</div>
                             {snippet && (
@@ -1866,6 +1991,45 @@ export default function BrandMentionAlertDetailPage() {
                                 </button>
                               )}
                             </div>
+                            <details className="brand-pulse-evidence">
+                              <summary>Evidence</summary>
+                              <div className="brand-pulse-evidence-panel">
+                                <div className="brand-pulse-evidence-grid">
+                                  <div>
+                                    <span>Matched phrase</span>
+                                    <strong>{matchEvidence.phrase}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Visible in</span>
+                                    <strong>{matchEvidence.locations.length ? matchEvidence.locations.join(', ') : 'Not visible'}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Source</span>
+                                    <strong>{titleCase(mentionSource(mention))}</strong>
+                                  </div>
+                                  <div>
+                                    <span>Review</span>
+                                    <strong>{reviewStatusLabel(reviewStatus)}</strong>
+                                  </div>
+                                </div>
+                                <div className="brand-pulse-evidence-text">
+                                  <span>Title</span>
+                                  <p>{title}</p>
+                                </div>
+                                {snippet && (
+                                  <div className="brand-pulse-evidence-text">
+                                    <span>Snippet</span>
+                                    <p>{snippet}</p>
+                                  </div>
+                                )}
+                                <div className="brand-pulse-evidence-chips">
+                                  <span>Sentiment {titleCase(mentionSentiment(mention))}</span>
+                                  <span>Quality {mentionQualityLabel(mention)} {mentionQualityScore(mention)}</span>
+                                  <span>Category {titleCase(mentionCategory(mention))}</span>
+                                  {domainRank !== '-' && <span>Rank {domainRank}</span>}
+                                </div>
+                              </div>
+                            </details>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex min-w-28 flex-col gap-1">
@@ -1917,7 +2081,7 @@ export default function BrandMentionAlertDetailPage() {
                                   type="button"
                                   onClick={() => void handleReviewMention(mention, 'false_positive')}
                                   disabled={actionBusy}
-                                  title="Mark false positive"
+                                  title="Mark wrong mention"
                                   className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs transition-colors ${reviewStatus === 'false_positive' ? 'bg-error/10 text-error' : 'bg-surface text-muted hover:text-error'}`}
                                 >
                                   <XCircle size={13} className={falsePositiveBusy ? 'animate-pulse' : ''} />
@@ -1961,11 +2125,24 @@ export default function BrandMentionAlertDetailPage() {
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionPublished(mention))}</td>
                           <td className="px-4 py-3 text-xs text-muted">{formatDate(mentionDiscovered(mention))}</td>
                         </tr>
+                        </Fragment>
                       )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {hiddenMentionCount > 0 && (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleMentionLimit(current => Math.min(current + mentionPageSize, displayedMentions.length))}
+                      className="btn-ghost text-sm"
+                    >
+                      Load more ({hiddenMentionCount} remaining)
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </JobSection>
 
