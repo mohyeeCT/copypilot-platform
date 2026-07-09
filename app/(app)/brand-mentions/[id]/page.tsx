@@ -1233,134 +1233,6 @@ export default function BrandMentionAlertDetailPage() {
                   { label: 'State', value: alert?.active === false ? 'Paused' : 'Active' },
                 ]}
               />
-              <div className="brand-pulse-crawl-actions">
-                <div className="brand-pulse-dfs-selector">
-                  <div className="brand-pulse-dfs-control-grid">
-                    <div>
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
-                        <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {DFS_ROW_PRESETS.map(preset => {
-                          const active = selectedDfsRows === preset
-                          return (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => setSelectedDfsRows(preset)}
-                              className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                              style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
-                              aria-pressed={active}
-                            >
-                              {preset}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-muted">Pull</label>
-                      <CustomSelect
-                        value={selectedDfsPullMode}
-                        onChange={value => setSelectedDfsPullMode(value as DfsPullMode)}
-                        options={DFS_PULL_MODE_OPTIONS}
-                      />
-                      <p className="sr-only">Selected pull mode: {dfsPullModeLabel(selectedDfsPullMode)}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowDfsFilters(value => !value)}
-                      className="btn-ghost gap-2 px-2 py-1 text-xs"
-                      aria-expanded={showDfsFilters}
-                    >
-                      <Settings size={12} />
-                      Filters{selectedDfsFilterCount ? ` ${selectedDfsFilterCount}` : ''}
-                    </button>
-                    {selectedDfsFilterCount > 0 && (
-                      <span className="text-xs text-muted">{selectedDfsFilterCount} active</span>
-                    )}
-                  </div>
-                  {showDfsFilters && (
-                    <div className="brand-pulse-dfs-filter-grid mt-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">Country</label>
-                        <input
-                          value={dfsCountry}
-                          onChange={event => setDfsCountry(event.target.value)}
-                          placeholder="US"
-                          maxLength={3}
-                          className="input-field h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">Language</label>
-                        <input
-                          value={dfsLanguage}
-                          onChange={event => setDfsLanguage(event.target.value)}
-                          placeholder="en"
-                          maxLength={8}
-                          className="input-field h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">Provider sentiment</label>
-                        <CustomSelect
-                          value={dfsProviderSentiment}
-                          onChange={value => setDfsProviderSentiment(value as DfsProviderSentimentFilter)}
-                          options={DFS_PROVIDER_SENTIMENT_OPTIONS}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">Include domain</label>
-                        <input
-                          value={dfsIncludeDomain}
-                          onChange={event => setDfsIncludeDomain(event.target.value)}
-                          placeholder="example.com"
-                          className="input-field h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">Exclude domain</label>
-                        <input
-                          value={dfsExcludeDomain}
-                          onChange={event => setDfsExcludeDomain(event.target.value)}
-                          placeholder="example.com"
-                          className="input-field h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-muted">From date</label>
-                        <input
-                          type="date"
-                          value={dfsDateFrom}
-                          onChange={event => setDfsDateFrom(event.target.value)}
-                          className="input-field h-9 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {selectedDfsGuardrail && (
-                    <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
-                  )}
-                </div>
-                <div className="brand-pulse-action-buttons">
-                  <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                    Refresh
-                  </button>
-                  <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
-                    <Download size={14} />
-                    Export CSV
-                  </button>
-                  <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
-                    <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
-                    {crawling ? 'Crawling...' : 'Run Crawl'}
-                  </button>
-                </div>
-              </div>
             </div>
           }
         >
@@ -1403,6 +1275,137 @@ export default function BrandMentionAlertDetailPage() {
               <p className="mt-2 text-sm font-semibold text-text">{alert?.mention_count ?? alert?.total_mentions ?? mentions.length}</p>
             </div>
           </div>
+
+          <JobSection title="Crawl controls" className="brand-pulse-crawl-panel">
+            <div className="brand-pulse-crawl-actions brand-pulse-crawl-toolbar">
+              <div className="brand-pulse-dfs-selector">
+                <div className="brand-pulse-dfs-control-grid">
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-xs font-semibold text-muted">DFS rows for this crawl</label>
+                      <span className="text-xs font-semibold text-text">Estimated DFS cost {selectedDfsCost}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {DFS_ROW_PRESETS.map(preset => {
+                        const active = selectedDfsRows === preset
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setSelectedDfsRows(preset)}
+                            className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={active ? { background: 'var(--accent)', color: 'white' } : { color: 'var(--muted)' }}
+                            aria-pressed={active}
+                          >
+                            {preset}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-muted">Pull</label>
+                    <CustomSelect
+                      value={selectedDfsPullMode}
+                      onChange={value => setSelectedDfsPullMode(value as DfsPullMode)}
+                      options={DFS_PULL_MODE_OPTIONS}
+                    />
+                    <p className="sr-only">Selected pull mode: {dfsPullModeLabel(selectedDfsPullMode)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDfsFilters(value => !value)}
+                    className="btn-ghost gap-2 px-2 py-1 text-xs"
+                    aria-expanded={showDfsFilters}
+                  >
+                    <Settings size={12} />
+                    Filters{selectedDfsFilterCount ? ` ${selectedDfsFilterCount}` : ''}
+                  </button>
+                  {selectedDfsFilterCount > 0 && (
+                    <span className="text-xs text-muted">{selectedDfsFilterCount} active</span>
+                  )}
+                </div>
+                {showDfsFilters && (
+                  <div className="brand-pulse-dfs-filter-grid mt-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Country</label>
+                      <input
+                        value={dfsCountry}
+                        onChange={event => setDfsCountry(event.target.value)}
+                        placeholder="US"
+                        maxLength={3}
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Language</label>
+                      <input
+                        value={dfsLanguage}
+                        onChange={event => setDfsLanguage(event.target.value)}
+                        placeholder="en"
+                        maxLength={8}
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Provider sentiment</label>
+                      <CustomSelect
+                        value={dfsProviderSentiment}
+                        onChange={value => setDfsProviderSentiment(value as DfsProviderSentimentFilter)}
+                        options={DFS_PROVIDER_SENTIMENT_OPTIONS}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Include domain</label>
+                      <input
+                        value={dfsIncludeDomain}
+                        onChange={event => setDfsIncludeDomain(event.target.value)}
+                        placeholder="example.com"
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">Exclude domain</label>
+                      <input
+                        value={dfsExcludeDomain}
+                        onChange={event => setDfsExcludeDomain(event.target.value)}
+                        placeholder="example.com"
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-muted">From date</label>
+                      <input
+                        type="date"
+                        value={dfsDateFrom}
+                        onChange={event => setDfsDateFrom(event.target.value)}
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+                {selectedDfsGuardrail && (
+                  <p className="mt-2 text-xs text-warning">{selectedDfsGuardrail}</p>
+                )}
+              </div>
+              <div className="brand-pulse-action-buttons">
+                <button onClick={() => void load()} disabled={loading || crawling} className="btn-ghost gap-2 text-sm">
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+                <button onClick={downloadCsv} disabled={!displayedMentions.length} className="btn-ghost gap-2 text-sm">
+                  <Download size={14} />
+                  Export CSV
+                </button>
+                <button onClick={() => void handleCrawl()} disabled={crawling} className="btn-primary gap-2 text-sm">
+                  <RefreshCw size={14} className={crawling ? 'animate-spin' : ''} />
+                  {crawling ? 'Crawling...' : 'Run Crawl'}
+                </button>
+              </div>
+            </div>
+          </JobSection>
 
           <JobSection title="DFS insights" className="brand-pulse-coverage">
             <div className="brand-pulse-insight-header">
