@@ -430,6 +430,10 @@ function mentionDuplicateCount(mention: BrandMention) {
   return numberField(mention, ['duplicate_count']) ?? 1
 }
 
+function mentionDuplicateKey(mention: BrandMention) {
+  return stringField(mention, ['duplicate_key'], mentionUrl(mention) || mentionTitle(mention))
+}
+
 function mentionRelevance(mention: BrandMention) {
   if (typeof mention.relevance === 'string' && mention.relevance.trim()) return titleCase(mention.relevance)
   if (typeof mention.relevance === 'number' && Number.isFinite(mention.relevance)) return mention.relevance
@@ -622,6 +626,35 @@ function filterMentionsByReviewMode(mentions: BrandMention[], reviewMode: Review
   return mentions
 }
 
+function collapseDuplicateGroups(mentions: BrandMention[], expandedDuplicateKeys: Set<string>) {
+  const groups = new Map<string, BrandMention[]>()
+
+  for (const mention of mentions) {
+    const key = mentionDuplicateKey(mention)
+    if (!key || mentionDuplicateCount(mention) <= 1) continue
+    if (!groups.has(key)) {
+      groups.set(key, [])
+    }
+    groups.get(key)?.push(mention)
+  }
+
+  const consumedKeys = new Set<string>()
+  const rows: BrandMention[] = []
+  for (const mention of mentions) {
+    const key = mentionDuplicateKey(mention)
+    const group = key ? groups.get(key) : undefined
+    if (!key || !group) {
+      rows.push(mention)
+      continue
+    }
+    if (consumedKeys.has(key)) continue
+    consumedKeys.add(key)
+    rows.push(...(expandedDuplicateKeys.has(key) ? group : [group[0]]))
+  }
+
+  return rows
+}
+
 function reviewModeLabel(reviewMode: ReviewMode) {
   return REVIEW_MODE_OPTIONS.find(option => option.value === reviewMode)?.label || 'Best mentions'
 }
@@ -675,6 +708,7 @@ function buildMentionQuery(
   quality: QualityFilter,
   category: CategoryFilter,
   crawlStatus: CrawlStatusFilter,
+  includeDuplicates = false,
 ) {
   const params = new URLSearchParams()
   if (sentiment !== 'all') params.set('sentiment', sentiment)
@@ -683,6 +717,7 @@ function buildMentionQuery(
   if (quality !== 'all') params.set('quality_label', quality)
   if (category !== 'all') params.set('mention_category', category)
   if (crawlStatus !== 'all') params.set('crawl_status', crawlStatus)
+  if (includeDuplicates) params.set('include_duplicates', 'true')
   return params.toString()
 }
 
@@ -891,6 +926,7 @@ export default function BrandMentionAlertDetailPage() {
   const [showDfsFilters, setShowDfsFilters] = useState(false)
   const [showDfsInsightDetails, setShowDfsInsightDetails] = useState(false)
   const [showCrawlHistory, setShowCrawlHistory] = useState(false)
+  const [expandedDuplicateKeys, setExpandedDuplicateKeys] = useState<Set<string>>(new Set())
   const [dfsCountry, setDfsCountry] = useState('')
   const [dfsLanguage, setDfsLanguage] = useState('')
   const [dfsProviderSentiment, setDfsProviderSentiment] = useState<DfsProviderSentimentFilter>('all')
@@ -914,7 +950,7 @@ export default function BrandMentionAlertDetailPage() {
   const selectedDfsFilterCount = activeFilterCount(selectedDfsFilters)
 
   const apiMentionQuery = useMemo(
-    () => buildMentionQuery(sentiment, sourceType, relevance, quality, category, crawlStatus),
+    () => buildMentionQuery(sentiment, sourceType, relevance, quality, category, crawlStatus, true),
     [category, crawlStatus, quality, relevance, sentiment, sourceType],
   )
 
@@ -1097,6 +1133,18 @@ export default function BrandMentionAlertDetailPage() {
     setReviewMode('review')
   }
 
+  function toggleDuplicateGroup(duplicateKey: string) {
+    setExpandedDuplicateKeys(current => {
+      const next = new Set(current)
+      if (next.has(duplicateKey)) {
+        next.delete(duplicateKey)
+      } else {
+        next.add(duplicateKey)
+      }
+      return next
+    })
+  }
+
   function downloadCsv() {
     if (!displayedMentions.length) return
     const csv = buildMentionsCsv(displayedMentions)
@@ -1112,9 +1160,13 @@ export default function BrandMentionAlertDetailPage() {
   }
 
   const sortedMentions = useMemo(() => sortMentionsByValue(mentions), [mentions])
-  const displayedMentions = useMemo(
+  const reviewFilteredMentions = useMemo(
     () => filterMentionsByReviewMode(sortedMentions, reviewMode),
     [reviewMode, sortedMentions],
+  )
+  const displayedMentions = useMemo(
+    () => collapseDuplicateGroups(reviewFilteredMentions, expandedDuplicateKeys),
+    [expandedDuplicateKeys, reviewFilteredMentions],
   )
   const negativeCount = mentions.filter(mention => mentionSentiment(mention).toLowerCase() === 'negative').length
   const highValueCount = mentions.filter(isHighValueMention).length
@@ -1662,6 +1714,8 @@ export default function BrandMentionAlertDetailPage() {
                       const title = mentionTitle(mention)
                       const snippet = mentionSnippet(mention)
                       const duplicateCount = mentionDuplicateCount(mention)
+                      const duplicateKey = mentionDuplicateKey(mention)
+                      const duplicateGroupExpanded = duplicateKey ? expandedDuplicateKeys.has(duplicateKey) : false
                       const domain = mentionDomain(mention)
                       const sentimentConfidence = mentionSentimentConfidence(mention)
                       const mismatch = hasSentimentMismatch(mention)
@@ -1688,9 +1742,16 @@ export default function BrandMentionAlertDetailPage() {
                               )}
                               {domainRank !== '-' && <span>Rank {domainRank}</span>}
                               {duplicateCount > 1 && (
-                                <span className="inline-flex rounded-full border border-border px-2 py-0.5 font-semibold text-muted">
-                                  {duplicateCount} similar
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => duplicateKey && toggleDuplicateGroup(duplicateKey)}
+                                  className="brand-pulse-duplicate-toggle"
+                                  aria-expanded={duplicateGroupExpanded}
+                                  disabled={!duplicateKey}
+                                >
+                                  {duplicateGroupExpanded ? 'Hide similar' : 'Show similar'}
+                                  <span>{duplicateCount}</span>
+                                </button>
                               )}
                             </div>
                           </td>

@@ -864,6 +864,41 @@
     gap: 8px;
     padding-top: 24px;
   }
+  .brand-pulse-duplicate-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 22px;
+    padding: 2px 8px;
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .brand-pulse-duplicate-toggle:hover {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+    background: color-mix(in srgb, var(--accent) 11%, var(--surface));
+  }
+  .brand-pulse-duplicate-toggle[aria-expanded="true"] {
+    border-color: var(--border-subtle);
+    background: var(--surface-raised);
+    color: var(--muted);
+  }
+  .brand-pulse-duplicate-toggle span {
+    display: inline-flex;
+    min-width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    font-size: 0.68rem;
+  }
   .brand-pulse-coverage {
     padding: 12px 14px;
   }
