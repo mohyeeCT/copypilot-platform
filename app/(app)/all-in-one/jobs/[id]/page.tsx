@@ -12,7 +12,7 @@ import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
-import * as XLSX from 'xlsx'
+import { exportRowsToGoogleDocs, googleDocsExportError } from '@/lib/export/googleDocs'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,7 +108,7 @@ export default function PageCopyJobPage() {
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
   const [reviewerInstruction, setReviewerInstruction] = useState<Record<string, string>>({})
   const [logsCollapsed, setLogsCollapsed] = useState(true)
-  const [exportingSheets, setExportingSheets] = useState(false)
+  const [exportingDocs, setExportingDocs] = useState(false)
   const [exportingLinksSheets, setExportingLinksSheets] = useState(false)
   const jobStatus = job?.status
 
@@ -188,62 +188,74 @@ export default function PageCopyJobPage() {
   function downloadAllDocx() {
     if (!job?.results) return
     job.results.forEach((r, i) => {
-      if (r.docx_b64 && r.status === 'ok') {
+      if (r.docx_b64) {
         setTimeout(() => downloadDocx(r, i), i * 300)
       }
     })
   }
 
-  function buildResultsExportRows() {
-    const headers = ['URL', 'Primary Keyword', 'Word Count', 'Template', 'Keyword Source', 'Volume', 'Status', 'Competitor URLs']
-    const rows = job!.results!.map(r => ({
-      'URL': r.url || '',
-      'Primary Keyword': r.primary_keyword || '',
-      'Word Count': r.word_count || '',
-      'Template': r.template_name || '',
-      'Keyword Source': r.keyword_source || '',
-      'Volume': r.kw_volume || '',
-      'Status': r.status || '',
-      'Competitor URLs': (r.competitor_urls || []).join('; '),
-    }))
-    return { headers, rows }
+  function buildGoogleDocBody() {
+    const lines: string[] = [
+      job?.name || 'All in One Results',
+      `Rows: ${job?.completed_rows ?? 0}/${job?.total_rows ?? 0}`,
+      '',
+    ]
+
+    for (const [index, row] of (job?.results || []).entries()) {
+      lines.push(`${index + 1}. ${row.url || 'Untitled URL'}`)
+      if (row.primary_keyword) lines.push(`Primary keyword: ${row.primary_keyword}`)
+      if (row.keyword_source) lines.push(`Keyword source: ${row.keyword_source}`)
+      if (row.kw_volume !== undefined) lines.push(`Volume: ${row.kw_volume}`)
+      if (row.status) lines.push(`Status: ${row.status}`)
+      if (row.error) lines.push(`Error: ${gscErrorMessage(row.error)}`)
+
+      if (row.generated_title || row.generated_description || row.optimised_h1) {
+        lines.push('', 'Meta Copy')
+        if (row.generated_title) lines.push(`Title: ${row.generated_title}`)
+        if (row.generated_description) lines.push(`Description: ${row.generated_description}`)
+        if (row.optimised_h1) lines.push(`H1: ${row.optimised_h1}`)
+      }
+
+      if (row.faq_items?.length) {
+        lines.push('', 'FAQs')
+        row.faq_items.forEach((faq, faqIndex) => {
+          lines.push(`${faqIndex + 1}. ${faq.question}`)
+          lines.push(faq.answer)
+        })
+      }
+
+      if (row.section_results && Object.keys(row.section_results).length > 0) {
+        lines.push('', 'Page Copy')
+        Object.entries(row.section_results).forEach(([section, text]) => {
+          lines.push(section)
+          lines.push(text)
+          lines.push('')
+        })
+      }
+
+      if (row.competitor_urls?.length) {
+        lines.push('Competitors referenced')
+        row.competitor_urls.forEach(url => lines.push(url))
+      }
+
+      lines.push('')
+    }
+
+    return lines.join('\n').replace(/\n{4,}/g, '\n\n\n').trim()
   }
 
-  function downloadCsv() {
-    if (!job?.results?.length) return
-    const { headers, rows } = buildResultsExportRows()
-    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
-    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `page_copy_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
-    a.click()
-  }
-
-  function downloadXlsx() {
-    if (!job?.results?.length) return
-    const { rows } = buildResultsExportRows()
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Results')
-    XLSX.writeFile(wb, `page_copy_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
-  }
-
-  async function exportGoogleSheets() {
-    if (!job?.results?.length || exportingSheets) return
-    setExportingSheets(true)
+  async function exportGoogleDocs() {
+    if (!job?.results?.length || exportingDocs) return
+    setExportingDocs(true)
     try {
-      const { headers, rows } = buildResultsExportRows()
-      await exportRowsToGoogleSheets({
+      await exportRowsToGoogleDocs({
         title: `${job.name || 'All in One results'} - All in One`,
-        sheet_name: 'All in One Results',
-        headers,
-        rows,
+        body: buildGoogleDocBody(),
       })
     } catch (error) {
-      alert(googleSheetsExportError(error))
+      alert(googleDocsExportError(error))
     } finally {
-      setExportingSheets(false)
+      setExportingDocs(false)
     }
   }
 
@@ -257,26 +269,6 @@ export default function PageCopyJobPage() {
       'Reason': s.reason || '',
     }))
     return { headers, rows }
-  }
-
-  function downloadInternalLinksCsv() {
-    if (!job?.internal_link_suggestions?.length) return
-    const { headers, rows } = buildInternalLinksExportRows()
-    const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
-    const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
-    a.click()
-  }
-
-  function downloadInternalLinksXlsx() {
-    if (!job?.internal_link_suggestions?.length) return
-    const { rows } = buildInternalLinksExportRows()
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Internal Links')
-    XLSX.writeFile(wb, `internal_links_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
   }
 
   async function exportInternalLinksGoogleSheets() {
@@ -309,6 +301,7 @@ export default function PageCopyJobPage() {
   const faqTotal = job.results?.reduce((sum, row) => sum + (row.faq_count ?? row.faq_items?.length ?? 0), 0) ?? 0
   const failedRows = job.failed_rows ?? job.results?.filter(row => row.status !== 'ok' || row.error).length ?? 0
   const linkSuggestions = job.internal_link_suggestions?.length ?? 0
+  const hasDocx = job.results?.some(row => row.docx_b64) ?? false
 
   return (
     <AppLayout title="All in One">
@@ -391,8 +384,6 @@ export default function PageCopyJobPage() {
               </div>
               <div className="flex items-center gap-2">
                 <ExportMenu
-                  onCsv={downloadInternalLinksCsv}
-                  onXlsx={downloadInternalLinksXlsx}
                   onGoogleSheets={exportInternalLinksGoogleSheets}
                   sheetsLoading={exportingLinksSheets}
                 />
@@ -411,7 +402,7 @@ export default function PageCopyJobPage() {
                 </div>
               ))}
               {job.internal_link_suggestions.length > 6 && (
-                <p className="text-xs text-muted">+{job.internal_link_suggestions.length - 6} more suggestions in CSV export</p>
+                <p className="text-xs text-muted">+{job.internal_link_suggestions.length - 6} more suggestions in Google Sheets export</p>
               )}
             </div>
           </div>
@@ -457,16 +448,10 @@ export default function PageCopyJobPage() {
               />
               {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
             </label>
-            {job.results.some(r => r.docx_b64) && (
-              <button onClick={downloadAllDocx} className="btn-ghost text-xs flex items-center gap-1.5">
-                <Download size={12} /> Download all .docx
-              </button>
-            )}
             <ExportMenu
-              onCsv={downloadCsv}
-              onXlsx={downloadXlsx}
-              onGoogleSheets={exportGoogleSheets}
-              sheetsLoading={exportingSheets}
+              onDocx={hasDocx ? downloadAllDocx : undefined}
+              onGoogleDocs={exportGoogleDocs}
+              docsLoading={exportingDocs}
             />
           </div>
         )}

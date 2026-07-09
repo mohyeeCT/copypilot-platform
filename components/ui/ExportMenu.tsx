@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, Download, ExternalLink, FileSpreadsheet, Sheet } from 'lucide-react'
+import { ChevronDown, Download, ExternalLink, FileSpreadsheet, FileText, Sheet } from 'lucide-react'
 
 type ExportMenuAction = {
   label: string
@@ -14,11 +14,16 @@ type ExportMenuAction = {
 type ExportMenuProps = {
   csvLabel?: string
   xlsxLabel?: string
+  docxLabel?: string
   sheetsLabel?: string
+  docsLabel?: string
   sheetsLoading?: boolean
-  onCsv: () => void
-  onXlsx: () => void
-  onGoogleSheets: () => void | Promise<void>
+  docsLoading?: boolean
+  onCsv?: () => void
+  onXlsx?: () => void
+  onDocx?: () => void
+  onGoogleSheets?: () => void | Promise<void>
+  onGoogleDocs?: () => void | Promise<void>
   className?: string
 }
 
@@ -47,11 +52,16 @@ function ExportMenuItem({ action, onSelect }: { action: ExportMenuAction; onSele
 export default function ExportMenu({
   csvLabel = 'CSV',
   xlsxLabel = 'XLSX',
+  docxLabel = 'DOCX',
   sheetsLabel,
+  docsLabel,
   sheetsLoading = false,
+  docsLoading = false,
   onCsv,
   onXlsx,
+  onDocx,
   onGoogleSheets,
+  onGoogleDocs,
   className = '',
 }: ExportMenuProps) {
   const [open, setOpen] = useState(false)
@@ -73,29 +83,50 @@ export default function ExportMenu({
     }
   }, [open])
 
-  const downloadActions: ExportMenuAction[] = [
-    {
+  const downloadActions: ExportMenuAction[] = []
+  if (onDocx) {
+    downloadActions.push({
+      label: docxLabel,
+      description: 'Word document',
+      icon: <FileText size={15} />,
+      onClick: onDocx,
+    })
+  }
+  if (onCsv) {
+    downloadActions.push({
       label: csvLabel,
       description: 'Comma-separated values',
       icon: <Download size={15} />,
       onClick: onCsv,
-    },
-    {
+    })
+  }
+  if (onXlsx) {
+    downloadActions.push({
       label: xlsxLabel,
       description: 'Excel workbook',
       icon: <Sheet size={15} />,
       onClick: onXlsx,
-    },
-  ]
-  const sendActions: ExportMenuAction[] = [
-    {
+    })
+  }
+  const sendActions: ExportMenuAction[] = []
+  if (onGoogleSheets) {
+    sendActions.push({
       label: sheetsLoading ? 'Exporting...' : (sheetsLabel || 'Google Sheets'),
       description: 'Open in a new tab',
       icon: sheetsLoading ? <FileSpreadsheet size={15} /> : <ExternalLink size={15} />,
       onClick: onGoogleSheets,
       disabled: sheetsLoading,
-    },
-  ]
+    })
+  }
+  if (onGoogleDocs) {
+    sendActions.push({
+      label: docsLoading ? 'Exporting...' : (docsLabel || 'Google Docs'),
+      description: 'Create a Google Doc',
+      icon: docsLoading ? <FileText size={15} /> : <ExternalLink size={15} />,
+      onClick: onGoogleDocs,
+      disabled: docsLoading,
+    })
+  }
 
   return (
     <div ref={menuRef} className={`relative inline-flex ${className}`}>
@@ -115,15 +146,23 @@ export default function ExportMenu({
           role="menu"
           className="dropdown-menu absolute right-0 top-[calc(100%+8px)] z-50 w-72 py-2"
         >
-          <p className="px-4 pb-1 pt-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Download</p>
-          {downloadActions.map(action => (
-            <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
-          ))}
-          <div className="mx-4 my-2 h-px bg-border" />
-          <p className="px-4 pb-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Send to</p>
-          {sendActions.map(action => (
-            <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
-          ))}
+          {downloadActions.length > 0 && (
+            <>
+              <p className="px-4 pb-1 pt-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Download</p>
+              {downloadActions.map(action => (
+                <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
+              ))}
+            </>
+          )}
+          {downloadActions.length > 0 && sendActions.length > 0 && <div className="mx-4 my-2 h-px bg-border" />}
+          {sendActions.length > 0 && (
+            <>
+              <p className="px-4 pb-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Send to</p>
+              {sendActions.map(action => (
+                <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

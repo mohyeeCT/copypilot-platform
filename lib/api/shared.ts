@@ -110,6 +110,7 @@ export type GscSettings = {
     status: 'connected' | 'reconnect_required' | 'not_connected'
     has_indexing_scope?: boolean
     has_sheets_scope?: boolean
+    has_docs_scope?: boolean
   }
   oauth_available: boolean
 }
@@ -124,6 +125,16 @@ export type GoogleSheetsExportPayload = {
 export type GoogleSheetsExportResult = {
   spreadsheet_id: string
   spreadsheet_url: string
+}
+
+export type GoogleDocsExportPayload = {
+  title: string
+  body: string
+}
+
+export type GoogleDocsExportResult = {
+  document_id: string
+  document_url: string
 }
 
 export async function startGscOAuth(token: string, activateOnSuccess: boolean): Promise<{ authorization_url: string }> {
@@ -153,6 +164,16 @@ export async function exportToGoogleSheets(
   payload: GoogleSheetsExportPayload
 ): Promise<GoogleSheetsExportResult> {
   return sf('/api/settings/google-sheets/export', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function exportToGoogleDocs(
+  token: string,
+  payload: GoogleDocsExportPayload
+): Promise<GoogleDocsExportResult> {
+  return sf('/api/settings/google-docs/export', token, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
