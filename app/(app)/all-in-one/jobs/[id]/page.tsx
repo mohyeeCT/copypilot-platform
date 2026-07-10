@@ -29,6 +29,7 @@ interface PageCopyResult {
   full_page?: string
   section_results?: Record<string, string>
   content_gap_summary?: {section: string; missing_topics: string[]; summary?: string}[]
+  strategy_brief?: Record<string, unknown>
   brand_consistency?: {score?: number; reason?: string}
   // Meta fields
   generated_title?: string
@@ -93,6 +94,72 @@ function previewText(text?: string, max = 120) {
   const cleaned = (text || '').replace(/\s+/g, ' ').trim()
   if (!cleaned) return ''
   return cleaned.length > max ? `${cleaned.slice(0, max - 3).trim()}...` : cleaned
+}
+
+const STRATEGY_BRIEF_ORDER = [
+  'search_intent',
+  'page_goal',
+  'audience_need',
+  'recommended_angle',
+  'brand_positioning',
+  'proof_points_to_use',
+  'claims_to_avoid',
+  'competitor_gaps',
+  'meta_direction',
+  'faq_direction',
+  'section_guidance',
+]
+
+const STRATEGY_BRIEF_LABELS: Record<string, string> = {
+  search_intent: 'Search intent',
+  page_goal: 'Page goal',
+  audience_need: 'Audience need',
+  recommended_angle: 'Recommended angle',
+  brand_positioning: 'Brand positioning',
+  proof_points_to_use: 'Proof points to use',
+  claims_to_avoid: 'Claims to avoid',
+  competitor_gaps: 'Competitor gaps',
+  meta_direction: 'Meta direction',
+  faq_direction: 'FAQ direction',
+  section_guidance: 'Section guidance',
+}
+
+function strategyLabel(key: string) {
+  return STRATEGY_BRIEF_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function formatStrategyBriefValue(value: unknown): string[] {
+  if (value == null) return []
+  if (Array.isArray(value)) {
+    return value.flatMap(item => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const record = item as Record<string, unknown>
+        const section = String(record.section || '').trim()
+        const guidance = String(record.guidance || record.direction || record.notes || '').trim()
+        if (guidance) return [section ? `${section}: ${guidance}` : guidance]
+        return Object.entries(record)
+          .map(([key, nested]) => `${strategyLabel(key)}: ${formatStrategyBriefValue(nested).join(', ')}`)
+          .filter(line => !line.endsWith(': '))
+      }
+      const text = String(item || '').trim()
+      return text ? [text] : []
+    })
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, nested]) => `${strategyLabel(key)}: ${formatStrategyBriefValue(nested).join(', ')}`)
+      .filter(line => !line.endsWith(': '))
+  }
+  const text = String(value).trim()
+  return text ? [text] : []
+}
+
+function strategyBriefEntries(brief?: Record<string, unknown>) {
+  if (!brief) return []
+  const keys = [...STRATEGY_BRIEF_ORDER, ...Object.keys(brief).filter(key => !STRATEGY_BRIEF_ORDER.includes(key))]
+  return keys
+    .map(key => ({ key, label: strategyLabel(key), lines: formatStrategyBriefValue(brief[key]) }))
+    .filter(entry => entry.lines.length > 0)
 }
 
 export default function PageCopyJobPage() {
@@ -549,6 +616,24 @@ export default function PageCopyJobPage() {
                       {row.word_count && <span className="text-xs text-muted font-mono">{row.word_count} words</span>}
                       {row.template_name && <span className="text-xs text-muted">Template: <span className="text-text">{row.template_name}</span></span>}
                     </div>
+
+                    {strategyBriefEntries(row.strategy_brief).length > 0 && (
+                      <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Strategy Brief</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {strategyBriefEntries(row.strategy_brief).map(entry => (
+                            <div key={entry.key} className="min-w-0">
+                              <p className="text-xs font-semibold text-text mb-0.5">{entry.label}</p>
+                              <div className="space-y-1">
+                                {entry.lines.map((line, li) => (
+                                  <p key={`${entry.key}-${li}`} className="text-xs text-muted leading-relaxed">{line}</p>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {row.competitor_urls && row.competitor_urls.length > 0 && (
                       <div>
