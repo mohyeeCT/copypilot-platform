@@ -31,7 +31,10 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'GPT-5.4 mini', value: 'gpt-5.4-mini' },
     { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },
   ],
-  'Gemini (free)': [{ label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' }],
+  'Gemini (free)': [
+    { label: 'Gemini 3.5 Flash (default)', value: 'gemini-3.5-flash' },
+    { label: 'Gemini 3.1 Flash-Lite', value: 'gemini-3.1-flash-lite' },
+  ],
   'Mistral (free tier)': [{ label: 'Mistral Small Latest', value: 'mistral-small-latest' }],
   'Groq (free tier)': [{ label: 'Llama 3.3 70B Versatile', value: 'llama-3.3-70b-versatile' }],
 }
@@ -43,6 +46,10 @@ function resolveProviderModel(provider: string, savedModel?: string | null) {
     : options[0]?.value || ''
 }
 const BIZ_TYPES  = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
+const REVIEW_PROVIDERS = [
+  { value: 'same', label: 'Same as generation' },
+  ...PROVIDERS.map(value => ({ value, label: value })),
+]
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'landing_page', 'service', 'local', 'about', 'contact', 'product', 'collection']
 const PAGE_LABELS: Record<string, string> = {
   blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
@@ -79,6 +86,8 @@ export default function NewAIOJob() {
   // Core settings
   const [provider, setProvider]       = useState('Claude')
   const [model, setModel]             = useState(PROVIDER_MODELS['Claude'][0].value)
+  const [reviewProvider, setReviewProvider] = useState('same')
+  const [reviewModel, setReviewModel] = useState('')
   const [bizType, setBizType]         = useState('general')
   const [niche, setNiche]             = useState('none')
   const [brandName, setBrandName]     = useState('')
@@ -175,6 +184,11 @@ export default function NewAIOJob() {
     setModel(PROVIDER_MODELS[value]?.[0]?.value || '')
   }
 
+  function handleReviewProviderChange(value: string) {
+    setReviewProvider(value)
+    setReviewModel(value === 'same' ? '' : PROVIDER_MODELS[value]?.[0]?.value || '')
+  }
+
   function parseCsv() {
     const result = parseImportedRows(csvPaste, createAioRowImportSchema(pageType))
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({
@@ -227,6 +241,8 @@ export default function NewAIOJob() {
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
         brand_consistency_check: brandConsistencyCheck,
+        review_provider: reviewProvider === 'same' ? '' : reviewProvider,
+        review_model: reviewProvider === 'same' ? '' : reviewModel,
         gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs, num_faqs: numFaqs,
       },
     }
@@ -299,6 +315,7 @@ export default function NewAIOJob() {
                 { label: 'AI', value: <JobSummaryPills items={[
                   { label: cleanProviderLabel(provider), tone: 'accent' },
                   { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
+                  { label: reviewProvider === 'same' ? 'Same-provider review' : `${cleanProviderLabel(reviewProvider)} review`, tone: 'muted' },
                 ]} /> },
                 { label: 'Data', value: <JobSummaryPills items={[
                   { label: 'Scrape', tone: 'success' },
@@ -509,6 +526,20 @@ export default function NewAIOJob() {
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Model</label>
                 <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Review Provider</label>
+                <CustomSelect value={reviewProvider} onChange={handleReviewProviderChange} options={REVIEW_PROVIDERS} />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Review Model</label>
+                {reviewProvider === 'same' ? (
+                  <div className="input-base text-sm text-muted flex items-center">Same as generation</div>
+                ) : (
+                  <CustomSelect value={reviewModel} onChange={setReviewModel} options={PROVIDER_MODELS[reviewProvider] ?? []} />
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
