@@ -32,21 +32,10 @@ interface PageCopyResult {
   strategy_brief?: Record<string, unknown>
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
   strategy_issues?: string[]
-  editorial_review_status?: 'ready' | 'unavailable' | 'not_requested'
-  brand_consistency_status?: 'ready' | 'unavailable' | 'not_requested'
-  review_providers?: {generation?: string; editorial_review?: string; brand_consistency?: string}
-  brand_consistency?: {score?: number; reason?: string; evaluation_mode?: 'same_provider' | 'cross_provider' | 'independent'}
   qa_flags?: QaFlag[]
   run_diagnostics?: {
     provider?: string
     model?: string
-    review?: {
-      provider?: string
-      model?: string
-      mode?: 'same_provider' | 'cross_provider'
-      editorial_status?: 'ready' | 'unavailable' | 'not_requested'
-      brand_status?: 'ready' | 'unavailable' | 'not_requested'
-    }
     input_signal_counts?: {
       paa_questions?: number
       ai_overview_sections?: number
@@ -686,22 +675,6 @@ export default function PageCopyJobPage() {
                             <p className="text-xs font-semibold">{row.run_diagnostics.input_signal_counts?.competitors_scraped || 0}</p>
                           </div>
                         </div>
-                        {row.run_diagnostics.review && (
-                          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                            <span className="text-muted">
-                              Reviewer: <span className="text-text font-semibold">{row.run_diagnostics.review.provider || row.review_providers?.editorial_review || 'Unknown'}</span>
-                            </span>
-                            <span className="text-muted">
-                              {row.run_diagnostics.review.mode === 'cross_provider' ? 'Cross-provider review' : 'Same-provider review'}
-                            </span>
-                            <span className={row.editorial_review_status === 'unavailable' ? 'text-warning' : 'text-muted'}>
-                              Editorial: {row.editorial_review_status || row.run_diagnostics.review.editorial_status || 'not requested'}
-                            </span>
-                            <span className={row.brand_consistency_status === 'unavailable' ? 'text-warning' : 'text-muted'}>
-                              Brand: {row.brand_consistency_status || row.run_diagnostics.review.brand_status || 'not requested'}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -740,7 +713,7 @@ export default function PageCopyJobPage() {
 
                     {row.qa_flags && row.qa_flags.length > 0 && (
                       <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Quality review</p>
+                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Quality checks</p>
                         <div className="space-y-2">
                           {row.qa_flags.map((flag, flagIndex) => {
                             const severity = flag.severity || 'review'
@@ -772,26 +745,6 @@ export default function PageCopyJobPage() {
                             <a key={ci} href={u} target="_blank" rel="noopener noreferrer"
                               className="block text-xs font-mono text-accent hover:underline truncate">{u}</a>
                           ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {row.brand_consistency?.score !== undefined && (
-                      <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-xs text-muted uppercase tracking-wider">AI brand signal</p>
-                          {row.brand_consistency.evaluation_mode === 'same_provider' && (
-                            <span className="text-xs text-muted">Same-provider review</span>
-                          )}
-                          {row.brand_consistency.evaluation_mode === 'cross_provider' && (
-                            <span className="text-xs text-muted">Cross-provider review</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm font-semibold ${(row.brand_consistency.score || 0) < 70 ? 'text-error' : 'text-success'}`}>
-                            {row.brand_consistency.score}/100
-                          </span>
-                          {row.brand_consistency.reason && <span className="text-xs text-muted">{row.brand_consistency.reason}</span>}
                         </div>
                       </div>
                     )}

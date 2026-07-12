@@ -46,10 +46,6 @@ function resolveProviderModel(provider: string, savedModel?: string | null) {
     : options[0]?.value || ''
 }
 const BIZ_TYPES  = ['general', 'b2b', 'b2c', 'ecommerce', 'service', 'local']
-const REVIEW_PROVIDERS = [
-  { value: 'same', label: 'Same as generation' },
-  ...PROVIDERS.map(value => ({ value, label: value })),
-]
 const PAGE_TYPES = ['blog', 'case_study', 'glossary', 'homepage', 'landing_page', 'service', 'local', 'about', 'contact', 'product', 'collection']
 const PAGE_LABELS: Record<string, string> = {
   blog: 'Blog', case_study: 'Case Study', glossary: 'Glossary',
@@ -86,8 +82,6 @@ export default function NewAIOJob() {
   // Core settings
   const [provider, setProvider]       = useState('Claude')
   const [model, setModel]             = useState(PROVIDER_MODELS['Claude'][0].value)
-  const [reviewProvider, setReviewProvider] = useState('same')
-  const [reviewModel, setReviewModel] = useState('')
   const [bizType, setBizType]         = useState('general')
   const [niche, setNiche]             = useState('none')
   const [brandName, setBrandName]     = useState('')
@@ -104,7 +98,6 @@ export default function NewAIOJob() {
   const [templateMode, setTemplateMode] = useState<'predefined' | 'custom'>('predefined')
   const [jobName, setJobName]         = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
-  const [brandConsistencyCheck, setBrandConsistencyCheck] = useState(false)
 
   // Output toggles (job-level defaults)
   const [genPageCopy, setGenPageCopy] = useState(true)
@@ -184,11 +177,6 @@ export default function NewAIOJob() {
     setModel(PROVIDER_MODELS[value]?.[0]?.value || '')
   }
 
-  function handleReviewProviderChange(value: string) {
-    setReviewProvider(value)
-    setReviewModel(value === 'same' ? '' : PROVIDER_MODELS[value]?.[0]?.value || '')
-  }
-
   function parseCsv() {
     const result = parseImportedRows(csvPaste, createAioRowImportSchema(pageType))
     const parsed = result.rows.map(({ url, keyword, page_type, h1 }) => ({
@@ -240,9 +228,6 @@ export default function NewAIOJob() {
         template_key: templateMode === 'predefined' ? templateKey : '',
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
-        brand_consistency_check: brandConsistencyCheck,
-        review_provider: reviewProvider === 'same' ? '' : reviewProvider,
-        review_model: reviewProvider === 'same' ? '' : reviewModel,
         gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs, num_faqs: numFaqs,
       },
     }
@@ -315,7 +300,6 @@ export default function NewAIOJob() {
                 { label: 'AI', value: <JobSummaryPills items={[
                   { label: cleanProviderLabel(provider), tone: 'accent' },
                   { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
-                  { label: reviewProvider === 'same' ? 'Same-provider review' : `${cleanProviderLabel(reviewProvider)} review`, tone: 'muted' },
                 ]} /> },
                 { label: 'Data', value: <JobSummaryPills items={[
                   { label: 'Scrape', tone: 'success' },
@@ -530,20 +514,6 @@ export default function NewAIOJob() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Review Provider</label>
-                <CustomSelect value={reviewProvider} onChange={handleReviewProviderChange} options={REVIEW_PROVIDERS} />
-              </div>
-              <div>
-                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Review Model</label>
-                {reviewProvider === 'same' ? (
-                  <div className="input-base text-sm text-muted flex items-center">Same as generation</div>
-                ) : (
-                  <CustomSelect value={reviewModel} onChange={setReviewModel} options={PROVIDER_MODELS[reviewProvider] ?? []} />
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
                 <CustomSelect value={bizType} onChange={setBizType}
                   options={toDisplayOptions(BIZ_TYPES)} />
@@ -570,13 +540,6 @@ export default function NewAIOJob() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeBrand ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
               <span className="text-sm">Include brand name in meta copy</span>
-            </label>
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <div onClick={() => setBrandConsistencyCheck(!brandConsistencyCheck)}
-                className={`w-9 h-5 rounded-full transition-colors relative ${brandConsistencyCheck ? 'bg-accent' : 'bg-border'}`}>
-                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${brandConsistencyCheck ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
-              <span className="text-sm">Brand consistency check</span>
             </label>
             <div>
               <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Client Brief</label>
