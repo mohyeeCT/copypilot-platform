@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Download, Info, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
@@ -30,7 +30,23 @@ interface PageCopyResult {
   section_results?: Record<string, string>
   content_gap_summary?: {section: string; missing_topics: string[]; summary?: string}[]
   strategy_brief?: Record<string, unknown>
-  brand_consistency?: {score?: number; reason?: string}
+  strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
+  strategy_issues?: string[]
+  brand_consistency?: {score?: number; reason?: string; evaluation_mode?: 'same_provider' | 'independent'}
+  qa_flags?: QaFlag[]
+  run_diagnostics?: {
+    provider?: string
+    model?: string
+    input_signal_counts?: {
+      paa_questions?: number
+      ai_overview_sections?: number
+      competitors_scraped?: number
+      scraped_page_chars?: number
+    }
+    scrape?: {
+      page_context_success?: boolean
+    }
+  }
   // Meta fields
   generated_title?: string
   generated_description?: string
@@ -88,6 +104,15 @@ interface Job {
   rows?: unknown[]
   settings?: Record<string, unknown>
   logs?: {ts: string; msg: string}[]
+}
+
+interface QaFlag {
+  code: string
+  message: string
+  severity?: 'warning' | 'review' | 'error'
+  output?: string
+  phrase?: string
+  details?: string[]
 }
 
 function previewText(text?: string, max = 120) {
@@ -366,7 +391,9 @@ export default function PageCopyJobPage() {
 
   const metaRows = job.results?.filter(row => !row.error && row.generated_title).length ?? 0
   const faqTotal = job.results?.reduce((sum, row) => sum + (row.faq_count ?? row.faq_items?.length ?? 0), 0) ?? 0
-  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status !== 'ok' || row.error).length ?? 0
+  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
+  const reviewRows = job.results?.filter(row => row.status === 'review').length ?? 0
+  const warningRows = job.results?.filter(row => row.status === 'warning').length ?? 0
   const linkSuggestions = job.internal_link_suggestions?.length ?? 0
   const hasDocx = job.results?.some(row => row.docx_b64) ?? false
 
@@ -409,9 +436,16 @@ export default function PageCopyJobPage() {
               { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
               { label: 'Meta rows', value: metaRows, tone: 'success' },
               { label: 'FAQs generated', value: faqTotal, tone: 'success' },
+              { label: 'Needs review', value: reviewRows, tone: reviewRows ? 'warning' : 'muted' },
               { label: 'Link ideas', value: linkSuggestions, tone: 'muted' },
             ]}
-            message={failedRows > 0 ? `${failedRows} rows need review before download` : 'All rows complete - ready to download'}
+            message={failedRows > 0
+              ? `${failedRows} rows failed to generate`
+              : reviewRows > 0
+                ? `${reviewRows} rows need review; generated files remain available`
+                : warningRows > 0
+                  ? `${warningRows} rows have advisory quality warnings`
+                  : 'All rows complete - ready to download'}
             logCount={job.logs?.length}
             logsCollapsed={logsCollapsed}
             onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
@@ -505,7 +539,7 @@ export default function PageCopyJobPage() {
             {selectedRows.size === 0 && job.results.some(r => r.status !== 'ok') && (
               <button onClick={() => setSelectedRows(new Set(
                 job.results!.map((r, i) => r.status !== 'ok' ? i : -1).filter(i => i >= 0)
-              ))} className="btn-ghost text-xs">Select all failed</button>
+              ))} className="btn-ghost text-xs">Select rows needing attention</button>
             )}
             <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
               <StyledCheckbox
@@ -617,9 +651,52 @@ export default function PageCopyJobPage() {
                       {row.template_name && <span className="text-xs text-muted">Template: <span className="text-text">{row.template_name}</span></span>}
                     </div>
 
-                    {strategyBriefEntries(row.strategy_brief).length > 0 && (
+                    {row.run_diagnostics && (
                       <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Strategy Brief</p>
+                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Evidence received</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                          <div>
+                            <p className="text-xs text-muted">Owned page</p>
+                            <p className={`text-xs font-semibold ${row.run_diagnostics.scrape?.page_context_success ? 'text-success' : 'text-warning'}`}>
+                              {row.run_diagnostics.scrape?.page_context_success
+                                ? `${row.run_diagnostics.input_signal_counts?.scraped_page_chars || 0} chars`
+                                : 'Unavailable'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted">PAA</p>
+                            <p className="text-xs font-semibold">{row.run_diagnostics.input_signal_counts?.paa_questions || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted">AI Overview</p>
+                            <p className="text-xs font-semibold">{row.run_diagnostics.input_signal_counts?.ai_overview_sections || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted">Competitors</p>
+                            <p className="text-xs font-semibold">{row.run_diagnostics.input_signal_counts?.competitors_scraped || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(strategyBriefEntries(row.strategy_brief).length > 0 || row.strategy_status === 'unavailable' || row.strategy_status === 'needs_review') && (
+                      <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-xs text-muted uppercase tracking-wider">Strategy Brief</p>
+                          {row.strategy_status && row.strategy_status !== 'ready' && row.strategy_status !== 'not_requested' && (
+                            <span className="text-xs font-semibold text-warning">{row.strategy_status === 'unavailable' ? 'Unavailable' : 'Needs review'}</span>
+                          )}
+                        </div>
+                        {row.strategy_issues?.length ? (
+                          <div className="mb-3 space-y-1">
+                            {row.strategy_issues.map((issue, issueIndex) => (
+                              <p key={`${issue}-${issueIndex}`} className="text-xs text-warning flex items-start gap-1.5">
+                                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                <span>{issue}</span>
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         <div className="grid gap-2 sm:grid-cols-2">
                           {strategyBriefEntries(row.strategy_brief).map(entry => (
                             <div key={entry.key} className="min-w-0">
@@ -631,6 +708,32 @@ export default function PageCopyJobPage() {
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {row.qa_flags && row.qa_flags.length > 0 && (
+                      <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <p className="text-xs text-muted mb-2 uppercase tracking-wider">Quality review</p>
+                        <div className="space-y-2">
+                          {row.qa_flags.map((flag, flagIndex) => {
+                            const severity = flag.severity || 'review'
+                            const Icon = severity === 'warning' ? Info : AlertTriangle
+                            return (
+                              <div key={`${flag.code}-${flag.output || 'row'}-${flagIndex}`} className="flex items-start gap-2">
+                                <Icon size={13} className={`mt-0.5 shrink-0 ${severity === 'warning' ? 'text-muted' : severity === 'error' ? 'text-error' : 'text-warning'}`} />
+                                <div className="min-w-0">
+                                  <p className="text-xs text-text">{flag.message}</p>
+                                  <p className="text-xs text-muted font-mono">
+                                    {severity}{flag.output ? ` · ${flag.output.replace(/_/g, ' ')}` : ''}
+                                  </p>
+                                  {flag.details?.map((detail, detailIndex) => (
+                                    <p key={`${detail}-${detailIndex}`} className="text-xs text-muted mt-0.5">{detail}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -649,7 +752,12 @@ export default function PageCopyJobPage() {
 
                     {row.brand_consistency?.score !== undefined && (
                       <div className="p-3 rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                        <p className="text-xs text-muted mb-1 uppercase tracking-wider">Brand match</p>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-xs text-muted uppercase tracking-wider">AI brand signal</p>
+                          {row.brand_consistency.evaluation_mode === 'same_provider' && (
+                            <span className="text-xs text-muted">Same-provider review</span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-sm font-semibold ${(row.brand_consistency.score || 0) < 70 ? 'text-error' : 'text-success'}`}>
                             {row.brand_consistency.score}/100

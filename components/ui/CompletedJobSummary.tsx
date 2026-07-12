@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 type SummaryStat = {
   label: string
   value: ReactNode
-  tone?: 'default' | 'success' | 'error' | 'muted'
+  tone?: 'default' | 'success' | 'warning' | 'error' | 'muted'
 }
 
 type CompletedJobSummaryProps = {
@@ -19,6 +19,7 @@ type CompletedJobSummaryProps = {
 
 function statColor(tone: SummaryStat['tone']) {
   if (tone === 'success') return 'var(--accent)'
+  if (tone === 'warning') return 'var(--warning)'
   if (tone === 'error') return 'var(--error)'
   if (tone === 'muted') return 'var(--muted)'
   return 'var(--text)'

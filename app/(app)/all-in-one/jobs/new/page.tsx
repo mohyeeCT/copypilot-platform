@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
@@ -256,6 +256,30 @@ export default function NewAIOJob() {
     genMeta ? 'Meta' : '',
     genFaqs ? 'FAQs' : '',
   ].filter(Boolean).join(', ') || 'None'
+  const populatedRows = rows.filter(row => row.url.trim())
+  const h1Coverage = populatedRows.filter(row => row.h1.trim()).length
+  const readinessItems = [
+    {
+      label: 'Valid URLs',
+      value: `${validUrlCount}/${populatedRows.length || 0}`,
+      ready: validUrlCount > 0 && validUrlCount === populatedRows.length,
+    },
+    {
+      label: 'Brand context',
+      value: brandProfileId ? 'Profile selected' : clientBrief.trim() || brandName.trim() ? 'Manual context' : 'Not provided',
+      ready: Boolean(brandProfileId || clientBrief.trim() || brandName.trim()),
+    },
+    {
+      label: 'Current H1s',
+      value: `${h1Coverage}/${populatedRows.length || 0}`,
+      ready: populatedRows.length > 0 && h1Coverage === populatedRows.length,
+    },
+    {
+      label: 'GSC property',
+      value: useGsc ? (siteUrl.trim() ? 'Ready' : 'Missing') : 'Not enabled',
+      ready: !useGsc || Boolean(siteUrl.trim()),
+    },
+  ]
 
   return (
     <AppLayout title="All in One">
@@ -458,6 +482,21 @@ export default function NewAIOJob() {
             </div>
 
             <div className="col-span-2 space-y-4">
+
+          <JobSection title="Run readiness" description="Input coverage before research and generation begin." className="space-y-2">
+            {readinessItems.map(item => (
+              <div key={item.label} className="flex items-center justify-between gap-3 text-xs">
+                <span className="flex items-center gap-2 text-muted">
+                  {item.ready
+                    ? <CheckCircle2 size={13} className="text-success shrink-0" />
+                    : <AlertTriangle size={13} className="text-warning shrink-0" />}
+                  {item.label}
+                </span>
+                <span className="font-mono text-text text-right">{item.value}</span>
+              </div>
+            ))}
+            <p className="text-xs text-muted pt-2 border-t border-border">Owned-page evidence is verified during the run and reported with each result.</p>
+          </JobSection>
 
           {/* Copy Settings */}
           <JobSection title="Configuration" description="AI, business, brand, and client brief controls." className="space-y-4">
