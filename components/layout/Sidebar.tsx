@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  HelpCircle, FileText, Tag, Layers, Radar, Braces,
+  HelpCircle, FileText, Tag, Layers, Radar, Bot, Braces,
   Link2, Settings, LogOut, Plus, Sun, Moon
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -28,6 +28,7 @@ const tools: Tool[] = [
 
 const insights: Tool[] = [
   { href: '/brand-mentions', label: 'Brand Pulse', icon: Radar, accent: '#0B7A5C', newHref: '/brand-mentions/new' },
+  { href: '/geopilot', label: 'GEOPilot', icon: Bot, accent: '#0B7A5C', newHref: '/geopilot/new' },
 ]
 
 const other: Tool[] = [

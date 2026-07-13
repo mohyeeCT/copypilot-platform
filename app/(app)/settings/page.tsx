@@ -19,6 +19,7 @@ const BACKENDS = [
   { label: 'Schema Generator', url: 'schema-saas-backend-production.up.railway.app' },
   { label: 'Indexer', url: 'indexer-backend-production.up.railway.app' },
   { label: 'Brand Pulse', url: 'brand-mentions-saas-backend-production.up.railway.app' },
+  { label: 'GEOPilot', url: 'geopilot-backend-production.up.railway.app' },
 ]
 const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 
