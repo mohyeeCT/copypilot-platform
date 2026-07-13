@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Plus, Search, Trash2 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import SurfaceSelector, { ALL_GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { JobLauncherShell, JobSection } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { geopilotApi, type GeoPilotCollectionPayload, type GeoPilotPromptPayload } from '@/lib/api/geopilot'
@@ -17,7 +18,7 @@ export default function NewGeoPilotCollectionPage() {
   const profileId = params.id
   const router = useRouter()
   const [collectionId, setCollectionId] = useState('')
-  const [collection, setCollection] = useState<GeoPilotCollectionPayload>({ name: '', objective: '', funnel_stage: null, schedule: 'daily', active: true })
+  const [collection, setCollection] = useState<GeoPilotCollectionPayload>({ name: '', objective: '', funnel_stage: null, schedule: 'daily', surfaces: [...ALL_GEOPILOT_SURFACES], active: true })
   const [prompts, setPrompts] = useState<DraftPrompt[]>([blankPrompt()])
   const [busy, setBusy] = useState<'collection' | 'suggest' | 'prompts' | ''>('')
   const [error, setError] = useState('')
@@ -70,6 +71,7 @@ export default function NewGeoPilotCollectionPage() {
     {error && <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>}
     <JobSection title="Collection">
       <div className="grid gap-4 lg:grid-cols-2"><label className="text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={collection.name} onChange={event => setCollection({ ...collection, name: event.target.value })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Schedule<select className="input-base mt-1" value={collection.schedule} onChange={event => setCollection({ ...collection, schedule: event.target.value as 'manual' | 'daily' })} disabled={Boolean(collectionId)}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label><label className="text-xs font-semibold text-muted lg:col-span-2">Research objective<textarea className="input-base mt-1 min-h-20" value={collection.objective} onChange={event => setCollection({ ...collection, objective: event.target.value })} disabled={Boolean(collectionId)} /></label></div>
+      <div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted">Tracked sources</p><SurfaceSelector selected={collection.surfaces} onChange={surfaces => setCollection({ ...collection, surfaces })} disabled={Boolean(collectionId)} /></div>
       {!collectionId ? <button type="button" className="btn-primary mt-4 gap-2" onClick={() => void createCollection()} disabled={busy === 'collection'}><Check size={15} />{busy === 'collection' ? 'Creating...' : 'Create Collection'}</button> : <p className="mt-4 text-xs font-semibold text-success">Collection created. Add the prompts you want to track.</p>}
     </JobSection>
     {collectionId && <JobSection title="Tracked prompts" description={`${prompts.filter(item => item.selected && item.prompt_text.trim()).length} of 15 selected`}>
@@ -85,4 +87,3 @@ export default function NewGeoPilotCollectionPage() {
     </JobSection>}
   </JobLauncherShell></AppLayout>
 }
-

@@ -7,6 +7,7 @@ const BASE = (
 const f = (path: string, token: string, options?: RequestInit) => apiFetch(BASE, path, token, options)
 
 export type GeoPilotSurface = 'google_ai_overview' | 'chatgpt' | 'gemini' | 'claude' | 'chatgpt_calibration'
+export type GeoPilotPrimarySurface = Exclude<GeoPilotSurface, 'chatgpt_calibration'>
 
 export type GeoPilotCompetitor = {
   id?: string
@@ -42,6 +43,7 @@ export type GeoPilotCollectionPayload = {
   location_name?: string | null
   language_code?: string | null
   device?: 'desktop' | 'mobile' | null
+  surfaces: GeoPilotPrimarySurface[]
   active: boolean
 }
 
@@ -78,10 +80,19 @@ export const geopilotApi = {
     f(`/api/geopilot/collections/${collectionId}/suggest-prompts`, token, {
       method: 'POST', body: JSON.stringify({ objective, limit }),
     }),
-  runProfile: (token: string, profileId: string, collectionId?: string) =>
+  runProfile: (
+    token: string,
+    profileId: string,
+    options: { collectionId?: string; surfaces: GeoPilotPrimarySurface[]; includeCalibration: boolean },
+  ) =>
     f(`/api/geopilot/profiles/${profileId}/runs`, token, {
       method: 'POST',
-      body: JSON.stringify(collectionId ? { scope: 'collection', collection_id: collectionId } : { scope: 'profile' }),
+      body: JSON.stringify({
+        scope: options.collectionId ? 'collection' : 'profile',
+        collection_id: options.collectionId,
+        surfaces: options.surfaces,
+        include_calibration: options.includeCalibration,
+      }),
     }),
   listBatches: (token: string, profileId: string) => f(`/api/geopilot/profiles/${profileId}/batches`, token),
   getBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}`, token),
