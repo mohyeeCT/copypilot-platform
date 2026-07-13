@@ -9,6 +9,8 @@ export default function Page() {
   return (
     <JobsListPage tool={{
       label:       'Meta Copy',
+      variant:     'meta',
+      description:'Create, review, and export title tags, meta descriptions, and optimised H1s.',
       newHref:     '/meta/jobs/new',
       jobHref:     (id) => `/meta/jobs/${id}`,
       icon:        Tag,

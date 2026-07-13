@@ -1,18 +1,35 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, RefreshCw, ChevronDown, ChevronUp, Copy, Pencil, X, Check } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ClipboardCheck,
+  Copy,
+  ExternalLink,
+  FileText,
+  Pencil,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react'
+import * as XLSX from 'xlsx'
 import AppLayout from '@/components/layout/AppLayout'
+import styles from '@/components/meta/MetaCopyWorkspace.module.css'
 import Badge from '@/components/ui/Badge'
-import CompletedJobSummary from '@/components/ui/CompletedJobSummary'
 import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
-import { createClient } from '@/lib/supabase'
 import { metaApi } from '@/lib/api/meta'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
-import * as XLSX from 'xlsx'
+import { createClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +53,25 @@ interface MetaResult {
   error?: string
 }
 
+interface Job {
+  id: string
+  name: string
+  status: string
+  total_rows: number
+  completed_rows: number
+  failed_rows: number
+  current_step?: string
+  error?: string
+  results?: MetaResult[]
+  rows?: unknown[]
+  settings?: Record<string, unknown>
+  logs?: { ts: string; msg: string }[]
+}
+
+type ResultFilter = 'all' | 'ready' | 'review' | 'error'
+type DetailTab = 'copy' | 'quality' | 'sources'
+type ResultState = Exclude<ResultFilter, 'all'>
+
 function gscAuthLabel(method?: MetaResult['gsc_auth_method']) {
   if (method === 'google_oauth') return 'Google OAuth'
   if (method === 'service_account') return 'Service account'
@@ -57,40 +93,53 @@ function gscErrorMessage(error?: string | null) {
   return error || ''
 }
 
-interface Job {
-  id: string
-  name: string
-  status: string
-  total_rows: number
-  completed_rows: number
-  failed_rows: number
-  current_step?: string
-  error?: string
-  results?: MetaResult[]
-  rows?: unknown[]
-  settings?: Record<string, unknown>
-  logs?: {ts: string; msg: string}[]
-}
-
 function previewText(text?: string, max = 120) {
   const cleaned = (text || '').replace(/\s+/g, ' ').trim()
   if (!cleaned) return ''
   return cleaned.length > max ? `${cleaned.slice(0, max - 3).trim()}...` : cleaned
 }
 
+function resultState(row: MetaResult): ResultState {
+  if (row.error || row.status === 'error' || row.status === 'failed') return 'error'
+  if (row.qa_flags?.length) return 'review'
+  if (!row.generated_title && !row.generated_description && !row.optimised_h1) return 'review'
+  return 'ready'
+}
+
+function resultStateLabel(state: ResultState) {
+  if (state === 'review') return 'Needs review'
+  if (state === 'error') return 'Error'
+  return 'Ready'
+}
+
+function domainFromUrl(value: string) {
+  try {
+    return new URL(value).hostname.replace(/^www\./, '')
+  } catch {
+    return value
+  }
+}
+
+function characterCount(value?: string, supplied?: number) {
+  return supplied ?? value?.length ?? 0
+}
+
 export default function MetaJobPage() {
-  const { id }  = useParams()
-  const router  = useRouter()
-  const [job, setJob]               = useState<Job | null>(null)
+  const { id } = useParams()
+  const router = useRouter()
+  const [job, setJob] = useState<Job | null>(null)
   const [cancelling, setCancelling] = useState(false)
-  const [rerunning, setRerunning]   = useState<number | null>(null)
+  const [rerunning, setRerunning] = useState<number | null>(null)
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [rerunningMulti, setRerunningMulti] = useState(false)
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
-  const [expanded, setExpanded]     = useState<number | null>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [resultQuery, setResultQuery] = useState('')
+  const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
+  const [detailTab, setDetailTab] = useState<DetailTab>('copy')
   const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [editingKw, setEditingKw]   = useState<number | null>(null)
+  const [editingKw, setEditingKw] = useState<number | null>(null)
   const [kwOverrides, setKwOverrides] = useState<Record<number, string>>({})
   const [exportingSheets, setExportingSheets] = useState(false)
 
@@ -103,35 +152,54 @@ export default function MetaJobPage() {
   const load = useCallback(async () => {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    if (!session) {
+      router.push('/login')
+      return
+    }
     try {
       const data = await metaApi.getJob(session.access_token, id as string)
       setJob(data)
-    } catch (e) {
-      console.error('Failed to fetch job:', e)
+    } catch (loadError) {
+      console.error('Failed to fetch job:', loadError)
     }
   }, [id, router])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
-  // Poll until running or cancellation reaches a terminal state
+  // Poll until running or cancellation reaches a terminal state.
   useEffect(() => {
     if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
-    const t = setInterval(load, 2500)
-    return () => clearInterval(t)
+    const timer = window.setInterval(() => { void load() }, 2500)
+    return () => window.clearInterval(timer)
   }, [job, load])
 
-  function markUpdated(indices: number[], results: MetaResult[]) {
-    const successful = indices.filter(i => {
-      const r = results[i]
-      return r && !r.error && r.generated_title && r.generated_title.length > 0
+  const results = useMemo(() => job?.results || [], [job?.results])
+  const filteredResults = useMemo(() => {
+    const needle = resultQuery.trim().toLowerCase()
+    return results
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => {
+        const matchesQuery = !needle || [row.url, row.selected_keyword, row.generated_title]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(needle)
+        const matchesState = resultFilter === 'all' || resultState(row) === resultFilter
+        return matchesQuery && matchesState
+      })
+  }, [resultFilter, resultQuery, results])
+
+  function markUpdated(indices: number[], refreshedResults: MetaResult[]) {
+    const successful = indices.filter(index => {
+      const row = refreshedResults[index]
+      return row && !row.error && row.generated_title && row.generated_title.length > 0
     })
     if (!successful.length) return
-    setNewlyUpdated(prev => new Set([...Array.from(prev), ...successful]))
-    setTimeout(() => {
-      setNewlyUpdated(prev => {
-        const next = new Set(prev)
-        successful.forEach(i => next.delete(i))
+    setNewlyUpdated(previous => new Set([...Array.from(previous), ...successful]))
+    window.setTimeout(() => {
+      setNewlyUpdated(previous => {
+        const next = new Set(previous)
+        successful.forEach(index => next.delete(index))
         return next
       })
     }, 8000)
@@ -147,61 +215,62 @@ export default function MetaJobPage() {
         await metaApi.cancelJob(session.access_token, job.id)
         await load()
       }
-    } catch (e) {
-      console.error('Cancel request failed:', e)
+    } catch (cancelError) {
+      console.error('Cancel request failed:', cancelError)
     }
     setCancelling(false)
   }
 
   function copyToClipboard(text: string, fieldKey: string) {
-    navigator.clipboard.writeText(text)
+    void navigator.clipboard.writeText(text)
     setCopiedField(fieldKey)
-    setTimeout(() => setCopiedField(null), 1500)
+    window.setTimeout(() => setCopiedField(null), 1500)
   }
 
   function buildExportRows() {
     const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
-    const rows = job!.results!.map(r => ({
-      'URL': r.url || '',
-      'Title Tag': r.generated_title || '',
-      'Title Length': r.title_length || '',
-      'Meta Description': r.generated_description || '',
-      'Description Length': r.description_length || '',
-      'Optimised H1': r.optimised_h1 || '',
-      'H1 Length': r.h1_length || '',
-      'Keyword': r.selected_keyword || '',
-      'Volume': r.kw_volume ?? '',
-      'Difficulty': r.kw_difficulty ?? '',
-      'Keyword Source': r.keyword_source || '',
-      'Runner Up': r.runner_up || '',
-      'Status': r.status || '',
-      'QA Flags': (r.qa_flags || []).join('; '),
+    const rows = results.map(row => ({
+      URL: row.url || '',
+      'Title Tag': row.generated_title || '',
+      'Title Length': row.title_length || '',
+      'Meta Description': row.generated_description || '',
+      'Description Length': row.description_length || '',
+      'Optimised H1': row.optimised_h1 || '',
+      'H1 Length': row.h1_length || '',
+      Keyword: row.selected_keyword || '',
+      Volume: row.kw_volume ?? '',
+      Difficulty: row.kw_difficulty ?? '',
+      'Keyword Source': row.keyword_source || '',
+      'Runner Up': row.runner_up || '',
+      Status: row.status || '',
+      'QA Flags': (row.qa_flags || []).join('; '),
     }))
     return { headers, rows }
   }
 
   function downloadCsv() {
-    if (!job?.results?.length) return
+    if (!job || !results.length) return
     const { headers, rows } = buildExportRows()
     const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `meta_copy_${job.name.replace(/\s+/g, '_')}.csv`
-    a.click()
+    const anchor = document.createElement('a')
+    anchor.href = URL.createObjectURL(blob)
+    anchor.download = `meta_copy_${job.name.replace(/\s+/g, '_')}.csv`
+    anchor.click()
+    URL.revokeObjectURL(anchor.href)
   }
 
   function downloadXlsx() {
-    if (!job?.results?.length) return
+    if (!job || !results.length) return
     const { rows } = buildExportRows()
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Results')
-    XLSX.writeFile(wb, `meta_copy_${job.name.replace(/\s+/g, '_')}.xlsx`)
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Results')
+    XLSX.writeFile(workbook, `meta_copy_${job.name.replace(/\s+/g, '_')}.xlsx`)
   }
 
   async function exportGoogleSheets() {
-    if (!job?.results?.length || exportingSheets) return
+    if (!job || !results.length || exportingSheets) return
     setExportingSheets(true)
     try {
       const { headers, rows } = buildExportRows()
@@ -211,52 +280,119 @@ export default function MetaJobPage() {
         headers,
         rows,
       })
-    } catch (error) {
-      alert(googleSheetsExportError(error))
+    } catch (exportError) {
+      alert(googleSheetsExportError(exportError))
     } finally {
       setExportingSheets(false)
     }
   }
 
-  function getLengthColor(len: number | undefined, max: number, warn: number) {
-    if (!len) return ''
-    if (len > max) return 'text-error'
-    if (len > warn) return 'text-warning'
-    return 'text-success'
+  async function startRowRerun(index: number, keywordOverride?: string) {
+    if (!job || rerunning !== null) return
+    setRerunning(index)
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) {
+        setRerunning(null)
+        return
+      }
+      await metaApi.rerunRow(session.access_token, job.id, index, keywordOverride)
+      const poll = window.setInterval(async () => {
+        try {
+          const updated = await metaApi.getJob(session.access_token, job.id)
+          if (updated.status !== 'running') {
+            window.clearInterval(poll)
+            setRerunning(null)
+            markUpdated([index], updated.results || [])
+            setJob(updated)
+          }
+        } catch (pollError) {
+          window.clearInterval(poll)
+          setRerunning(null)
+          console.error('Rerun polling failed:', pollError)
+        }
+      }, 2000)
+    } catch (rerunError) {
+      setRerunning(null)
+      console.error('Rerun request failed:', rerunError)
+    }
   }
 
-  if (!job) return (
-    <AppLayout title="Meta Copy">
-      <div className="flex items-center justify-center h-48">
-        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    </AppLayout>
-  )
+  async function rerunSelectedRows() {
+    if (!job || !selectedRows.size) return
+    setRerunningMulti(true)
+    try {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (session) {
+        const indices = Array.from(selectedRows)
+        await metaApi.rerunRows(session.access_token, job.id, indices)
+        const refreshed = await metaApi.getJob(session.access_token, job.id)
+        markUpdated(indices, refreshed.results || [])
+        setSelectedRows(new Set())
+        setJob(refreshed)
+      }
+    } catch (rerunError) {
+      console.error('Rerun request failed:', rerunError)
+    }
+    setRerunningMulti(false)
+  }
 
-  const titleCount = job.results?.filter(row => !row.error && row.generated_title).length ?? 0
-  const failedRows = job.failed_rows ?? job.results?.filter(row => row.status === 'error' || row.error).length ?? 0
-  const gscLabels = Array.from(new Set((job.results || []).map(row => gscAuthLabel(row.gsc_auth_method)).filter(Boolean)))
+  if (!job) {
+    return (
+      <AppLayout title="Meta Copy">
+        <div className="flex h-48 items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  const selectedIndex = results[activeIndex] ? activeIndex : 0
+  const selectedResult = results[selectedIndex]
+  const selectedState = selectedResult ? resultState(selectedResult) : 'ready'
+  const readyCount = results.filter(row => resultState(row) === 'ready').length
+  const reviewCount = results.filter(row => resultState(row) === 'review').length
+  const errorCount = results.filter(row => resultState(row) === 'error').length
+  const gscLabels = Array.from(new Set(results.map(row => gscAuthLabel(row.gsc_auth_method)).filter(Boolean)))
   const gscSummary = gscLabels.length === 0 ? 'Manual' : gscLabels.length === 1 ? gscLabels[0] : 'Mixed'
 
   return (
     <AppLayout title="Meta Copy">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/meta/jobs" className="text-muted hover:text-text transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">{job.name}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
+      <div className={styles.jobPage}>
+        <header className={styles.pageHeader}>
+          <div className={styles.pageHeaderCopy}>
+            <Link href="/meta/jobs" className={styles.backButton}>
+              <ArrowLeft size={14} /> All Meta jobs
+            </Link>
+            <span className={styles.eyebrow}>Meta Copy job</span>
+            <h1>{job.name}</h1>
+            <div className={styles.headerMeta}>
               <Badge label={job.status} />
-              <span className="text-xs text-muted font-mono">{job.completed_rows}/{job.total_rows} rows</span>
-              {job.failed_rows > 0 && <span className="text-xs text-error font-mono">{job.failed_rows} failed</span>}
+              <span>{job.completed_rows}/{job.total_rows} rows</span>
+              {job.failed_rows > 0 && <span className="text-error">{job.failed_rows} failed</span>}
+              {job.current_step && (job.status === 'running' || job.status === 'cancelling') && <span>{job.current_step}</span>}
             </div>
           </div>
-        </div>
+          {results.length > 0 && (
+            <div className={styles.headerActions}>
+              {selectedRows.size > 0 && (
+                <button type="button" className="btn-ghost" disabled={rerunningMulti} onClick={() => void rerunSelectedRows()}>
+                  <RefreshCw size={14} className={rerunningMulti ? 'animate-spin' : ''} />
+                  {rerunningMulti ? 'Starting...' : `Rerun ${selectedRows.size}`}
+                </button>
+              )}
+              <ExportMenu
+                onCsv={downloadCsv}
+                onXlsx={downloadXlsx}
+                onGoogleSheets={exportGoogleSheets}
+                sheetsLoading={exportingSheets}
+              />
+            </div>
+          )}
+        </header>
 
-        {/* Running job panel */}
         {(job.status === 'running' || job.status === 'cancelling') && (
           <RunningJobPanel
             status={job.status}
@@ -266,295 +402,395 @@ export default function MetaJobPage() {
             currentStep={job.current_step}
             logs={job.logs}
             cancelling={cancelling}
-            onCancel={handleCancel}
+            onCancel={() => void handleCancel()}
           />
         )}
 
-        {job.status === 'complete' && job.results && job.results.length > 0 && (
-          <CompletedJobSummary
-            stats={[
-              { label: 'Rows', value: `${job.completed_rows} / ${job.total_rows}` },
-              { label: 'Titles generated', value: titleCount, tone: 'success' },
-              { label: 'Failed', value: failedRows, tone: failedRows > 0 ? 'error' : 'default' },
-              { label: 'GSC', value: gscSummary, tone: 'muted' },
-            ]}
-            logCount={job.logs?.length}
-            logsCollapsed={logsCollapsed}
-            onToggleLogs={job.logs?.length ? () => setLogsCollapsed(!logsCollapsed) : undefined}
-          />
-        )}
+        {job.error && <div className={styles.errorNotice}>{gscErrorMessage(job.error)}</div>}
 
-        {/* Collapsible log after completion */}
-        {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
-          <div className="mb-6">
-            {!logsCollapsed && (
-              <div className="rounded-xl p-3 font-mono text-xs overflow-y-auto" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", maxHeight: 200 }}>
-                {(job.logs || []).map((entry, i) => {
-                  const logs = job.logs!
-                  const chapterStart = [...logs].slice(0, i + 1).reverse().find(l => l.msg.includes('starting —') || l.msg.startsWith('==='))
-                  const baseTs = chapterStart ? new Date(chapterStart.ts).getTime() : new Date(logs[0]?.ts || entry.ts).getTime()
-                  const elapsed = Math.round((new Date(entry.ts).getTime() - baseTs) / 1000)
-                  return (
-                    <div key={i} className="flex gap-2 py-0.5 border-b border-border/30 last:border-0">
-                      <span className="text-muted shrink-0" style={{ minWidth: 36 }}>+{elapsed}s</span>
-                      <span className="text-muted">{entry.msg}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        ) : null}
+        {results.length > 0 && (
+          <>
+            <section className={styles.metricStrip} aria-label="Meta result summary">
+              <div><span>Rows</span><strong>{job.completed_rows} / {job.total_rows}</strong><small>{job.status === 'complete' ? 'Processing complete' : 'Saved so far'}</small></div>
+              <div><span>Ready</span><strong className={styles.successValue}>{readyCount}</strong><small>No QA flags</small></div>
+              <div><span>Needs review</span><strong className={reviewCount ? styles.warningValue : undefined}>{reviewCount}</strong><small>Deterministic QA</small></div>
+              <div><span>Search context</span><strong>{gscSummary}</strong><small>{errorCount ? `${errorCount} failed row${errorCount === 1 ? '' : 's'}` : 'No failed rows'}</small></div>
+            </section>
 
-        {/* Error */}
-        {job.error && (
-          <div className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3 mb-4">{gscErrorMessage(job.error)}</div>
-        )}
-
-        {/* Results toolbar */}
-        {job.results && job.results.length > 0 && (
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-sm font-medium flex-1">{job.results.length} rows</span>
-            {selectedRows.size > 0 && (
-              <button onClick={async () => {
-                setRerunningMulti(true)
-                try {
-                  const sb = createClient()
-                  const { data: { session } } = await sb.auth.getSession()
-                  if (session) {
-                    const indices = Array.from(selectedRows)
-                    await metaApi.rerunRows(session.access_token, job.id, indices)
-                    const refreshed = await metaApi.getJob(session.access_token, job.id)
-                    markUpdated(indices, refreshed.results || [])
-                    setSelectedRows(new Set())
-                    load()
-                  }
-                } catch (e) {
-                  console.error('Rerun request failed:', e)
-                }
-                setRerunningMulti(false)
-              }} disabled={rerunningMulti} className="btn-primary flex items-center gap-2 text-sm">
-                <RefreshCw size={13} className={rerunningMulti ? 'animate-spin' : ''} />
-                {rerunningMulti ? 'Starting...' : `Re-run ${selectedRows.size} row${selectedRows.size !== 1 ? 's' : ''}`}
-              </button>
-            )}
-            {selectedRows.size === 0 && job.results.some(r => r.status === 'error' || r.error) && (
-              <button onClick={() => setSelectedRows(new Set(
-                job.results!.map((r, i) => r.status === 'error' || r.error ? i : -1).filter(i => i >= 0)
-              ))} className="btn-ghost flex items-center gap-2 text-xs">
-                Select all failed
-              </button>
-            )}
-            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
-              <StyledCheckbox
-                ariaLabel="Select all meta result rows"
-                checked={selectedRows.size === job.results.length && job.results.length > 0}
-                onChange={checked => setSelectedRows(checked ? new Set(job.results!.map((_, i) => i)) : new Set())}
-              />
-              {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
-            </label>
-            <ExportMenu
-              onCsv={downloadCsv}
-              onXlsx={downloadXlsx}
-              onGoogleSheets={exportGoogleSheets}
-              sheetsLoading={exportingSheets}
-            />
-          </div>
-        )}
-
-        {/* Result cards */}
-        {job.results && job.results.length > 0 && (
-          <div className="card divide-y divide-border">
-            {job.results.map((row, i) => (
-              <div key={i} className={`${selectedRows.has(i) ? 'bg-accent/5' : ''} ${newlyUpdated.has(i) ? 'row-flash' : ''}`}>
-                {/* Row header */}
-                <div className="flex items-center gap-3 px-4 py-3 hover:bg-border/20 cursor-pointer transition-colors"
-                  onClick={() => { setExpanded(expanded === i ? null : i); setNewlyUpdated(prev => { const n = new Set(prev); n.delete(i); return n }) }}>
+            <div className={styles.toolbar}>
+              <div className={styles.toolbarGroup}>
+                <div className="flex select-none items-center gap-2 text-xs text-muted">
                   <StyledCheckbox
-                    ariaLabel={`Select meta result row ${i + 1}`}
-                    className="shrink-0"
-                    checked={selectedRows.has(i)}
-                    onClick={e => e.stopPropagation()}
-                    onChange={checked => setSelectedRows(prev => {
-                      const next = new Set(prev)
-                      checked ? next.add(i) : next.delete(i)
-                      return next
-                    })}
+                    ariaLabel="Select all meta result rows"
+                    checked={selectedRows.size === results.length && results.length > 0}
+                    onChange={checked => setSelectedRows(checked ? new Set(results.map((_, index) => index)) : new Set())}
                   />
-                  <span className="text-xs font-mono text-muted shrink-0">{i + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-mono text-muted truncate">{row.url}</span>
-                      {row.selected_keyword && <span className="text-xs font-mono text-accent shrink-0 hidden sm:block">{row.selected_keyword}</span>}
-                    </div>
-                    {(row.generated_title || row.generated_description) && (
-                      <p className="text-xs text-muted mt-1 truncate">{previewText(row.generated_title || row.generated_description)}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {row.generated_title && (
-                      <span className={`text-xs font-mono shrink-0 ${getLengthColor(row.title_length, 60, 55)}`}>
-                        {row.title_length}
-                      </span>
-                    )}
-                    {newlyUpdated.has(i) && (
-                      <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                        style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)' }}>
-                        ✓ new
-                      </span>
-                    )}
-                    <Badge label={row.error ? 'error' : (row.status || 'ok')} />
-                    {rerunning === i ? (
-                      <RefreshCw size={12} className="animate-spin text-accent" />
-                    ) : (
-                      <button onClick={async e => {
-                        e.stopPropagation()
-                        setRerunning(i)
-                        const sb = createClient()
-                        const { data: { session } } = await sb.auth.getSession()
-                        if (session) {
-                          await metaApi.rerunRow(session.access_token, job.id, i)
-                          const poll = setInterval(async () => {
-                            const updated = await metaApi.getJob(session.access_token, job.id)
-                            if (updated.status !== 'running') {
-                              setRerunning(null)
-                              clearInterval(poll)
-                              markUpdated([i], updated.results || [])
-                              load()
-                            }
-                          }, 2000)
-                        }
-                      }} className="text-muted hover:text-accent transition-colors">
-                        <RefreshCw size={12} />
-                      </button>
-                    )}
-                    {expanded === i ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />}
-                  </div>
+                  {selectedRows.size > 0 ? `${selectedRows.size} selected` : 'Select all'}
                 </div>
-
-                {/* Expanded content */}
-                {expanded === i && (
-                  <div className="px-4 pb-4 space-y-4 bg-bg/40">
-                    {/* Keyword info */}
-                    <div className="flex items-center gap-4 pt-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted">Keyword:</span>
-                        {editingKw === i ? (
-                          <div className="flex items-center gap-1">
-                            <input autoFocus className="input-base text-xs py-1 px-2 w-48"
-                              value={kwOverrides[i] ?? (row.selected_keyword || '')}
-                              onChange={e => setKwOverrides({...kwOverrides, [i]: e.target.value})} />
-                            <button onClick={async () => {
-                              const override = (kwOverrides[i] ?? (row.selected_keyword || '')).trim()
-                              if (!override) return
-                              setEditingKw(null)
-                              setRerunning(i)
-                              const sb = createClient()
-                              const { data: { session } } = await sb.auth.getSession()
-                              if (session) {
-                                await metaApi.rerunRow(session.access_token, job.id, i, override)
-                                const poll = setInterval(async () => {
-                                  const updated = await metaApi.getJob(session.access_token, job.id)
-                                  if (updated.status !== 'running') {
-                                    setRerunning(null)
-                                    clearInterval(poll)
-                                    markUpdated([i], updated.results || [])
-                                    load()
-                                  }
-                                }, 2000)
-                              }
-                            }} className="text-accent hover:text-accent/80"><Check size={14} /></button>
-                            <button onClick={() => setEditingKw(null)} className="text-muted hover:text-text"><X size={14} /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-accent font-mono">{row.selected_keyword || '—'}</span>
-                            <button onClick={() => setEditingKw(i)} className="text-muted hover:text-accent transition-colors">
-                              <Pencil size={11} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {row.kw_volume && <span className="text-xs text-muted font-mono">vol: {row.kw_volume}</span>}
-                      {row.keyword_source && <span className="text-xs text-muted font-mono">{row.keyword_source}</span>}
-                      {gscAuthLabel(row.gsc_auth_method) && (
-                        <span className="text-xs text-muted font-mono">GSC: {gscAuthLabel(row.gsc_auth_method)}</span>
-                      )}
-                    </div>
-
-                    {/* Title tag */}
-                    {!!row.qa_flags?.length && !row.error && (
-                      <p className="text-xs text-accent bg-accent/10 rounded px-3 py-2 font-mono">{row.qa_flags.join('; ')}</p>
-                    )}
-
-                    {/* Title tag */}
-                    {row.generated_title && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wider">Title Tag</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-mono ${getLengthColor(row.title_length, 60, 55)}`}>
-                              {row.title_length}/60 chars {(row.title_length || 0) > 60 ? '⚠ over limit' : ''}
-                            </span>
-                            <button onClick={() => copyToClipboard(row.generated_title!, `title-${i}`)}
-                              className="text-muted hover:text-accent transition-colors">
-                              {copiedField === `title-${i}` ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-sm font-medium p-3 bg-surface border border-border rounded-lg">{row.generated_title}</p>
-                      </div>
-                    )}
-
-                    {/* Meta description */}
-                    {row.generated_description && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wider">Meta Description</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-mono ${getLengthColor(row.description_length, 155, 145)}`}>
-                              {row.description_length}/155 chars {(row.description_length || 0) > 155 ? '⚠ over limit' : ''}
-                            </span>
-                            <button onClick={() => copyToClipboard(row.generated_description!, `desc-${i}`)}
-                              className="text-muted hover:text-accent transition-colors">
-                              {copiedField === `desc-${i}` ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-sm p-3 bg-surface border border-border rounded-lg">{row.generated_description}</p>
-                      </div>
-                    )}
-
-                    {/* Optimised H1 */}
-                    {row.optimised_h1 && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wider">Optimised H1</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-mono ${getLengthColor(row.h1_length, 70, 65)}`}>
-                              {row.h1_length} chars {(row.h1_length || 0) > 70 ? '⚠ long' : ''}
-                            </span>
-                            <button onClick={() => copyToClipboard(row.optimised_h1!, `h1-${i}`)}
-                              className="text-muted hover:text-accent transition-colors">
-                              {copiedField === `h1-${i}` ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-sm font-medium p-3 bg-surface border border-border rounded-lg">{row.optimised_h1}</p>
-                        {row.h1_input && (
-                          <p className="text-xs text-muted">Original H1: {row.h1_input}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {row.error && <p className="text-error text-xs">{gscErrorMessage(row.error)}</p>}
-                  </div>
+                {selectedRows.size === 0 && errorCount > 0 && (
+                  <button
+                    type="button"
+                    className={styles.iconTextButton}
+                    onClick={() => setSelectedRows(new Set(results.map((row, index) => resultState(row) === 'error' ? index : -1).filter(index => index >= 0)))}
+                  >
+                    <AlertTriangle size={13} /> Select failed
+                  </button>
                 )}
               </div>
-            ))}
-          </div>
+              {job.status === 'complete' && job.logs?.length ? (
+                <button type="button" className={styles.iconTextButton} aria-expanded={!logsCollapsed} onClick={() => setLogsCollapsed(value => !value)}>
+                  {logsCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                  {logsCollapsed ? `Show activity (${job.logs.length})` : 'Hide activity'}
+                </button>
+              ) : null}
+            </div>
+
+            {job.status === 'complete' && !logsCollapsed && job.logs?.length ? (
+              <div className={styles.logsPanel}>
+                {job.logs.map((entry, index) => {
+                  const chapterStart = [...job.logs!].slice(0, index + 1).reverse().find(log => log.msg.includes('starting \u2014') || log.msg.startsWith('==='))
+                  const baseTimestamp = chapterStart ? new Date(chapterStart.ts).getTime() : new Date(job.logs?.[0]?.ts || entry.ts).getTime()
+                  const elapsed = Math.round((new Date(entry.ts).getTime() - baseTimestamp) / 1000)
+                  return <div key={`${entry.ts}-${index}`} className={styles.logRow}><span>+{elapsed}s</span><span>{entry.msg}</span></div>
+                })}
+              </div>
+            ) : null}
+
+            <div className={styles.reviewWorkspace}>
+              <section className={styles.resultQueue}>
+                <header className={styles.queueHeader}>
+                  <div><h2>Review queue</h2><p>{filteredResults.length} of {results.length} rows visible</p></div>
+                </header>
+                <div className={styles.queueTools}>
+                  <label className={styles.searchField}>
+                    <Search size={14} />
+                    <span className={styles.srOnly}>Search Meta results</span>
+                    <input type="search" value={resultQuery} onChange={event => setResultQuery(event.target.value)} placeholder="Search URL or keyword" />
+                    {resultQuery && <button type="button" aria-label="Clear result search" onClick={() => setResultQuery('')}><X size={13} /></button>}
+                  </label>
+                  <div className={styles.resultFilters} role="tablist" aria-label="Filter Meta results">
+                    {([
+                      ['all', 'All'],
+                      ['ready', 'Ready'],
+                      ['review', 'Review'],
+                      ['error', 'Error'],
+                    ] as Array<[ResultFilter, string]>).map(([value, label]) => (
+                      <button
+                        type="button"
+                        role="tab"
+                        key={value}
+                        aria-selected={resultFilter === value}
+                        data-active={resultFilter === value ? 'true' : 'false'}
+                        onClick={() => setResultFilter(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.resultList}>
+                  {filteredResults.map(({ row, index }) => {
+                    const state = resultState(row)
+                    const title = row.generated_title || gscErrorMessage(row.error) || 'No generated title'
+                    return (
+                      <article key={`${row.url}-${index}`} className={`${styles.resultRow} ${selectedIndex === index ? styles.resultRowActive : ''} ${newlyUpdated.has(index) ? 'row-flash' : ''}`}>
+                        <div className={styles.resultCheckbox}>
+                          <StyledCheckbox
+                            ariaLabel={`Select meta result row ${index + 1}`}
+                            checked={selectedRows.has(index)}
+                            onChange={checked => setSelectedRows(previous => {
+                              const next = new Set(previous)
+                              checked ? next.add(index) : next.delete(index)
+                              return next
+                            })}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.resultPrimary}
+                          onClick={() => {
+                            setActiveIndex(index)
+                            setDetailTab('copy')
+                            setNewlyUpdated(previous => {
+                              const next = new Set(previous)
+                              next.delete(index)
+                              return next
+                            })
+                          }}
+                        >
+                          <span className={styles.resultPrimaryTop}>
+                            <span><strong>{row.selected_keyword || `Row ${index + 1}`}</strong><small>{domainFromUrl(row.url)}</small></span>
+                            <span className={styles.statusPill} data-state={state}>{resultStateLabel(state)}</span>
+                          </span>
+                          <p>{previewText(title)}</p>
+                          <span className={styles.resultMeta}>
+                            <span>{characterCount(row.generated_title, row.title_length)} title chars</span>
+                            <span>{characterCount(row.generated_description, row.description_length)} description chars</span>
+                            {newlyUpdated.has(index) && <span className="text-accent">Updated</span>}
+                          </span>
+                        </button>
+                      </article>
+                    )
+                  })}
+                  {filteredResults.length === 0 && (
+                    <div className={styles.emptyResults}>
+                      <Search size={22} /><strong>No matching rows</strong><p>Clear the search or choose another status.</p>
+                      <button type="button" className="btn-ghost text-xs" onClick={() => { setResultQuery(''); setResultFilter('all') }}>Clear filters</button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {selectedResult && (
+                <section className={styles.resultDetail}>
+                  <header className={styles.detailHeader}>
+                    <div>
+                      <span className={styles.eyebrow}>Selected row</span>
+                      <h2>{selectedResult.selected_keyword || `Row ${selectedIndex + 1}`}</h2>
+                      <p>{selectedResult.url}</p>
+                    </div>
+                    <div className={styles.detailHeaderActions}>
+                      <span className={styles.statusPill} data-state={selectedState}>{resultStateLabel(selectedState)}</span>
+                      <button
+                        type="button"
+                        className={styles.queueIconButton}
+                        aria-label="Rerun selected row"
+                        title="Rerun selected row"
+                        disabled={rerunning !== null}
+                        onClick={() => void startRowRerun(selectedIndex)}
+                      >
+                        <RefreshCw size={14} className={rerunning === selectedIndex ? 'animate-spin' : ''} />
+                      </button>
+                    </div>
+                  </header>
+
+                  <nav className={styles.detailTabs} aria-label="Meta result detail">
+                    {([
+                      ['copy', 'Copy'],
+                      ['quality', `Quality${selectedResult.qa_flags?.length ? ` (${selectedResult.qa_flags.length})` : ''}`],
+                      ['sources', 'Sources'],
+                    ] as Array<[DetailTab, string]>).map(([value, label]) => (
+                      <button type="button" key={value} aria-pressed={detailTab === value} data-active={detailTab === value ? 'true' : 'false'} onClick={() => setDetailTab(value)}>{label}</button>
+                    ))}
+                  </nav>
+
+                  {detailTab === 'copy' && (
+                    <div className={styles.detailBody}>
+                      {selectedResult.error ? (
+                        <section className={styles.qualitySummary}>
+                          <span className={styles.qualityIcon} data-state="error"><AlertTriangle size={18} /></span>
+                          <div><h3>This row did not generate</h3><p>{gscErrorMessage(selectedResult.error)}</p></div>
+                        </section>
+                      ) : (
+                        <>
+                          {(selectedResult.generated_title || selectedResult.generated_description) && (
+                            <section className={styles.serpSection}>
+                              <div className={styles.blockHeader}>
+                                <div><span>Search preview</span><span className={styles.meter}>Desktop result</span></div>
+                                <Link href={selectedResult.url} target="_blank" rel="noreferrer" className={styles.iconTextButton}>
+                                  <ExternalLink size={12} /> Open page
+                                </Link>
+                              </div>
+                              <div className={styles.serpPreview}>
+                                <div className={styles.serpSource}>
+                                  <span className={styles.serpFavicon}>{domainFromUrl(selectedResult.url).charAt(0).toUpperCase() || 'M'}</span>
+                                  <div><strong>{domainFromUrl(selectedResult.url)}</strong><small>{selectedResult.url}</small></div>
+                                </div>
+                                <h3>{selectedResult.generated_title || 'Generated title unavailable'}</h3>
+                                <p>{selectedResult.generated_description || 'Generated description unavailable'}</p>
+                              </div>
+                            </section>
+                          )}
+
+                          {selectedResult.generated_title && (
+                            <CopyBlock
+                              label="Title tag"
+                              value={selectedResult.generated_title}
+                              count={characterCount(selectedResult.generated_title, selectedResult.title_length)}
+                              max={60}
+                              warn={55}
+                              copied={copiedField === `title-${selectedIndex}`}
+                              onCopy={() => copyToClipboard(selectedResult.generated_title!, `title-${selectedIndex}`)}
+                            />
+                          )}
+                          {selectedResult.generated_description && (
+                            <CopyBlock
+                              label="Meta description"
+                              value={selectedResult.generated_description}
+                              count={characterCount(selectedResult.generated_description, selectedResult.description_length)}
+                              max={155}
+                              warn={145}
+                              copied={copiedField === `description-${selectedIndex}`}
+                              onCopy={() => copyToClipboard(selectedResult.generated_description!, `description-${selectedIndex}`)}
+                            />
+                          )}
+                          {selectedResult.optimised_h1 && (
+                            <CopyBlock
+                              label="Optimised H1"
+                              value={selectedResult.optimised_h1}
+                              count={characterCount(selectedResult.optimised_h1, selectedResult.h1_length)}
+                              max={70}
+                              warn={65}
+                              copied={copiedField === `h1-${selectedIndex}`}
+                              onCopy={() => copyToClipboard(selectedResult.optimised_h1!, `h1-${selectedIndex}`)}
+                              h1
+                              note={selectedResult.h1_input ? `Original: ${selectedResult.h1_input}` : undefined}
+                            />
+                          )}
+                          {!selectedResult.generated_title && !selectedResult.generated_description && !selectedResult.optimised_h1 && (
+                            <div className={styles.emptyResults}><FileText size={22} /><strong>No generated copy saved</strong><p>Rerun this row to try again.</p></div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {detailTab === 'quality' && (
+                    <div className={styles.detailBody}>
+                      <section className={styles.qualitySummary}>
+                        <span className={styles.qualityIcon} data-state={selectedState}>
+                          {selectedState === 'ready' ? <ClipboardCheck size={18} /> : <AlertTriangle size={18} />}
+                        </span>
+                        <div>
+                          <h3>{selectedState === 'ready' ? 'No deterministic QA flags' : selectedState === 'error' ? 'Generation error' : 'Review recommended'}</h3>
+                          <p>{selectedState === 'ready' ? 'This row is ready for editorial review and export.' : selectedState === 'error' ? gscErrorMessage(selectedResult.error) : 'Check the flagged rules before using this copy.'}</p>
+                        </div>
+                      </section>
+
+                      <section className={styles.lengthChecks} aria-label="Character counts">
+                        <LengthCheck label="Title" value={characterCount(selectedResult.generated_title, selectedResult.title_length)} max={60} />
+                        <LengthCheck label="Description" value={characterCount(selectedResult.generated_description, selectedResult.description_length)} max={155} />
+                        <LengthCheck label="H1" value={characterCount(selectedResult.optimised_h1, selectedResult.h1_length)} max={70} />
+                      </section>
+
+                      {selectedResult.qa_flags?.length ? (
+                        <div className={styles.checkList}>
+                          {selectedResult.qa_flags.map(flag => (
+                            <div key={flag}><span><AlertTriangle size={13} /></span><p>{flag}</p></div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {detailTab === 'sources' && (
+                    <div className={styles.detailBody}>
+                      <section className={styles.sourceSummary}>
+                        <div><span>Primary keyword</span><strong>{selectedResult.selected_keyword || 'Not selected'}</strong><small>{selectedResult.keyword_source || 'No source label'}</small></div>
+                        <div><span>Volume</span><strong>{selectedResult.kw_volume ?? '-'}</strong><small>Monthly searches</small></div>
+                        <div><span>Difficulty</span><strong>{selectedResult.kw_difficulty ?? '-'}</strong><small>DataForSEO</small></div>
+                      </section>
+
+                      <div className={styles.sourceList}>
+                        <div><span><Search size={14} /></span><div><strong>Search Console</strong><p>{gscAuthLabel(selectedResult.gsc_auth_method) || 'No GSC method was recorded for this row.'}</p></div></div>
+                        <div><span><BarChart3 size={14} /></span><div><strong>Keyword data</strong><p>{selectedResult.keyword_source || 'No keyword source label was recorded.'}</p></div></div>
+                        <div><span><FileText size={14} /></span><div><strong>Target page</strong><p>{selectedResult.url}</p></div></div>
+                      </div>
+
+                      <section className={styles.keywordPanel}>
+                        <label>Primary keyword</label>
+                        {editingKw === selectedIndex ? (
+                          <div className={styles.keywordEditor}>
+                            <input
+                              autoFocus
+                              className="input-base text-xs"
+                              value={kwOverrides[selectedIndex] ?? (selectedResult.selected_keyword || '')}
+                              onChange={event => setKwOverrides(previous => ({ ...previous, [selectedIndex]: event.target.value }))}
+                            />
+                            <button
+                              type="button"
+                              className={styles.copyButton}
+                              aria-label="Save keyword and rerun"
+                              title="Save keyword and rerun"
+                              onClick={() => {
+                                const override = (kwOverrides[selectedIndex] ?? (selectedResult.selected_keyword || '')).trim()
+                                if (!override) return
+                                setEditingKw(null)
+                                void startRowRerun(selectedIndex, override)
+                              }}
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button type="button" className={styles.copyButton} aria-label="Cancel keyword edit" title="Cancel keyword edit" onClick={() => setEditingKw(null)}><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <div className={styles.keywordValue}>
+                            <strong>{selectedResult.selected_keyword || 'No keyword selected'}</strong>
+                            <button type="button" className={styles.copyButton} aria-label="Edit keyword" title="Edit keyword" onClick={() => setEditingKw(selectedIndex)}><Pencil size={13} /></button>
+                          </div>
+                        )}
+                        {selectedResult.runner_up && (
+                          <div className={styles.runnerUp}>
+                            <span>Runner-up: <strong>{selectedResult.runner_up}</strong></span>
+                            <button type="button" className={styles.iconTextButton} disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, selectedResult.runner_up)}>
+                              <RefreshCw size={12} /> Use and rerun
+                            </button>
+                          </div>
+                        )}
+                      </section>
+                    </div>
+                  )}
+
+                  <footer className={styles.detailFooter}>
+                    <span>Row {selectedIndex + 1} of {results.length}</span>
+                    <div>
+                      <button type="button" className="btn-ghost text-xs" onClick={() => { setDetailTab('sources'); setEditingKw(selectedIndex) }}><Pencil size={13} /> Edit keyword</button>
+                      <button type="button" className="btn-primary text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex)}>
+                        <RefreshCw size={13} className={rerunning === selectedIndex ? 'animate-spin' : ''} /> {rerunning === selectedIndex ? 'Rerunning...' : 'Rerun row'}
+                      </button>
+                    </div>
+                  </footer>
+                </section>
+              )}
+            </div>
+          </>
         )}
       </div>
     </AppLayout>
+  )
+}
+
+function CopyBlock({
+  label,
+  value,
+  count,
+  max,
+  warn,
+  copied,
+  onCopy,
+  h1 = false,
+  note,
+}: {
+  label: string
+  value: string
+  count: number
+  max: number
+  warn: number
+  copied: boolean
+  onCopy: () => void
+  h1?: boolean
+  note?: string
+}) {
+  return (
+    <section className={styles.copyBlock}>
+      <div className={styles.blockHeader}>
+        <div><span>{label}</span><span className={count > warn ? styles.meterWarning : styles.meter}>{count} / {max} chars</span></div>
+        <button type="button" className={styles.copyButton} aria-label={`Copy ${label}`} title={`Copy ${label}`} onClick={onCopy}>
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </button>
+      </div>
+      <p className={h1 ? styles.h1Value : undefined}>{value}</p>
+      {note && <small>{note}</small>}
+    </section>
+  )
+}
+
+function LengthCheck({ label, value, max }: { label: string; value: number; max: number }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong className={value > max ? styles.warningValue : undefined}>{value}</strong>
+      <small>Maximum {max} characters</small>
+    </div>
   )
 }

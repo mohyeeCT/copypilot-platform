@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Trash2, ExternalLink, Plus, Pencil, Check, X, Copy,
-  FileText, Layers, Clock
+  FileText, Layers, Clock, Search, AlertTriangle
 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
@@ -35,7 +35,11 @@ interface ToolConfig {
   deleteJob: (token: string, id: string) => Promise<unknown>
   duplicateJob: (token: string, id: string) => Promise<{job_id?: string}>
   renameJob: (token: string, id: string, name: string) => Promise<unknown>
+  variant?: 'default' | 'meta'
+  description?: string
 }
+
+type JobFilter = 'all' | 'active' | 'complete' | 'attention'
 
 const STATUS_COLORS: Record<string, string> = {
   complete:   '#0B7A5C',
@@ -80,9 +84,14 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const [editingName, setEditingName] = useState('')
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
   const [refreshLabel, setRefreshLabel] = useState('')
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<JobFilter>('all')
+  const [pendingDelete, setPendingDelete] = useState<Job | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const Icon = tool.icon
+  const isMetaVariant = tool.variant === 'meta'
 
   const load = useCallback(async (quiet = false) => {
     const sb = createClient()
@@ -122,13 +131,30 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
     return () => clearInterval(t)
   }, [lastRefreshed])
 
+  useEffect(() => {
+    if (!pendingDelete) return
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !deleting) setPendingDelete(null)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [deleting, pendingDelete])
+
   async function handleDelete(id: string) {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
     if (!session) return
-    await tool.deleteJob(session.access_token, id)
-    setJobs(j => j.filter(x => x.id !== id))
-    toast.success('Job deleted')
+    setDeleting(true)
+    try {
+      await tool.deleteJob(session.access_token, id)
+      setJobs(j => j.filter(x => x.id !== id))
+      setPendingDelete(null)
+      toast.success('Job deleted')
+    } catch {
+      toast.error('Failed to delete job')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleRename(id: string, name: string) {
@@ -157,6 +183,32 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const totalJobs = jobs.length
   const totalUrls = jobs.reduce((sum, job) => sum + (job.total_rows || 0), 0)
   const completedUrls = jobs.reduce((sum, job) => sum + (job.completed_rows || 0), 0)
+  const failedUrls = jobs.reduce((sum, job) => sum + (job.failed_rows || 0), 0)
+  const visibleJobs = useMemo(() => {
+    if (!isMetaVariant) return jobs
+    const needle = query.trim().toLowerCase()
+    return jobs.filter(job => {
+      const matchesQuery = !needle || (job.name || 'Untitled').toLowerCase().includes(needle)
+      const matchesFilter = filter === 'all'
+        || (filter === 'active' && ['running', 'pending', 'cancelling'].includes(job.status))
+        || (filter === 'complete' && job.status === 'complete')
+        || (filter === 'attention' && (['failed', 'error', 'cancelled'].includes(job.status) || (job.failed_rows || 0) > 0))
+      return matchesQuery && matchesFilter
+    })
+  }, [filter, isMetaVariant, jobs, query])
+
+  const stats = isMetaVariant
+    ? [
+        { label: 'Total jobs', value: totalJobs, icon: FileText, accentValue: false },
+        { label: 'URLs processed', value: totalUrls, icon: Layers, accentValue: true },
+        { label: 'Completed URLs', value: completedUrls, icon: Check, accentValue: false },
+        { label: 'Needs attention', value: failedUrls, icon: AlertTriangle, accentValue: failedUrls > 0 },
+      ]
+    : [
+        { label: 'Total jobs', value: totalJobs, icon: FileText, accentValue: false },
+        { label: 'URLs processed', value: totalUrls, icon: Layers, accentValue: true },
+        { label: 'Completed URLs', value: completedUrls, icon: Check, accentValue: false },
+      ]
 
   return (
     <AppLayout title={tool.label}>
@@ -179,8 +231,8 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               <h1 className="truncate whitespace-nowrap text-xl font-bold tracking-tight">{tool.label}</h1>
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-2 pl-[52px]">
-              <p className="text-sm whitespace-nowrap" style={{ color: 'var(--muted)' }}>
-                {jobs.length > 0 ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''}` : 'No jobs yet'}
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                {tool.description || (jobs.length > 0 ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''}` : 'No jobs yet')}
               </p>
               {refreshLabel && (
                 <span className="text-xs flex items-center gap-1 whitespace-nowrap" style={{ color: 'var(--muted)', opacity: 0.6 }}>
@@ -228,12 +280,8 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
         ) : (
           /* Jobs list */
           <>
-          <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3">
-            {[
-              { label: 'Total jobs', value: totalJobs, icon: FileText, accentValue: false },
-              { label: 'URLs processed', value: totalUrls, icon: Layers, accentValue: true },
-              { label: 'Completed URLs', value: completedUrls, icon: Check, accentValue: false },
-            ].map(stat => {
+          <div className={`grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3 ${isMetaVariant ? 'lg:grid-cols-4' : ''}`}>
+            {stats.map(stat => {
               const StatIcon = stat.icon
               return (
                 <div
@@ -271,6 +319,52 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
             })}
           </div>
 
+          {isMetaVariant && (
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="relative block min-w-0 flex-1 sm:max-w-sm">
+                <span className="sr-only">Search Meta jobs</span>
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  className="input-base h-9 pl-9 pr-9 text-sm"
+                  placeholder="Search jobs"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="Clear job search"
+                    onClick={() => setQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted hover:text-text"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </label>
+              <div className="cp-segmented overflow-x-auto" role="tablist" aria-label="Filter Meta jobs">
+                {([
+                  ['all', 'All'],
+                  ['active', 'Running'],
+                  ['complete', 'Complete'],
+                  ['attention', 'Needs attention'],
+                ] as Array<[JobFilter, string]>).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === value}
+                    className="cp-segment whitespace-nowrap"
+                    data-active={filter === value ? 'true' : 'false'}
+                    onClick={() => setFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="card overflow-hidden">
             <div
               className="hidden items-center px-5 py-2.5 text-[0.6rem] font-bold uppercase tracking-[0.07em] sm:grid"
@@ -287,7 +381,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               <span className="whitespace-nowrap">When</span>
               <span className="sr-only">Actions</span>
             </div>
-            {jobs.map((job, i) => {
+            {visibleJobs.map((job, i) => {
               const progress = job.total_rows > 0 ? (job.completed_rows / job.total_rows) * 100 : 0
               const isRunning = job.status === 'running' || job.status === 'pending'
               const borderColor = statusBorder(job.status)
@@ -297,7 +391,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                   key={job.id}
                   className="group relative transition-colors cursor-pointer hover:bg-black/[0.025]"
                   style={{
-                    borderBottom: i < jobs.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                    borderBottom: i < visibleJobs.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   }}
                   onClick={() => router.push(tool.jobHref(job.id))}
                 >
@@ -384,6 +478,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                             {job.total_rows} URL{job.total_rows !== 1 ? 's' : ''}
                           </span>
                         )}
+                        {isMetaVariant && <Badge label={job.status} />}
                       </div>
                     </div>
 
@@ -430,7 +525,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                         <Copy size={13} />
                       </button>
                       <button
-                        onClick={() => handleDelete(job.id)}
+                        onClick={() => isMetaVariant ? setPendingDelete(job) : void handleDelete(job.id)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: 'var(--muted)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
@@ -444,10 +539,61 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                 </div>
               )
             })}
+            {visibleJobs.length === 0 && (
+              <div className="px-6 py-14 text-center">
+                <Search size={22} className="mx-auto mb-3 text-muted" />
+                <p className="text-sm font-semibold">No matching jobs</p>
+                <p className="mt-1 text-xs text-muted">Clear the search or choose another status.</p>
+                <button type="button" className="btn-ghost mt-4 text-xs" onClick={() => { setQuery(''); setFilter('all') }}>
+                  Clear filters
+                </button>
+              </div>
+            )}
           </div>
           </>
         )}
       </div>
+
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4"
+          role="presentation"
+          onMouseDown={event => { if (event.target === event.currentTarget && !deleting) setPendingDelete(null) }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-meta-job-title"
+            className="w-full max-w-md rounded-lg border border-border bg-surface-raised p-5 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-error/10 text-error">
+                <Trash2 size={18} />
+              </span>
+              <div className="min-w-0">
+                <h2 id="delete-meta-job-title" className="text-base font-semibold">Delete this Meta job?</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted">
+                  {pendingDelete.name || 'Untitled'} and its generated results will be removed from job history.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" autoFocus disabled={deleting} className="btn-ghost" onClick={() => setPendingDelete(null)}>
+                Keep job
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                className="btn-ghost"
+                style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 28%, var(--border))' }}
+                onClick={() => void handleDelete(pendingDelete.id)}
+              >
+                {deleting ? 'Deleting...' : 'Delete job'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </AppLayout>
   )
 }
