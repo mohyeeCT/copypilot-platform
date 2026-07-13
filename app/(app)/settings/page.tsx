@@ -42,12 +42,14 @@ export default function SettingsPage() {
   const [credsConfigured, setCredsConfigured] = useState(false)
   const [credsProvider, setCredsProvider] = useState('')
   const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({})
+  const [dfsConfigured, setDfsConfigured] = useState(false)
+  const [parallelKeyConfigured, setParallelKeyConfigured] = useState(false)
   const [credsSaving, setCredsSaving] = useState(false)
   const [credsDeleting, setCredsDeleting] = useState(false)
   const [credsSaved, setCredsSaved] = useState(false)
   const [credsError, setCredsError] = useState('')
   const [showCredsForm, setShowCredsForm] = useState(false)
-  const [credsForm, setCredsForm] = useState({ provider: 'Claude', api_key: '', dfs_login: '', dfs_password: '', jina_api_key: '', site_url: '' })
+  const [credsForm, setCredsForm] = useState({ provider: 'Claude', api_key: '', dfs_login: '', dfs_password: '', jina_api_key: '', parallel_api_key: '', site_url: '' })
 
 
 
@@ -119,7 +121,11 @@ export default function SettingsPage() {
         if (data.provider_settings) {
           const status = data.provider_settings.api_key_status || {}
           setProviderKeyStatus(status)
-          setCredsConfigured(Boolean(data.provider_settings.has_api_key || Object.values(status).some(Boolean)))
+          const hasDfsCredentials = Boolean(data.provider_settings.dfs_login && data.provider_settings.has_dfs_password)
+          const hasParallelKey = Boolean(data.provider_settings.has_parallel_key)
+          setDfsConfigured(hasDfsCredentials)
+          setParallelKeyConfigured(hasParallelKey)
+          setCredsConfigured(Boolean(data.provider_settings.has_api_key || Object.values(status).some(Boolean) || hasDfsCredentials || hasParallelKey))
           setCredsProvider(data.provider_settings.provider || '')
         }
       } catch (e) {
@@ -323,6 +329,8 @@ export default function SettingsPage() {
       setCredsConfigured(false)
       setCredsProvider('')
       setProviderKeyStatus({})
+      setDfsConfigured(false)
+      setParallelKeyConfigured(false)
       setShowCredsForm(false)
     } catch (e) {
       console.error('Failed to delete credentials:', e)
@@ -334,8 +342,9 @@ export default function SettingsPage() {
 
   async function handleSaveCreds() {
     const selectedProviderHasKey = Boolean(providerKeyStatus[credsForm.provider])
-    if (!selectedProviderHasKey && !credsForm.api_key.trim()) {
-      setCredsError(`${credsForm.provider} API key is required`)
+    const isAddingDfsCredentials = Boolean(credsForm.dfs_login.trim() && credsForm.dfs_password)
+    if (!selectedProviderHasKey && !credsForm.api_key.trim() && !credsForm.parallel_api_key.trim() && !dfsConfigured && !isAddingDfsCredentials) {
+      setCredsError('Add an AI, Parallel, or DataForSEO credential')
       return
     }
     const sb = createClient()
@@ -348,16 +357,31 @@ export default function SettingsPage() {
       const nextStatus = credsForm.api_key.trim()
         ? { ...providerKeyStatus, [credsForm.provider]: true }
         : providerKeyStatus
+      const hasDfsCredentials = dfsConfigured || isAddingDfsCredentials
+      const hasParallelKey = parallelKeyConfigured || Boolean(credsForm.parallel_api_key.trim())
       setProviderKeyStatus(nextStatus)
-      setCredsConfigured(Object.values(nextStatus).some(Boolean))
+      setDfsConfigured(hasDfsCredentials)
+      setParallelKeyConfigured(hasParallelKey)
+      setCredsConfigured(Object.values(nextStatus).some(Boolean) || hasDfsCredentials || hasParallelKey)
       setCredsProvider(credsForm.provider)
-      setCredsForm(f => ({ ...f, api_key: '', dfs_password: '', jina_api_key: '' }))
+      setCredsForm(f => ({ ...f, api_key: '', dfs_password: '', jina_api_key: '', parallel_api_key: '' }))
       setShowCredsForm(false)
       setCredsSaved(true)
       setTimeout(() => setCredsSaved(false), 2000)
     } catch { setCredsError('Failed to save credentials') }
     setCredsSaving(false)
   }
+
+  const savedAiProviders = AI_PROVIDERS.filter(provider => providerKeyStatus[provider])
+  const credentialSummary = [
+    savedAiProviders.length
+      ? `${savedAiProviders.join(', ')} API key${savedAiProviders.length === 1 ? '' : 's'}`
+      : credsProvider
+        ? `${credsProvider} API key`
+        : '',
+    parallelKeyConfigured ? 'Parallel API key' : '',
+    dfsConfigured ? 'DataForSEO' : '',
+  ].filter(Boolean).join(' + ')
 
   return (
     <AppLayout>
@@ -371,7 +395,11 @@ export default function SettingsPage() {
               summaryItems={[
                 {
                   label: 'AI keys',
-                  value: AI_PROVIDERS.filter(p => providerKeyStatus[p]).length || (credsConfigured ? 1 : 0),
+                  value: savedAiProviders.length || (credsConfigured && !parallelKeyConfigured && !dfsConfigured ? 1 : 0),
+                },
+                {
+                  label: 'Parallel',
+                  value: parallelKeyConfigured ? 'Ready' : 'Not set',
                 },
                 {
                   label: 'GSC method',
@@ -390,6 +418,8 @@ export default function SettingsPage() {
             <JobSummaryPills
               items={[
                 { label: credsConfigured ? 'Credentials saved' : 'Credentials needed', tone: credsConfigured ? 'success' : 'muted' },
+                { label: dfsConfigured ? 'DataForSEO ready' : 'DataForSEO not configured', tone: dfsConfigured ? 'success' : 'neutral' },
+                { label: parallelKeyConfigured ? 'Parallel ready' : 'Parallel not configured', tone: parallelKeyConfigured ? 'success' : 'neutral' },
                 { label: gscSettings?.google_oauth.configured ? 'Google connected' : 'Google not connected', tone: gscSettings?.google_oauth.configured ? 'success' : 'muted' },
                 { label: gscSettings?.service_account.configured ? 'Service account ready' : 'Service account optional', tone: gscSettings?.service_account.configured ? 'success' : 'neutral' },
               ]}
@@ -570,7 +600,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-xs font-medium">Credentials saved</p>
                   <p className="text-xs text-muted mt-0.5">
-                    {AI_PROVIDERS.filter(p => providerKeyStatus[p]).join(', ') || credsProvider || 'AI provider'} API key{AI_PROVIDERS.filter(p => providerKeyStatus[p]).length === 1 ? '' : 's'} + DataForSEO{credsForm.site_url ? ` · ${credsForm.site_url}` : ''}
+                    {credentialSummary}{credsForm.site_url ? ` · ${credsForm.site_url}` : ''}
                   </p>
                 </div>
               </div>
@@ -583,7 +613,9 @@ export default function SettingsPage() {
                       const creds = await getProviderMetadata(session.access_token)
                       if (creds) {
                         setProviderKeyStatus(creds.api_key_status || {})
-                        setCredsForm({ provider: creds.provider || 'Claude', api_key: '', dfs_login: creds.dfs_login || '', dfs_password: '', jina_api_key: '', site_url: creds.site_url || '' })
+                        setDfsConfigured(Boolean(creds.dfs_login && creds.has_dfs_password))
+                        setParallelKeyConfigured(Boolean(creds.has_parallel_key))
+                        setCredsForm({ provider: creds.provider || 'Claude', api_key: '', dfs_login: creds.dfs_login || '', dfs_password: '', jina_api_key: '', parallel_api_key: '', site_url: creds.site_url || '' })
                       }
                     } catch (e) {
                       console.error('Failed to pre-fill credentials form:', e)
@@ -623,12 +655,17 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">DataForSEO Password</label>
-                  <input type="password" value={credsForm.dfs_password} onChange={e => setCredsForm(f => ({ ...f, dfs_password: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved password' : ''} />
+                  <input type="password" value={credsForm.dfs_password} onChange={e => setCredsForm(f => ({ ...f, dfs_password: e.target.value }))} className="input-base text-xs w-full" placeholder={dfsConfigured ? 'Leave blank to keep saved password' : ''} />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Jina API Key <span className="text-muted/50">(optional)</span></label>
                 <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved key' : ''} />
+              </div>
+              <div>
+                <label className="text-xs text-muted block mb-1">Parallel API Key <span className="text-muted/50">(GEOPilot)</span></label>
+                <input type="password" value={credsForm.parallel_api_key} onChange={e => setCredsForm(f => ({ ...f, parallel_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={parallelKeyConfigured ? 'Leave blank to keep saved Parallel key' : 'Add your Parallel API key'} />
+                <p className="text-xs text-muted/70 mt-1">Used for GEOPilot prompt discovery and weekly citation opportunities.</p>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">GSC Site URL <span className="text-muted/50">(pre-fills on every new job)</span></label>
