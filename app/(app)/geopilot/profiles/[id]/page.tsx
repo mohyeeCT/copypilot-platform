@@ -3,31 +3,345 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Download, ExternalLink, Pencil, Play, Plus, RefreshCw, Save, Square, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  BarChart3,
+  Check,
+  ChevronRight,
+  Clock3,
+  Download,
+  ExternalLink,
+  Link2,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  Sparkles,
+  Square,
+  Target,
+  X,
+} from 'lucide-react'
+import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
 import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/RunSurfaceDialog'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
-import { JobLauncherShell, JobSection } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
-import { downloadGeoPilotCsv, geopilotApi, type GeoPilotCollectionPayload, type GeoPilotPrimarySurface, type GeoPilotPromptPayload } from '@/lib/api/geopilot'
+import {
+  downloadGeoPilotCsv,
+  geopilotApi,
+  type GeoPilotCollectionPayload,
+  type GeoPilotPrimarySurface,
+  type GeoPilotPromptPayload,
+} from '@/lib/api/geopilot'
+import styles from '@/components/geopilot/GeoPilotProfile.module.css'
 
 type RecordValue = Record<string, unknown>
-type Prompt = { id: string; prompt_text: string; google_query?: string; calibration?: boolean; source?: 'manual' | 'parallel'; version?: number; category?: string; funnel_stage?: 'awareness' | 'consideration' | 'decision' | null; active?: boolean }
-type Collection = { id: string; name: string; objective?: string; schedule?: 'manual' | 'daily'; prompt_count?: number; prompts?: Prompt[]; surfaces?: GeoPilotPrimarySurface[]; active?: boolean; funnel_stage?: 'awareness' | 'consideration' | 'decision' | null; country_code?: string | null; location_name?: string | null; language_code?: string | null; device?: 'desktop' | 'mobile' | null }
-type Profile = { id: string; name: string; brand_name: string; primary_domain?: string; country_code?: string; language_code?: string; device?: string; competitors?: Array<{ name: string }>; collections?: Collection[]; latest_batch?: Batch | null }
-type Batch = { id: string; status: string; total_runs?: number; completed_runs?: number; failed_runs?: number; created_at?: string; error?: string | null }
-type Run = { id: string; surface: string; method: string; model_name?: string; status: string; brand_mentioned?: boolean; prominence?: string; sentiment?: string; summary?: string; created_at?: string; request_snapshot?: { prompt_text?: string }; citations?: Array<{ domain?: string; url?: string }> }
-type SurfaceMetrics = { visibility_score?: number | null; share_of_voice?: number | null; prominence_score?: number | null; sentiment_score?: number | null; citation_share?: number | null; ai_overview_coverage?: number | null; successful_runs?: number }
-type Dashboard = { overall_visibility?: number | null; overall_share_of_voice?: number | null; overall_citation_share?: number | null; measured_surfaces?: GeoPilotPrimarySurface[]; surfaces?: Record<string, SurfaceMetrics>; calibration?: SurfaceMetrics; timeline?: RecordValue[]; prompt_performance?: Array<RecordValue & { id: string; prompt_text?: string; visibility_score?: number | null; share_of_voice?: number | null; successful_runs?: number }> }
-type Insight = { id: string; status: string; insight?: Record<string, unknown>; evidence_urls?: string[]; generated_at?: string }
+type Prompt = {
+  id: string
+  prompt_text: string
+  google_query?: string
+  calibration?: boolean
+  source?: 'manual' | 'parallel'
+  version?: number
+  category?: string
+  funnel_stage?: 'awareness' | 'consideration' | 'decision' | null
+  active?: boolean
+}
+type Collection = {
+  id: string
+  name: string
+  objective?: string
+  schedule?: 'manual' | 'daily'
+  prompt_count?: number
+  prompts?: Prompt[]
+  surfaces?: GeoPilotPrimarySurface[]
+  active?: boolean
+  funnel_stage?: 'awareness' | 'consideration' | 'decision' | null
+  country_code?: string | null
+  location_name?: string | null
+  language_code?: string | null
+  device?: 'desktop' | 'mobile' | null
+}
+type Profile = {
+  id: string
+  name: string
+  brand_name: string
+  primary_domain?: string
+  country_code?: string
+  language_code?: string
+  device?: string
+  active?: boolean
+  competitors?: Array<{ name: string }>
+  collections?: Collection[]
+  latest_batch?: Batch | null
+}
+type Batch = {
+  id: string
+  status: string
+  total_runs?: number
+  completed_runs?: number
+  failed_runs?: number
+  created_at?: string
+  error?: string | null
+}
+type Run = {
+  id: string
+  surface: string
+  method: string
+  model_name?: string
+  status: string
+  brand_mentioned?: boolean
+  prominence?: string
+  sentiment?: string
+  summary?: string
+  created_at?: string
+  request_snapshot?: { prompt_text?: string }
+  citations?: Array<{ domain?: string; url?: string }>
+}
+type SurfaceMetrics = {
+  visibility_score?: number | null
+  share_of_voice?: number | null
+  prominence_score?: number | null
+  sentiment_score?: number | null
+  citation_share?: number | null
+  ai_overview_coverage?: number | null
+  successful_runs?: number
+}
+type Dashboard = {
+  overall_visibility?: number | null
+  overall_share_of_voice?: number | null
+  overall_citation_share?: number | null
+  measured_surfaces?: GeoPilotPrimarySurface[]
+  surfaces?: Record<string, SurfaceMetrics>
+  calibration?: SurfaceMetrics
+  timeline?: RecordValue[]
+  prompt_performance?: Array<RecordValue & {
+    id: string
+    prompt_text?: string
+    visibility_score?: number | null
+    share_of_voice?: number | null
+    successful_runs?: number
+  }>
+}
+type Insight = {
+  id: string
+  status: string
+  insight?: Record<string, unknown>
+  evidence_urls?: string[]
+  generated_at?: string
+}
 
-const ACTIVE = new Set(['queued', 'submitting', 'collecting', 'classifying', 'enriching'])
-const SURFACES: Record<string, string> = { google_ai_overview: 'Google AI Overview', chatgpt: 'ChatGPT', gemini: 'Gemini', claude: 'Claude', chatgpt_calibration: 'ChatGPT calibration' }
+const ACTIVE_BATCH_STATES = new Set(['queued', 'submitting', 'collecting', 'classifying', 'enriching'])
+const PRIMARY_SURFACES: GeoPilotPrimarySurface[] = ['google_ai_overview', 'chatgpt', 'gemini', 'claude']
+const SURFACES: Record<string, string> = {
+  google_ai_overview: 'Google AI Overview',
+  chatgpt: 'ChatGPT',
+  gemini: 'Gemini',
+  claude: 'Claude',
+  chatgpt_calibration: 'ChatGPT calibration',
+}
 const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
 
-function metric(value?: number | null, suffix = '%') { return value == null ? '-' : `${Number(value).toFixed(value % 1 ? 1 : 0)}${suffix}` }
-function dateLabel(value?: string) { return value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-' }
-function statusTone(status: string) { return status === 'complete' ? 'text-success' : status === 'failed' ? 'text-error' : status === 'partial' ? 'text-warning' : 'text-muted' }
+function metric(value?: number | null, suffix = '%') {
+  if (value == null) return '-'
+  const number = Number(value)
+  return `${number.toFixed(number % 1 ? 1 : 0)}${suffix}`
+}
+
+function dateLabel(value?: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function sentenceCase(value: string) {
+  return value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase())
+}
+
+function surfaceTone(surface: string) {
+  if (surface === 'google_ai_overview') return 'google'
+  if (surface === 'chatgpt_calibration') return 'calibration'
+  if (surface === 'gemini') return 'gemini'
+  if (surface === 'claude') return 'claude'
+  return 'chatgpt'
+}
+
+function normalizeDomain(value?: string) {
+  if (!value) return ''
+  const normalized = value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '')
+  return normalized.split('/')[0].split(':')[0]
+}
+
+function isOwnedDomain(domain: string | undefined, ownedDomain: string | undefined) {
+  const candidate = normalizeDomain(domain)
+  const owned = normalizeDomain(ownedDomain)
+  return Boolean(candidate && owned && (candidate === owned || candidate.endsWith(`.${owned}`)))
+}
+
+function safeExternalUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
+function hostname(value: string) {
+  const safeUrl = safeExternalUrl(value)
+  return safeUrl ? new URL(safeUrl).hostname.replace(/^www\./, '') : ''
+}
+
+function statusClass(status: string) {
+  if (status === 'complete') return styles.stateGood
+  if (status === 'failed') return styles.stateError
+  if (status === 'partial') return styles.stateWarning
+  if (status === 'cancelled') return styles.stateMuted
+  return styles.stateActive
+}
+
+function SurfaceMark({ surface }: { surface: string }) {
+  const tone = surfaceTone(surface)
+  return (
+    <span className={clsx(styles.surfaceMark, styles[`surface_${tone}`])}>
+      <span className={styles.surfaceDot} />
+      <span className={styles.surfaceLabel}>{SURFACES[surface] || sentenceCase(surface)}</span>
+    </span>
+  )
+}
+
+function VisibilityChart({ points, brandName }: { points: Array<{ date: string; value: number }>; brandName: string }) {
+  if (!points.length) {
+    return (
+      <div className={styles.chartEmpty}>
+        <BarChart3 size={22} />
+        <strong>No trend data yet</strong>
+        <p>Visibility history appears after a completed measurement run.</p>
+      </div>
+    )
+  }
+
+  const width = 720
+  const top = 15
+  const bottom = 215
+  const coordinates = points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width
+    const y = top + ((100 - Math.max(0, Math.min(100, point.value))) / 100) * (bottom - top)
+    return { ...point, x, y }
+  })
+  const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])]
+
+  return (
+    <div className={styles.chartWrap}>
+      <div className={styles.chartYAxis} aria-hidden="true">
+        <span>100</span><span>75</span><span>50</span><span>25</span><span>0</span>
+      </div>
+      <div className={styles.chartCanvas}>
+        <svg viewBox="0 0 720 230" role="img" aria-label={`${brandName} visibility trend over the selected period`}>
+          <g className={styles.gridLines}>
+            {[15, 65, 115, 165, 215].map(y => <line key={y} x1="0" y1={y} x2="720" y2={y} />)}
+          </g>
+          <polyline className={styles.chartPrimary} points={coordinates.map(point => `${point.x},${point.y}`).join(' ')} />
+          <circle className={styles.chartPoint} cx={coordinates.at(-1)?.x} cy={coordinates.at(-1)?.y} r="5" />
+        </svg>
+        <div className={styles.chartXAxis} aria-hidden="true">
+          {labelIndexes.map(index => (
+            <span key={`${points[index].date}-${index}`}>
+              {new Date(points[index].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ResultsTable({
+  runs,
+  total,
+  ownedDomain,
+}: {
+  runs: Run[]
+  total: number
+  ownedDomain?: string
+}) {
+  return (
+    <>
+      <div className={styles.tableWrap}>
+        {runs.length ? (
+          <table className={styles.resultsTable}>
+            <thead>
+              <tr>
+                <th>Prompt</th>
+                <th>Surface</th>
+                <th>Mention</th>
+                <th>Prominence</th>
+                <th>Citations</th>
+                <th>Checked</th>
+                <th><span className={styles.srOnly}>Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map(run => {
+                const citations = run.citations || []
+                const ownedCitations = citations.filter(citation => isOwnedDomain(citation.domain, ownedDomain)).length
+                return (
+                  <tr key={run.id}>
+                    <td>
+                      <Link href={`/geopilot/runs/${run.id}`} className={styles.promptButton}>
+                        <strong>{run.request_snapshot?.prompt_text || 'Tracked prompt'}</strong>
+                        <small>{run.method || run.model_name || 'Measurement result'}</small>
+                      </Link>
+                    </td>
+                    <td><SurfaceMark surface={run.surface} /></td>
+                    <td>
+                      {run.status === 'complete' ? (
+                        <span className={run.brand_mentioned ? styles.mentionYes : styles.mentionNo}>
+                          {run.brand_mentioned ? <Check size={12} /> : <X size={12} />}
+                          <span className={styles.mentionLabel}>{run.brand_mentioned ? 'Mentioned' : 'Not found'}</span>
+                        </span>
+                      ) : (
+                        <span className={clsx(styles.runState, statusClass(run.status))}>{sentenceCase(run.status)}</span>
+                      )}
+                    </td>
+                    <td><span className={styles.cellMuted}>{run.prominence || '-'}</span></td>
+                    <td>
+                      <span className={styles.citationCell}>
+                        {citations.length}
+                        <small>{ownedCitations} owned</small>
+                      </span>
+                    </td>
+                    <td><span className={styles.timeCell}><Clock3 size={13} /> {dateLabel(run.created_at)}</span></td>
+                    <td>
+                      <Link href={`/geopilot/runs/${run.id}`} className={styles.rowAction} aria-label="Inspect measurement result">
+                        <ChevronRight size={16} />
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className={styles.emptyState}>
+            <Search size={21} />
+            <strong>No matching measurements</strong>
+            <p>Try a different prompt search or measurement source.</p>
+          </div>
+        )}
+      </div>
+      <footer className={styles.tableFooter}>
+        <span>Showing {runs.length} of {total} loaded measurements</span>
+      </footer>
+    </>
+  )
+}
 
 export default function GeoPilotProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -41,6 +355,7 @@ export default function GeoPilotProfilePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview')
   const [days, setDays] = useState(30)
   const [surface, setSurface] = useState('')
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('')
   const [error, setError] = useState('')
@@ -52,18 +367,38 @@ export default function GeoPilotProfilePage() {
     setLoading(true)
     try {
       const { data: { session } } = await createClient().auth.getSession()
-      if (!session) return router.push('/login')
+      if (!session) {
+        router.push('/login')
+        return
+      }
       setAccessToken(session.access_token)
       const [profileData, dashboardData, runsData, insightsData, batchesData] = await Promise.all([
-        geopilotApi.getProfile(session.access_token, id), geopilotApi.dashboard(session.access_token, id, days),
-        geopilotApi.listRuns(session.access_token, id, days, surface), geopilotApi.listInsights(session.access_token, id), geopilotApi.listBatches(session.access_token, id),
+        geopilotApi.getProfile(session.access_token, id),
+        geopilotApi.dashboard(session.access_token, id, days),
+        geopilotApi.listRuns(session.access_token, id, days, surface),
+        geopilotApi.listInsights(session.access_token, id),
+        geopilotApi.listBatches(session.access_token, id),
       ])
-      setProfile(profileData.profile); setDashboard(dashboardData); setRuns(runsData.runs || []); setInsights(insightsData.insights || []); setBatches(batchesData.batches || []); setError('')
-    } catch (loadError) { setError(loadError instanceof Error ? loadError.message : 'Failed to load GEOPilot profile.') }
-    finally { setLoading(false) }
+      setProfile(profileData.profile)
+      setDashboard(dashboardData)
+      setRuns(runsData.runs || [])
+      setInsights(insightsData.insights || [])
+      setBatches(batchesData.batches || [])
+      setError('')
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load GEOPilot profile.')
+    } finally {
+      setLoading(false)
+    }
   }, [days, id, router, surface])
+
   useEffect(() => { void load() }, [load])
-  const activeBatch = profile?.latest_batch && ACTIVE.has(profile.latest_batch.status) ? profile.latest_batch : null
+
+  const activeBatch = useMemo(() => {
+    const candidates = [profile?.latest_batch, ...batches]
+    return candidates.find((batch): batch is Batch => Boolean(batch && ACTIVE_BATCH_STATES.has(batch.status))) || null
+  }, [batches, profile?.latest_batch])
+
   useEffect(() => {
     if (!activeBatch) return
     const timer = window.setInterval(() => void load(), 5000)
@@ -82,24 +417,39 @@ export default function GeoPilotProfilePage() {
       surfaces: collection?.surfaces?.length ? [...collection.surfaces] : [...ALL_GEOPILOT_SURFACES],
     })
   }
+
   async function runNow(surfaces: GeoPilotPrimarySurface[], includeCalibration: boolean) {
     if (!accessToken || !runTarget) return
-    setAction(runTarget.collectionId || 'profile'); setError('')
+    setAction(runTarget.collectionId || 'profile')
+    setError('')
     try {
-      await geopilotApi.runProfile(accessToken, id, { collectionId: runTarget.collectionId, surfaces, includeCalibration })
+      await geopilotApi.runProfile(accessToken, id, {
+        collectionId: runTarget.collectionId,
+        surfaces,
+        includeCalibration,
+      })
       setRunTarget(null)
       await load()
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : 'Failed to start run.')
+    } finally {
+      setAction('')
     }
-    catch (runError) { setError(runError instanceof Error ? runError.message : 'Failed to start run.') }
-    finally { setAction('') }
   }
+
   async function cancel() {
     if (!accessToken || !activeBatch) return
     setAction('cancel')
-    try { await geopilotApi.cancelBatch(accessToken, activeBatch.id); await load() }
-    catch (cancelError) { setError(cancelError instanceof Error ? cancelError.message : 'Failed to cancel run.') }
-    finally { setAction('') }
+    try {
+      await geopilotApi.cancelBatch(accessToken, activeBatch.id)
+      await load()
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'Failed to cancel run.')
+    } finally {
+      setAction('')
+    }
   }
+
   async function saveCollection() {
     if (!accessToken || !editingCollection) return
     setAction(`collection-${editingCollection.id}`)
@@ -115,10 +465,17 @@ export default function GeoPilotProfilePage() {
       surfaces: editingCollection.surfaces?.length ? editingCollection.surfaces : [...ALL_GEOPILOT_SURFACES],
       active: editingCollection.active !== false,
     }
-    try { await geopilotApi.updateCollection(accessToken, editingCollection.id, payload); setEditingCollection(null); await load() }
-    catch (saveError) { setError(saveError instanceof Error ? saveError.message : 'Failed to update collection.') }
-    finally { setAction('') }
+    try {
+      await geopilotApi.updateCollection(accessToken, editingCollection.id, payload)
+      setEditingCollection(null)
+      await load()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update collection.')
+    } finally {
+      setAction('')
+    }
   }
+
   async function savePrompt() {
     if (!accessToken || !editingPrompt) return
     setAction(`prompt-${editingPrompt.id}`)
@@ -131,13 +488,27 @@ export default function GeoPilotProfilePage() {
       source: editingPrompt.source || 'manual',
       active: editingPrompt.active !== false,
     }
-    try { await geopilotApi.updatePrompt(accessToken, editingPrompt.id, payload); setEditingPrompt(null); await load() }
-    catch (saveError) { setError(saveError instanceof Error ? saveError.message : 'Failed to update prompt.') }
-    finally { setAction('') }
+    try {
+      await geopilotApi.updatePrompt(accessToken, editingPrompt.id, payload)
+      setEditingPrompt(null)
+      await load()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update prompt.')
+    } finally {
+      setAction('')
+    }
   }
+
+  const collections = useMemo(() => profile?.collections || [], [profile?.collections])
+  const promptCount = useMemo(() => collections.reduce((sum, collection) => {
+    const activePrompts = collection.prompts?.filter(prompt => prompt.active !== false)
+    return sum + (activePrompts?.length || collection.prompt_count || 0)
+  }, 0), [collections])
   const citationDomains = useMemo(() => {
     const counts = new Map<string, number>()
-    runs.flatMap(run => run.citations || []).forEach(citation => { if (citation.domain) counts.set(citation.domain, (counts.get(citation.domain) || 0) + 1) })
+    runs.flatMap(run => run.citations || []).forEach(citation => {
+      if (citation.domain) counts.set(citation.domain, (counts.get(citation.domain) || 0) + 1)
+    })
     return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [runs])
   const dailyTrend = useMemo(() => {
@@ -148,30 +519,531 @@ export default function GeoPilotProfilePage() {
       if (!date || !Number.isFinite(value)) continue
       grouped.set(date, [...(grouped.get(date) || []), value])
     }
-    return [...grouped].map(([date, values]) => ({ date, value: values.reduce((sum, value) => sum + value, 0) / values.length })).slice(-14)
+    return [...grouped]
+      .map(([date, values]) => ({ date, value: values.reduce((sum, value) => sum + value, 0) / values.length }))
+      .slice(-14)
   }, [dashboard.timeline])
+  const filteredRuns = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) return runs
+    return runs.filter(run => {
+      const prompt = run.request_snapshot?.prompt_text || ''
+      const label = SURFACES[run.surface] || run.surface
+      return prompt.toLowerCase().includes(normalized) || label.toLowerCase().includes(normalized)
+    })
+  }, [query, runs])
+  const totalSuccessfulRuns = Object.values(dashboard.surfaces || {})
+    .reduce((sum, item) => sum + (item.successful_runs || 0), 0)
+  const totalCitations = runs.reduce((sum, run) => sum + (run.citations?.length || 0), 0)
+  const ownedCitations = runs.reduce((sum, run) => (
+    sum + (run.citations || []).filter(citation => isOwnedDomain(citation.domain, profile?.primary_domain)).length
+  ), 0)
+  const latestBatch = batches[0] || profile?.latest_batch || null
+  const profileDetails = [
+    profile?.primary_domain,
+    profile?.country_code,
+    profile?.device ? sentenceCase(profile.device) : '',
+    profile?.language_code?.toUpperCase(),
+  ].filter(Boolean)
 
-  return <AppLayout title="GEOPilot Profile"><Link href="/geopilot" className="mb-4 inline-flex items-center gap-2 text-sm text-muted hover:text-text"><ArrowLeft size={16} /> Back to GEOPilot</Link><JobLauncherShell compact eyebrow="GEOPilot client" title={profile?.name || 'Client Profile'} summary={profile && <div className="text-right text-xs text-muted"><p className="font-semibold text-text">{profile.brand_name}</p><p>{profile.country_code} / {profile.language_code} / {profile.device}</p></div>} actions={<div className="flex flex-wrap gap-2"><button className="btn-ghost gap-2" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>{profile && <Link className="btn-ghost gap-2" href={`/geopilot/profiles/${id}/edit`}><Pencil size={14} /> Edit</Link>}{activeBatch ? <button className="btn-ghost gap-2 text-error" onClick={() => void cancel()} disabled={action === 'cancel'}><Square size={13} /> Cancel</button> : <button className="btn-primary gap-2" onClick={() => openRun()} disabled={!profile}><Play size={14} /> Run Now</button>}</div>}>
-    {error && <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>}
-    {activeBatch && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/10 p-3"><div><p className="text-sm font-semibold text-text">Run {activeBatch.status}</p><p className="text-xs text-muted">{activeBatch.completed_runs || 0} of {activeBatch.total_runs || 0} measurements complete</p></div><span className="text-xs font-semibold text-accent">Updating automatically</span></div>}
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border"><div className="flex gap-1">{TABS.map(item => <button key={item} onClick={() => setTab(item)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === item ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-text'}`}>{item}</button>)}</div><div className="flex items-center gap-2 pb-2"><select aria-label="Period" className="input-base w-24" value={days} onChange={event => setDays(Number(event.target.value))}><option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select>{accessToken && profile && <button className="btn-ghost gap-2" onClick={() => void downloadGeoPilotCsv(accessToken, id, days, `geopilot-${profile.name}-${days}d.csv`)}><Download size={14} /> CSV</button>}</div></div>
-    {loading && !profile ? <p className="text-sm text-muted">Loading profile...</p> : tab === 'Overview' ? <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><Score label="Overall visibility" value={metric(dashboard.overall_visibility)} /><Score label="Share of voice" value={metric(dashboard.overall_share_of_voice)} /><Score label="Owned citation share" value={metric(dashboard.overall_citation_share)} /><Score label="Google coverage" value={metric(dashboard.surfaces?.google_ai_overview?.ai_overview_coverage)} /><Score label="Active prompts" value={String(profile?.collections?.reduce((sum, item) => sum + (item.prompt_count || 0), 0) || 0)} /><Score label="Visibility basis" value={`${dashboard.measured_surfaces?.length || 0}/4`} /></div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <JobSection title="Run history"><div className="divide-y divide-border">{batches.slice(0, 8).map(batch => <div key={batch.id} className="flex items-center justify-between gap-4 py-2 text-sm"><div><p className={`font-semibold ${statusTone(batch.status)}`}>{batch.status}</p><p className="text-xs text-muted">{dateLabel(batch.created_at)} / {batch.completed_runs || 0} of {batch.total_runs || 0}</p></div>{batch.failed_runs ? <span className="text-xs text-error">{batch.failed_runs} failed</span> : null}</div>)}{!batches.length && <p className="text-sm text-muted">No runs yet.</p>}</div></JobSection>
-        <JobSection title="Manage tracking"><div className="space-y-3">{profile?.collections?.map(collection => <div key={collection.id} className="border-b border-border pb-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-text">{collection.name}</p><button className="btn-ghost px-3 py-1.5" title="Edit collection" onClick={() => setEditingCollection({ ...collection, surfaces: collection.surfaces?.length ? collection.surfaces : [...ALL_GEOPILOT_SURFACES] })}><Pencil size={13} /></button></div><div className="mt-2 flex flex-wrap gap-2">{collection.prompts?.map(prompt => <button key={prompt.id} className="rounded-md border border-border px-2 py-1 text-left text-xs text-muted hover:border-accent hover:text-accent" onClick={() => setEditingPrompt({ ...prompt })}>{prompt.prompt_text}</button>)}</div></div>)}</div></JobSection>
+  const metrics = [
+    {
+      label: 'Visibility',
+      value: metric(dashboard.overall_visibility),
+      note: `${totalSuccessfulRuns} successful measurements`,
+      icon: Target,
+    },
+    {
+      label: 'Share of voice',
+      value: metric(dashboard.overall_share_of_voice),
+      note: `${profile?.competitors?.length || 0} configured competitors`,
+      icon: BarChart3,
+    },
+    {
+      label: 'Owned citations',
+      value: metric(dashboard.overall_citation_share),
+      note: `${ownedCitations} of ${totalCitations} loaded citations`,
+      icon: Link2,
+    },
+    {
+      label: 'AI Overview coverage',
+      value: metric(dashboard.surfaces?.google_ai_overview?.ai_overview_coverage),
+      note: `${dashboard.surfaces?.google_ai_overview?.successful_runs || 0} Google measurements`,
+      icon: Sparkles,
+    },
+  ]
+
+  return (
+    <AppLayout title="GEOPilot">
+      <div className={styles.liveProfile}>
+        <section className={styles.profileHeader}>
+          <div>
+            <Link href="/geopilot" className={styles.backLink}><ArrowLeft size={14} /> All profiles</Link>
+            <div className={styles.titleRow}>
+              <span className={styles.clientMark}>{(profile?.brand_name || profile?.name || 'G').charAt(0).toUpperCase()}</span>
+              <div>
+                <div className={styles.profileTitleLine}>
+                  <h1>{profile?.name || 'Client profile'}</h1>
+                  {profile ? (
+                    <span className={styles.statusBadge}>
+                      <span /> {profile.active === false ? 'Paused' : 'Active'}
+                    </span>
+                  ) : null}
+                </div>
+                <p>
+                  {profileDetails.length ? profileDetails.map((detail, index) => (
+                    <span key={`${index}-${String(detail)}`} className={styles.profileDetail}>
+                      {index ? <i>/</i> : null}{detail}
+                    </span>
+                  )) : 'Loading profile details'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className={styles.profileActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => void load()}
+              disabled={loading}
+              title="Refresh profile"
+            >
+              <RefreshCw size={15} className={loading ? styles.spinning : undefined} /> Refresh
+            </button>
+            {accessToken && profile ? (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => void downloadGeoPilotCsv(accessToken, id, days, `geopilot-${profile.name}-${days}d.csv`)}
+              >
+                <Download size={15} /> Export CSV
+              </button>
+            ) : null}
+            {profile ? (
+              <Link className={styles.secondaryButton} href={`/geopilot/profiles/${id}/edit`}>
+                <Pencil size={15} /> Edit profile
+              </Link>
+            ) : null}
+            {activeBatch ? (
+              <button
+                type="button"
+                className={clsx(styles.secondaryButton, styles.cancelButton)}
+                onClick={() => void cancel()}
+                disabled={action === 'cancel'}
+              >
+                <Square size={13} /> {action === 'cancel' ? 'Cancelling' : 'Cancel run'}
+              </button>
+            ) : (
+              <button type="button" className={styles.primaryButton} onClick={() => openRun()} disabled={!profile}>
+                <Play size={15} /> Run now
+              </button>
+            )}
+          </div>
+        </section>
+
+        {error ? <div className={styles.errorNotice}>{error}</div> : null}
+        {activeBatch ? (
+          <div className={styles.runNotice}>
+            <span className={styles.noticeIcon}><RefreshCw size={14} className={styles.spinning} /></span>
+            <div>
+              <strong>Measurement run {sentenceCase(activeBatch.status).toLowerCase()}</strong>
+              <p>{activeBatch.completed_runs || 0} of {activeBatch.total_runs || 0} measurements complete. This page updates automatically.</p>
+            </div>
+          </div>
+        ) : null}
+
+        <nav className={styles.pageTabs} aria-label="GEOPilot profile views">
+          {TABS.map(item => {
+            const count = item === 'Prompts' ? promptCount : item === 'Results' ? runs.length : item === 'Opportunities' ? insights.length : 0
+            return (
+              <button
+                key={item}
+                type="button"
+                className={tab === item ? styles.pageTabActive : undefined}
+                onClick={() => setTab(item)}
+              >
+                {item} {item !== 'Overview' ? <span>{count}</span> : null}
+              </button>
+            )
+          })}
+        </nav>
+
+        {loading && !profile ? (
+          <div className={styles.loadingState}><RefreshCw size={20} className={styles.spinning} /> Loading profile</div>
+        ) : null}
+
+        {profile && tab === 'Overview' ? (
+          <>
+            <section className={styles.metricStrip}>
+              {metrics.map(item => {
+                const Icon = item.icon
+                return (
+                  <article key={item.label} className={styles.metricItem}>
+                    <div className={styles.metricLabelRow}>
+                      <span className={styles.metricIcon}><Icon size={14} /></span>
+                      <span className={styles.metricLabel}>{item.label}</span>
+                    </div>
+                    <div className={styles.metricValueRow}><strong>{item.value}</strong></div>
+                    <p>{item.note}</p>
+                  </article>
+                )
+              })}
+            </section>
+
+            <div className={styles.dashboardGrid}>
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h2>Visibility trend</h2>
+                    <p>Successful prompts that mention {profile.brand_name || profile.name}</p>
+                  </div>
+                  <div className={styles.rangeControl} aria-label="Chart date range">
+                    {[7, 30, 90].map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={days === option ? styles.segmentActive : undefined}
+                        aria-pressed={days === option}
+                        onClick={() => setDays(option)}
+                      >
+                        {option}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.chartLegend}>
+                  <span><i className={styles.legendPrimary} /> {profile.brand_name || profile.name}</span>
+                </div>
+                <VisibilityChart points={dailyTrend} brandName={profile.brand_name || profile.name} />
+              </section>
+
+              <section className={clsx(styles.panel, styles.surfacePanel)}>
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h2>By surface</h2>
+                    <p>Visibility across primary measurement sources</p>
+                  </div>
+                </div>
+                <div className={styles.surfaceRail}>
+                  {PRIMARY_SURFACES.map(key => {
+                    const data = dashboard.surfaces?.[key]
+                    const value = data?.visibility_score
+                    const tone = surfaceTone(key)
+                    return (
+                      <div key={key} className={styles.surfaceMetric}>
+                        <div className={styles.surfaceMetricTop}>
+                          <span><i className={styles[`rail_${tone}`]} /> {SURFACES[key]}</span>
+                          <strong>{metric(value)}</strong>
+                        </div>
+                        <div className={styles.progressTrack}>
+                          <span className={styles[`bar_${tone}`]} style={{ width: `${Math.max(0, Math.min(100, value || 0))}%` }} />
+                        </div>
+                        <small className={styles.stateMuted}>{data?.successful_runs || 0} successful measurements</small>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className={styles.lastRun}>
+                  <span className={styles.runStatusIcon}>
+                    {latestBatch && ACTIVE_BATCH_STATES.has(latestBatch.status) ? <Clock3 size={14} /> : <Check size={14} />}
+                  </span>
+                  <div>
+                    <strong>{latestBatch ? `Latest run ${sentenceCase(latestBatch.status).toLowerCase()}` : 'No measurement runs yet'}</strong>
+                    <small>{latestBatch ? `${latestBatch.completed_runs || 0} of ${latestBatch.total_runs || 0} measurements / ${dateLabel(latestBatch.created_at)}` : 'Start a run to collect visibility data'}</small>
+                  </div>
+                  {latestBatch ? (
+                    <button type="button" aria-label="Open results" title="Open results" onClick={() => setTab('Results')}>
+                      <ChevronRight size={16} />
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+
+            <section className={clsx(styles.panel, styles.resultsPanel)}>
+              <div className={styles.resultsHeader}>
+                <div>
+                  <h2>Latest measurements</h2>
+                  <p>Deterministic brand matching across tracked prompts</p>
+                </div>
+                <button type="button" className={styles.textButton} onClick={() => setTab('Results')}>
+                  <span>View all results</span><ChevronRight size={14} />
+                </button>
+              </div>
+              <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
+              <ResultsTable runs={filteredRuns.slice(0, 8)} total={runs.length} ownedDomain={profile.primary_domain} />
+            </section>
+
+            <div className={styles.supportGrid}>
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>Run history</h2><p>Recent profile batches and completion status</p></div>
+                </div>
+                <div className={styles.compactList}>
+                  {batches.slice(0, 6).map(batch => (
+                    <div key={batch.id} className={styles.compactRow}>
+                      <span className={clsx(styles.runState, statusClass(batch.status))}>{sentenceCase(batch.status)}</span>
+                      <div><strong>{batch.completed_runs || 0} of {batch.total_runs || 0} measurements</strong><small>{dateLabel(batch.created_at)}</small></div>
+                      {batch.failed_runs ? <span className={styles.stateError}>{batch.failed_runs} failed</span> : null}
+                    </div>
+                  ))}
+                  {!batches.length ? <p className={styles.compactEmpty}>No runs yet.</p> : null}
+                </div>
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>Top citation domains</h2><p>Most frequently cited sources in this period</p></div>
+                </div>
+                <div className={styles.compactList}>
+                  {citationDomains.map(([domain, count]) => (
+                    <div key={domain} className={styles.domainRow}>
+                      <span><Link2 size={13} /> {domain}</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+                  {!citationDomains.length ? <p className={styles.compactEmpty}>No citations collected in this period.</p> : null}
+                </div>
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>Prompt performance</h2><p>Visibility by tracked question</p></div>
+                </div>
+                <div className={styles.compactList}>
+                  {dashboard.prompt_performance?.slice(0, 6).map(prompt => (
+                    <div key={prompt.id} className={styles.performanceRow}>
+                      <span>{prompt.prompt_text || 'Tracked prompt'}</span>
+                      <strong>{metric(prompt.visibility_score)}</strong>
+                    </div>
+                  ))}
+                  {!dashboard.prompt_performance?.length ? <p className={styles.compactEmpty}>Prompt performance appears after completed measurements.</p> : null}
+                </div>
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>ChatGPT calibration</h2><p>Consumer result sample, kept separate from API visibility</p></div>
+                </div>
+                <div className={styles.calibrationStats}>
+                  <div><span>Visibility</span><strong>{metric(dashboard.calibration?.visibility_score)}</strong></div>
+                  <div><span>Samples</span><strong>{dashboard.calibration?.successful_runs || 0}</strong></div>
+                </div>
+              </section>
+            </div>
+          </>
+        ) : null}
+
+        {profile && tab === 'Prompts' ? (
+          <section className={styles.tabSection}>
+            <div className={styles.sectionHeading}>
+              <div><h2>Prompt collections</h2><p>Manage scheduled questions and measurement sources for this client.</p></div>
+              <Link className={styles.primaryButton} href={`/geopilot/profiles/${id}/collections/new`}><Plus size={15} /> New collection</Link>
+            </div>
+            <div className={styles.collectionGrid}>
+              {collections.map(collection => (
+                <article key={collection.id} className={styles.collectionCard}>
+                  <header className={styles.collectionHeader}>
+                    <div>
+                      <div className={styles.collectionTitle}>
+                        <h3>{collection.name}</h3>
+                        <span className={collection.active === false ? styles.stateMuted : styles.stateGood}>
+                          {collection.active === false ? 'Paused' : 'Active'}
+                        </span>
+                      </div>
+                      <p>{collection.schedule === 'daily' ? 'Daily schedule' : 'Manual schedule'} / {collection.prompt_count || collection.prompts?.length || 0} prompts</p>
+                      <small>{(collection.surfaces?.length ? collection.surfaces : ALL_GEOPILOT_SURFACES).map(item => GEOPILOT_SURFACES.find(option => option.value === item)?.label).filter(Boolean).join(' / ')}</small>
+                    </div>
+                    <div className={styles.collectionActions}>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        title="Edit collection"
+                        aria-label={`Edit ${collection.name}`}
+                        onClick={() => setEditingCollection({
+                          ...collection,
+                          surfaces: collection.surfaces?.length ? collection.surfaces : [...ALL_GEOPILOT_SURFACES],
+                        })}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => openRun(collection)}
+                        disabled={Boolean(activeBatch)}
+                      >
+                        <Play size={13} /> Run collection
+                      </button>
+                    </div>
+                  </header>
+                  {collection.objective ? <p className={styles.collectionObjective}>{collection.objective}</p> : null}
+                  <div className={styles.promptList}>
+                    {collection.prompts?.map(prompt => (
+                      <div key={prompt.id} className={styles.promptRow}>
+                        <div>
+                          <span>{prompt.prompt_text}</span>
+                          {prompt.google_query ? <small>Google: {prompt.google_query}</small> : null}
+                        </div>
+                        <div className={styles.promptMeta}>
+                          {prompt.calibration ? <span>Calibration</span> : null}
+                          <small>v{prompt.version || 1}</small>
+                          <button type="button" className={styles.iconButton} title="Edit prompt" aria-label="Edit tracked prompt" onClick={() => setEditingPrompt({ ...prompt })}>
+                            <Pencil size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!collection.prompts?.length ? <p className={styles.compactEmpty}>No prompts in this collection.</p> : null}
+                  </div>
+                </article>
+              ))}
+              {!collections.length ? (
+                <div className={styles.sectionEmpty}>
+                  <Target size={22} />
+                  <strong>No prompt collections yet</strong>
+                  <p>Create a collection to start measuring this client.</p>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {profile && tab === 'Results' ? (
+          <section className={clsx(styles.panel, styles.resultsPanel, styles.tabResults)}>
+            <div className={styles.resultsHeader}>
+              <div><h2>Measurement results</h2><p>Raw provider checks and deterministic brand matching for the selected period</p></div>
+              <div className={styles.rangeControl} aria-label="Result date range">
+                {[7, 30, 90].map(option => (
+                  <button key={option} type="button" className={days === option ? styles.segmentActive : undefined} onClick={() => setDays(option)}>{option}d</button>
+                ))}
+              </div>
+            </div>
+            <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
+            <ResultsTable runs={filteredRuns} total={runs.length} ownedDomain={profile.primary_domain} />
+          </section>
+        ) : null}
+
+        {profile && tab === 'Opportunities' ? (
+          <section className={styles.tabSection}>
+            <div className={styles.sectionHeading}>
+              <div><h2>Weekly citation opportunities</h2><p>Evidence-linked Parallel research, separate from visibility scoring.</p></div>
+            </div>
+            <div className={styles.opportunityList}>
+              {insights.map(item => (
+                <article key={item.id} className={styles.opportunityItem}>
+                  <header>
+                    <span className={clsx(styles.runState, statusClass(item.status))}>{sentenceCase(item.status)}</span>
+                    <time>{dateLabel(item.generated_at)}</time>
+                  </header>
+                  {item.status === 'complete' ? (
+                    <div>
+                      <h3>{String(item.insight?.gap || 'Citation opportunity')}</h3>
+                      {item.insight?.missing_content_asset ? <p>{String(item.insight.missing_content_asset)}</p> : null}
+                      <strong>Recommended: {String(item.insight?.recommended_content_type || 'Review cited source patterns')}</strong>
+                      {item.evidence_urls?.length ? (
+                        <div className={styles.evidenceLinks}>
+                          {item.evidence_urls.slice(0, 6).map(url => {
+                            const href = safeExternalUrl(url)
+                            if (!href) return null
+                            return <a key={url} href={href} target="_blank" rel="noreferrer">{hostname(href)} <ExternalLink size={11} /></a>
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+              {!insights.length ? (
+                <div className={styles.sectionEmpty}>
+                  <Sparkles size={22} />
+                  <strong>No weekly opportunities yet</strong>
+                  <p>Recommendations appear after citation data has been collected.</p>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {runTarget ? (
+          <RunSurfaceDialog
+            target={runTarget}
+            busy={action === (runTarget.collectionId || 'profile')}
+            onClose={() => setRunTarget(null)}
+            onRun={(surfaces, includeCalibration) => void runNow(surfaces, includeCalibration)}
+          />
+        ) : null}
+
+        {editingCollection ? (
+          <div className={styles.modalBackdrop}>
+            <div role="dialog" aria-modal="true" aria-label="Edit collection" className={styles.modalCard}>
+              <div className={styles.modalHeader}>
+                <div><h2>Edit collection</h2><p>Update its schedule, objective, and measured sources.</p></div>
+                <button type="button" className={styles.iconButton} title="Close" onClick={() => setEditingCollection(null)}><X size={15} /></button>
+              </div>
+              <div className={styles.modalBody}>
+                <label className={styles.fieldLabel}>Name<input className="input-base" value={editingCollection.name} onChange={event => setEditingCollection({ ...editingCollection, name: event.target.value })} /></label>
+                <label className={styles.fieldLabel}>Objective<textarea className="input-base" rows={3} value={editingCollection.objective || ''} onChange={event => setEditingCollection({ ...editingCollection, objective: event.target.value })} /></label>
+                <label className={styles.fieldLabel}>Schedule<select className="input-base" value={editingCollection.schedule || 'daily'} onChange={event => setEditingCollection({ ...editingCollection, schedule: event.target.value as 'daily' | 'manual' })}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
+                <div><p className={styles.fieldLabel}>Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={surfaces => setEditingCollection({ ...editingCollection, surfaces })} /></div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.secondaryButton} onClick={() => setEditingCollection(null)}>Cancel</button>
+                <button type="button" className={styles.primaryButton} onClick={() => void saveCollection()} disabled={action === `collection-${editingCollection.id}`}><Save size={14} /> Save</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {editingPrompt ? (
+          <div className={styles.modalBackdrop}>
+            <div role="dialog" aria-modal="true" aria-label="Edit prompt" className={clsx(styles.modalCard, styles.modalWide)}>
+              <div className={styles.modalHeader}>
+                <div><h2>Edit tracked prompt</h2><p>Saving creates a new version when this prompt already has results.</p></div>
+                <button type="button" className={styles.iconButton} title="Close" onClick={() => setEditingPrompt(null)}><X size={15} /></button>
+              </div>
+              <div className={styles.modalBody}>
+                <label className={styles.fieldLabel}>LLM prompt<textarea className="input-base" rows={5} value={editingPrompt.prompt_text} onChange={event => setEditingPrompt({ ...editingPrompt, prompt_text: event.target.value })} /></label>
+                <label className={styles.fieldLabel}>Google query override<textarea className="input-base" rows={3} value={editingPrompt.google_query || ''} onChange={event => setEditingPrompt({ ...editingPrompt, google_query: event.target.value })} /></label>
+                <label className={styles.checkboxLabel}><input type="checkbox" checked={Boolean(editingPrompt.calibration)} onChange={event => setEditingPrompt({ ...editingPrompt, calibration: event.target.checked })} /> Use for ChatGPT consumer calibration</label>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.secondaryButton} onClick={() => setEditingPrompt(null)}>Cancel</button>
+                <button type="button" className={styles.primaryButton} onClick={() => void savePrompt()} disabled={action === `prompt-${editingPrompt.id}`}><Save size={14} /> Save new version</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
-      <JobSection title="Visibility by surface" className="mt-5"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted"><th className="py-2 pr-4">Surface</th><th className="px-4 py-2">Visibility</th><th className="px-4 py-2">Share of voice</th><th className="px-4 py-2">Prominence</th><th className="px-4 py-2">Sentiment</th><th className="px-4 py-2">Citation share</th><th className="px-4 py-2">Samples</th></tr></thead><tbody>{Object.entries(dashboard.surfaces || {}).map(([key, value]) => <tr key={key} className="border-b border-border last:border-0"><td className="py-3 pr-4 font-semibold text-text">{SURFACES[key] || key}</td><td className="px-4 py-3">{metric(value.visibility_score)}</td><td className="px-4 py-3">{metric(value.share_of_voice)}</td><td className="px-4 py-3">{metric(value.prominence_score)}</td><td className="px-4 py-3">{metric(value.sentiment_score, '')}</td><td className="px-4 py-3">{metric(value.citation_share)}</td><td className="px-4 py-3 text-muted">{value.successful_runs || 0}</td></tr>)}</tbody></table></div></JobSection>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <JobSection title="Daily visibility trend"><div className="space-y-2">{dailyTrend.length ? dailyTrend.map(item => <div key={item.date} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-3 text-xs"><span className="text-muted">{item.date.slice(5)}</span><div className="h-2 overflow-hidden rounded bg-border"><div className="h-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, item.value))}%` }} /></div><span className="text-right font-semibold text-text">{metric(item.value)}</span></div>) : <p className="text-sm text-muted">Trend data appears after the first completed run.</p>}</div></JobSection>
-        <JobSection title="Prompt performance"><div className="space-y-2">{dashboard.prompt_performance?.length ? dashboard.prompt_performance.slice(0, 8).map(prompt => <div key={prompt.id} className="flex items-start justify-between gap-4 border-b border-border py-2 text-sm"><span className="line-clamp-2 text-text">{prompt.prompt_text || 'Prompt'}</span><span className="shrink-0 font-semibold text-accent">{metric(prompt.visibility_score)}</span></div>) : <p className="text-sm text-muted">Prompt performance appears after completed measurements.</p>}</div></JobSection>
-      </div>
-      <div className="grid gap-5 lg:grid-cols-2"><JobSection title="Top citation domains"><div className="space-y-2">{citationDomains.length ? citationDomains.map(([domain, count]) => <div key={domain} className="flex items-center justify-between border-b border-border py-2 text-sm"><span className="text-text">{domain}</span><span className="text-muted">{count}</span></div>) : <p className="text-sm text-muted">No citations collected in this period.</p>}</div></JobSection><JobSection title="ChatGPT calibration"><p className="text-sm text-muted">Consumer-result calibration stays separate from API visibility.</p><div className="mt-3 grid grid-cols-2 gap-3"><Score label="Visibility" value={metric(dashboard.calibration?.visibility_score)} /><Score label="Samples" value={String(dashboard.calibration?.successful_runs || 0)} /></div></JobSection></div>
-    </> : tab === 'Prompts' ? <JobSection title="Prompt collections" description="Up to five collections and 15 active prompts per client."><div className="mb-4 flex justify-end"><Link className="btn-primary gap-2" href={`/geopilot/profiles/${id}/collections/new`}><Plus size={15} /> New Collection</Link></div><div className="space-y-4">{profile?.collections?.length ? profile.collections.map(collection => <div key={collection.id} className="rounded-lg border border-border bg-surface p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold text-text">{collection.name}</h3><p className="mt-1 text-xs text-muted">{collection.schedule === 'daily' ? 'Daily' : 'Manual'} / {collection.prompt_count || 0} prompts</p><p className="mt-1 text-xs text-muted">{(collection.surfaces?.length ? collection.surfaces : ALL_GEOPILOT_SURFACES).map(item => GEOPILOT_SURFACES.find(option => option.value === item)?.label).join(' / ')}</p></div><button className="btn-ghost gap-2 text-xs" onClick={() => openRun(collection)} disabled={Boolean(activeBatch)}><Play size={13} /> Run Collection</button></div><div className="mt-3 divide-y divide-border">{collection.prompts?.map(prompt => <div key={prompt.id} className="flex items-start justify-between gap-3 py-3"><div><p className="text-sm text-text">{prompt.prompt_text}</p>{prompt.google_query && <p className="mt-1 text-xs text-muted">Google: {prompt.google_query}</p>}</div><div className="flex shrink-0 gap-2 text-[11px] text-muted">{prompt.calibration && <span className="rounded-md bg-accent/10 px-2 py-1 text-accent">Calibration</span>}<span>v{prompt.version || 1}</span></div></div>)}</div></div>) : <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">No prompt collections yet.</div>}</div></JobSection> : tab === 'Results' ? <JobSection title="Measurement results"><div className="mb-4 flex justify-end"><select aria-label="Surface filter" className="input-base w-56" value={surface} onChange={event => setSurface(event.target.value)}><option value="">All surfaces</option>{Object.entries(SURFACES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted"><th className="py-2 pr-4">Prompt</th><th className="px-4 py-2">Surface</th><th className="px-4 py-2">Mention</th><th className="px-4 py-2">Prominence</th><th className="px-4 py-2">Sentiment</th><th className="px-4 py-2">Run</th><th className="px-4 py-2" /></tr></thead><tbody>{runs.map(run => <tr key={run.id} className="border-b border-border last:border-0"><td className="max-w-sm py-3 pr-4 text-text">{run.request_snapshot?.prompt_text || '-'}</td><td className="px-4 py-3 text-xs">{SURFACES[run.surface] || run.surface}</td><td className="px-4 py-3">{run.status === 'complete' ? run.brand_mentioned ? 'Yes' : 'No' : <span className={statusTone(run.status)}>{run.status}</span>}</td><td className="px-4 py-3 text-muted">{run.prominence || '-'}</td><td className="px-4 py-3 text-muted">{run.sentiment || '-'}</td><td className="px-4 py-3 text-xs text-muted">{dateLabel(run.created_at)}</td><td className="px-4 py-3"><Link href={`/geopilot/runs/${run.id}`} className="text-accent"><ExternalLink size={14} /></Link></td></tr>)}</tbody></table>{!runs.length && <p className="py-8 text-center text-sm text-muted">No results in this period.</p>}</div></JobSection> : <JobSection title="Weekly citation opportunities" description="Parallel research is evidence for action, not part of your visibility score."><div className="space-y-4">{insights.length ? insights.map(item => <div key={item.id} className="rounded-lg border border-border bg-surface p-4"><div className="flex items-center justify-between"><span className={`text-xs font-semibold uppercase ${statusTone(item.status)}`}>{item.status}</span><span className="text-xs text-muted">{dateLabel(item.generated_at)}</span></div>{item.status === 'complete' && <div className="mt-3 space-y-2 text-sm"><p className="font-semibold text-text">{String(item.insight?.gap || 'Citation opportunity')}</p><p className="text-muted">{String(item.insight?.missing_content_asset || '')}</p><p className="text-text">Recommended: {String(item.insight?.recommended_content_type || 'Review cited source patterns')}</p>{item.evidence_urls?.length ? <div className="flex flex-wrap gap-2 pt-2">{item.evidence_urls.slice(0, 6).map(url => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline">{new URL(url).hostname}</a>)}</div> : null}</div>}</div>) : <p className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">Weekly opportunities appear after citation data has been collected.</p>}</div></JobSection>}
-    {runTarget && <RunSurfaceDialog target={runTarget} busy={action === (runTarget.collectionId || 'profile')} onClose={() => setRunTarget(null)} onRun={(surfaces, includeCalibration) => void runNow(surfaces, includeCalibration)} />}
-    {editingCollection && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Edit collection" className="w-full max-w-xl rounded-lg border border-border bg-surface-raised p-5 shadow-lg"><div className="flex items-center justify-between"><h2 className="text-base font-semibold text-text">Edit collection</h2><button className="btn-ghost px-2" title="Close" onClick={() => setEditingCollection(null)}><X size={15} /></button></div><div className="mt-4 space-y-4"><label className="block text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={editingCollection.name} onChange={event => setEditingCollection({ ...editingCollection, name: event.target.value })} /></label><label className="block text-xs font-semibold text-muted">Objective<textarea className="input-base mt-1 min-h-20" value={editingCollection.objective || ''} onChange={event => setEditingCollection({ ...editingCollection, objective: event.target.value })} /></label><label className="block text-xs font-semibold text-muted">Schedule<select className="input-base mt-1" value={editingCollection.schedule || 'daily'} onChange={event => setEditingCollection({ ...editingCollection, schedule: event.target.value as 'daily' | 'manual' })}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label><div><p className="mb-2 text-xs font-semibold text-muted">Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={surfaces => setEditingCollection({ ...editingCollection, surfaces })} /></div></div><div className="mt-5 flex justify-end gap-2"><button className="btn-ghost" onClick={() => setEditingCollection(null)}>Cancel</button><button className="btn-primary gap-2" onClick={() => void saveCollection()} disabled={action === `collection-${editingCollection.id}`}><Save size={14} /> Save</button></div></div></div>}
-    {editingPrompt && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Edit prompt" className="w-full max-w-2xl rounded-lg border border-border bg-surface-raised p-5 shadow-lg"><div className="flex items-center justify-between"><div><h2 className="text-base font-semibold text-text">Edit tracked prompt</h2><p className="mt-1 text-xs text-muted">Saving creates a new version when this prompt already has results.</p></div><button className="btn-ghost px-2" title="Close" onClick={() => setEditingPrompt(null)}><X size={15} /></button></div><div className="mt-4 space-y-4"><label className="block text-xs font-semibold text-muted">LLM prompt<textarea className="input-base mt-1 min-h-24" value={editingPrompt.prompt_text} onChange={event => setEditingPrompt({ ...editingPrompt, prompt_text: event.target.value })} /></label><label className="block text-xs font-semibold text-muted">Google query override<textarea className="input-base mt-1 min-h-16" value={editingPrompt.google_query || ''} onChange={event => setEditingPrompt({ ...editingPrompt, google_query: event.target.value })} /></label><label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={Boolean(editingPrompt.calibration)} onChange={event => setEditingPrompt({ ...editingPrompt, calibration: event.target.checked })} className="h-4 w-4 accent-accent" /> Use for ChatGPT consumer calibration</label></div><div className="mt-5 flex justify-end gap-2"><button className="btn-ghost" onClick={() => setEditingPrompt(null)}>Cancel</button><button className="btn-primary gap-2" onClick={() => void savePrompt()} disabled={action === `prompt-${editingPrompt.id}`}><Save size={14} /> Save New Version</button></div></div></div>}
-  </JobLauncherShell></AppLayout>
+    </AppLayout>
+  )
 }
 
-function Score({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border border-border bg-surface p-4"><p className="text-xs font-semibold text-muted">{label}</p><p className="mt-1 text-xl font-semibold text-text">{value}</p></div> }
+function ResultToolbar({
+  query,
+  setQuery,
+  surface,
+  setSurface,
+}: {
+  query: string
+  setQuery: (value: string) => void
+  surface: string
+  setSurface: (value: string) => void
+}) {
+  return (
+    <div className={styles.tableToolbar}>
+      <label className={styles.tableSearch}>
+        <Search size={15} />
+        <span className={styles.srOnly}>Search measurements</span>
+        <input type="search" placeholder="Search prompts" value={query} onChange={event => setQuery(event.target.value)} />
+        {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery('')}><X size={14} /></button> : null}
+      </label>
+      <div className={styles.surfaceFilters} aria-label="Filter by surface">
+        <button type="button" className={!surface ? styles.filterActive : undefined} aria-pressed={!surface} onClick={() => setSurface('')}>All</button>
+        {Object.entries(SURFACES).map(([value, label]) => (
+          <button key={value} type="button" className={surface === value ? styles.filterActive : undefined} aria-pressed={surface === value} onClick={() => setSurface(value)}>{label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}

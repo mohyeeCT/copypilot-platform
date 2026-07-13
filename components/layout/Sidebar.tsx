@@ -1,118 +1,130 @@
 'use client'
-import Link from 'next/link'
+
 import Image from 'next/image'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  HelpCircle, FileText, Tag, Layers, Radar, Bot, Braces,
-  Link2, Settings, LogOut, Plus, Sun, Moon
+  Bot,
+  Braces,
+  BriefcaseBusiness,
+  FileText,
+  HelpCircle,
+  Layers3,
+  Link2,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Radar,
+  Settings,
+  Tag,
+  X,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase'
-import { useState, useEffect } from 'react'
 import clsx from 'clsx'
+import { createClient } from '@/lib/supabase'
+import styles from './Sidebar.module.css'
 
 type Tool = {
   href: string
   label: string
   icon: React.ElementType
-  accent: string
-  soon?: boolean
   newHref?: string
 }
 
-const tools: Tool[] = [
-  { href: '/faq/jobs',        label: 'FAQ Copy',   icon: HelpCircle, accent: '#0B7A5C' },
-  { href: '/intro/jobs',      label: 'Page Intro', icon: FileText,   accent: '#0B7A5C' },
-  { href: '/meta/jobs',       label: 'Meta Copy',  icon: Tag,        accent: '#0B7A5C' },
-  { href: '/all-in-one/jobs', label: 'All in One', icon: Layers,     accent: '#0B7A5C' },
+type Account = {
+  name: string
+  email: string
+}
+
+const NAV_GROUPS: Array<{ label: string; items: Tool[] }> = [
+  {
+    label: 'Create',
+    items: [
+      { href: '/faq/jobs', label: 'FAQ Copy', icon: HelpCircle },
+      { href: '/intro/jobs', label: 'Page Intro', icon: FileText },
+      { href: '/meta/jobs', label: 'Meta Copy', icon: Tag },
+      { href: '/all-in-one/jobs', label: 'All in One', icon: Layers3 },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { href: '/brand-mentions', label: 'Brand Pulse', icon: Radar, newHref: '/brand-mentions/new' },
+      { href: '/geopilot', label: 'GEOPilot', icon: Bot, newHref: '/geopilot/new' },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { href: '/schema/jobs', label: 'Schema Generator', icon: Braces },
+      { href: '/indexer/jobs', label: 'Indexer', icon: Link2 },
+    ],
+  },
 ]
 
-const insights: Tool[] = [
-  { href: '/brand-mentions', label: 'Brand Pulse', icon: Radar, accent: '#0B7A5C', newHref: '/brand-mentions/new' },
-  { href: '/geopilot', label: 'GEOPilot', icon: Bot, accent: '#0B7A5C', newHref: '/geopilot/new' },
-]
+function initials(name: string, email: string) {
+  const source = name.trim() || email.split('@')[0] || 'CP'
+  const words = source.split(/\s+/).filter(Boolean)
+  return words.slice(0, 2).map(word => word[0]?.toUpperCase()).join('') || 'CP'
+}
 
-const other: Tool[] = [
-  { href: '/schema/jobs',     label: 'Schema Generator', icon: Braces, accent: '#94A3B8' },
-  { href: '/indexer/jobs',    label: 'Indexer',  icon: Link2,    accent: '#94A3B8' },
-  { href: '/settings',        label: 'Settings', icon: Settings, accent: '#94A3B8' },
-]
-
-function NavItem({ href, label, icon: Icon, accent, soon, newHref, active, onClose }: {
-  href: string; label: string; icon: React.ElementType
-  accent: string; soon?: boolean; newHref?: string; active: boolean; onClose?: () => void
+function NavItem({ tool, active, collapsed, onClose }: {
+  tool: Tool
+  active: boolean
+  collapsed: boolean
+  onClose?: () => void
 }) {
-  const isExternal = href.startsWith('http')
-  const quickActionHref = newHref ?? (href.endsWith('/jobs') ? href.replace('/jobs', '/jobs/new') : undefined)
-  const quickActionLabel = href.endsWith('/jobs') ? `New ${label} job` : `New ${label}`
-
-  if (soon) return (
-    <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs opacity-35 cursor-not-allowed select-none" style={{ color: 'var(--muted)' }}>
-      <Icon size={14} />
-      <span className="flex-1 font-medium">{label}</span>
-      <span style={{
-        fontSize: 9, fontWeight: 600, letterSpacing: '0.05em',
-        padding: '1px 5px', borderRadius: 4,
-        background: 'var(--border)', color: 'var(--muted)',
-      }}>SOON</span>
-    </div>
-  )
+  const Icon = tool.icon
+  const quickActionHref = tool.newHref ?? (tool.href.endsWith('/jobs') ? tool.href.replace('/jobs', '/jobs/new') : undefined)
 
   return (
-    <div className="group/nav relative">
+    <div className={styles.navItemWrap}>
       <Link
-        href={href}
+        href={tool.href}
+        className={clsx(styles.navItem, active && styles.navItemActive)}
+        title={collapsed ? tool.label : undefined}
         onClick={onClose}
-        target={isExternal ? '_blank' : undefined}
-        rel={isExternal ? 'noopener noreferrer' : undefined}
-        className={clsx(
-          'nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-100',
-          active ? 'font-semibold pr-9' : 'font-medium'
-        )}
-        style={active ? {
-          background: `${accent}14`,
-          color: accent,
-        } : { color: 'var(--sidebar-nav-text)' }}
       >
-        <Icon
-          size={14}
-          style={{ color: active ? accent : 'var(--muted)', flexShrink: 0 }}
-          className="transition-colors"
-        />
-        <span className="flex-1 truncate leading-[1.2]">{label}</span>
+        <Icon size={17} />
+        <span>{tool.label}</span>
+        {active ? <span className={styles.activeRail} /> : null}
       </Link>
-      {active && !isExternal && quickActionHref && (
+      {active && quickActionHref ? (
         <Link
           href={quickActionHref}
-          onClick={e => { e.stopPropagation(); onClose?.() }}
-          title={quickActionLabel}
-          aria-label={quickActionLabel}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 group-hover/nav:opacity-100"
-          style={{ color: accent }}
+          className={styles.quickAction}
+          aria-label={`New ${tool.label}`}
+          title={`New ${tool.label}`}
+          onClick={event => {
+            event.stopPropagation()
+            onClose?.()
+          }}
         >
-          <Plus size={12} />
+          <Plus size={13} />
         </Link>
-      )}
+      ) : null}
     </div>
   )
 }
 
-export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
+export default function Sidebar({
+  account,
+  collapsed = false,
+  onClose,
+  onCollapse,
+}: {
+  account?: Account
+  collapsed?: boolean
+  onClose?: () => void
+  onCollapse?: () => void
+}) {
   const pathname = usePathname()
-  const router   = useRouter()
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const router = useRouter()
+  const accountName = account?.name || 'CopyPilot user'
+  const accountEmail = account?.email || 'Agency workspace'
 
-  useEffect(() => {
-    const saved = localStorage.getItem('cp-theme') as 'light' | 'dark' | null
-    const resolved = saved || 'light'
-    setTheme(resolved)
-    document.documentElement.setAttribute('data-theme', resolved)
-  }, [])
-
-  function toggleTheme() {
-    const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
-    document.documentElement.setAttribute('data-theme', next)
-    localStorage.setItem('cp-theme', next)
+  function isActive(href: string) {
+    return pathname.startsWith(href)
   }
 
   async function signOut() {
@@ -120,105 +132,70 @@ export default function Sidebar({ onClose }: { onClose?: () => void } = {}) {
     router.push('/login')
   }
 
-  function isActive(href: string) {
-    if (href.startsWith('http')) return false
-    return pathname.startsWith(href)
-  }
-
   return (
-    <aside
-      className="rounded-2xl border border-[var(--border)] border-t-[var(--surface-raised)] shadow-[0_2px_8px_rgba(0,0,0,0.08),0_8px_32px_rgba(0,0,0,0.10)] md:rounded-none md:border-0 md:border-r md:border-r-[var(--border)] md:shadow-none"
-      style={{
-        width: 224,
-        height: '100%',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--sidebar-bg)',
-        overflow: 'hidden',
-        alignSelf: 'stretch',
-      }}
-    >
-      {/* Logo */}
-      <div className="px-4 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0" style={{ boxShadow: 'var(--shadow-xs)' }}>
-            <Image src="/favicon-32x32.png" alt="CopyPilot" width={32} height={32} className="w-full h-full object-cover" />
-          </div>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            minHeight: 24,
-            fontSize: '0.9375rem',
-            fontWeight: 700,
-            lineHeight: '24px',
-            letterSpacing: '-0.03em',
-            paddingBottom: 3,
-            color: 'var(--text)',
-          }}>
-            CopyPilot
-          </span>
+    <aside className={clsx(styles.sidebar, collapsed && styles.collapsed)}>
+      <div className={styles.brandRow}>
+        <Link href="/" className={styles.brand} aria-label="CopyPilot home">
+          <Image src="/favicon-32x32.png" alt="" width={28} height={28} className={styles.logo} />
+          <span className={styles.brandName}>CopyPilot</span>
         </Link>
+        <button type="button" className={styles.mobileClose} aria-label="Close navigation" onClick={onClose}>
+          <X size={18} />
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
-        {/* Tools */}
-        <div>
-          <p className="px-3 mb-1.5 label-caps">Tools</p>
-          <div className="space-y-1.5">
-            {tools.map(t => (
-              <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
-            ))}
-          </div>
-        </div>
+      <div className={styles.workspaceCard} title={collapsed ? 'Agency workspace' : undefined}>
+        <span className={styles.workspaceAvatar}><BriefcaseBusiness size={15} /></span>
+        <span className={styles.workspaceText}>
+          <strong>Agency workspace</strong>
+          <small>Copy and visibility tools</small>
+        </span>
+      </div>
 
-        {/* Insights */}
-        <div>
-          <p className="px-3 mb-1.5 label-caps">Insights</p>
-          <div className="space-y-1.5">
-            {insights.map(t => (
-              <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
+      <nav className={styles.navigation} aria-label="Main navigation">
+        {NAV_GROUPS.map(group => (
+          <div key={group.label} className={styles.navGroup}>
+            <p className={styles.navLabel}>{group.label}</p>
+            {group.items.map(tool => (
+              <NavItem
+                key={tool.href}
+                tool={tool}
+                active={isActive(tool.href)}
+                collapsed={collapsed}
+                onClose={onClose}
+              />
             ))}
           </div>
-        </div>
-
-        {/* Other */}
-        <div>
-          <p className="px-3 mb-1.5 label-caps">Other</p>
-          <div className="space-y-1.5">
-            {other.map(t => (
-              <NavItem key={t.href} {...t} active={isActive(t.href)} onClose={onClose} />
-            ))}
-          </div>
-        </div>
+        ))}
       </nav>
 
-      {/* Footer */}
-      <div
-        className="px-3 pt-3 pb-5 space-y-1.5"
-        style={{ borderTop: '1px solid var(--border)' }}
-      >
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5"
-          style={{ color: 'var(--sidebar-footer-text)' }}
-        >
-          {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-          <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
-        </button>
+      <div className={styles.sidebarFooter}>
+        <Link href="/settings" className={clsx(styles.navItem, isActive('/settings') && styles.navItemActive)} title={collapsed ? 'Settings' : undefined} onClick={onClose}>
+          <Settings size={17} />
+          <span>Settings</span>
+          {isActive('/settings') ? <span className={styles.activeRail} /> : null}
+        </Link>
 
-        {/* Sign out */}
+        <div className={styles.accountRow} title={collapsed ? accountName : undefined}>
+          <span className={styles.accountAvatar}>{initials(accountName, accountEmail)}</span>
+          <span className={styles.accountText}>
+            <strong>{accountName}</strong>
+            <small>{accountEmail}</small>
+          </span>
+          <button type="button" className={styles.signOutButton} aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
+            <LogOut size={15} />
+          </button>
+        </div>
+
         <button
-          onClick={signOut}
-          className="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium w-full transition-all hover:bg-black/5 group"
-          style={{ color: 'var(--sidebar-footer-text)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--sidebar-footer-text)')}
+          type="button"
+          className={styles.collapseButton}
+          onClick={onCollapse}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <LogOut size={14} />
-          <span>Sign out</span>
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          <span>Collapse sidebar</span>
         </button>
       </div>
     </aside>

@@ -1,0 +1,390 @@
+.sidebar {
+  display: flex;
+  width: 236px;
+  height: 100%;
+  flex: 0 0 236px;
+  flex-direction: column;
+  overflow: hidden;
+  background: #121915;
+  color: #edf2ee;
+  transition: width 180ms ease, flex-basis 180ms ease;
+}
+
+:global([data-theme='dark']) .sidebar {
+  background: #090d0b;
+}
+
+.collapsed {
+  width: 72px;
+  flex-basis: 72px;
+}
+
+.brandRow {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.logo {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 7px;
+}
+
+.brandName {
+  overflow: hidden;
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.mobileClose {
+  display: none;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa69f;
+  cursor: pointer;
+}
+
+.workspaceCard {
+  display: flex;
+  width: calc(100% - 24px);
+  min-height: 58px;
+  align-items: center;
+  gap: 10px;
+  margin: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: #1a231e;
+}
+
+:global([data-theme='dark']) .workspaceCard {
+  background: #131a16;
+}
+
+.workspaceAvatar,
+.accountAvatar {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #d9ebe4;
+  color: #075d46;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.workspaceText,
+.accountText {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.workspaceText strong,
+.accountText strong {
+  overflow: hidden;
+  color: #edf2ee;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.workspaceText small,
+.accountText small {
+  overflow: hidden;
+  color: #8f9c95;
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+.navigation {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px 10px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.navGroup + .navGroup {
+  margin-top: 19px;
+}
+
+.navLabel {
+  height: 20px;
+  margin: 0;
+  padding: 0 10px;
+  color: #8f9c95;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 20px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 11px;
+  margin: 2px 0;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: #bcc6c0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 130ms ease, color 130ms ease;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: #edf2ee;
+}
+
+.navItem svg {
+  flex: 0 0 17px;
+}
+
+.navItemActive {
+  padding-right: 38px;
+  background: rgba(38, 174, 130, 0.14);
+  color: #a6e1ce;
+}
+
+.activeRail {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: #29b487;
+}
+
+.quickAction {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  z-index: 1;
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #a6e1ce;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: background-color 130ms ease, opacity 130ms ease;
+}
+
+.navItemWrap:hover .quickAction,
+.quickAction:focus-visible {
+  opacity: 1;
+}
+
+.quickAction:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebarFooter {
+  flex: 0 0 auto;
+  padding: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.accountRow {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 7px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.accountAvatar {
+  background: #2b3931;
+  color: #d9e3dd;
+  font-size: 10px;
+}
+
+.signOutButton {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8f9c95;
+  cursor: pointer;
+}
+
+.signOutButton:hover {
+  background: rgba(188, 75, 66, 0.12);
+  color: #ef8278;
+}
+
+.collapseButton {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8f9c95;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.collapseButton:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: #edf2ee;
+}
+
+.collapsed .brandName,
+.collapsed .workspaceText,
+.collapsed .navItem span:not(.activeRail),
+.collapsed .accountText,
+.collapsed .signOutButton,
+.collapsed .collapseButton span,
+.collapsed .quickAction {
+  display: none;
+}
+
+.collapsed .brandRow {
+  justify-content: center;
+  padding: 0;
+}
+
+.collapsed .workspaceCard {
+  width: 48px;
+  min-height: 48px;
+  justify-content: center;
+  margin: 12px;
+  padding: 0;
+}
+
+.collapsed .navLabel {
+  height: 12px;
+  overflow: hidden;
+  color: transparent;
+  text-align: center;
+}
+
+.collapsed .navLabel::after {
+  display: inline-block;
+  width: 18px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.11);
+  content: '';
+}
+
+.collapsed .navItem,
+.collapsed .collapseButton {
+  justify-content: center;
+  padding: 0;
+}
+
+.collapsed .accountRow {
+  justify-content: center;
+  padding: 7px 0;
+}
+
+@media (max-width: 900px) {
+  .sidebar,
+  .collapsed {
+    width: min(286px, calc(100vw - 42px));
+    flex-basis: auto;
+  }
+
+  .mobileClose {
+    display: inline-flex;
+  }
+
+  .collapsed .brandName,
+  .collapsed .workspaceText,
+  .collapsed .navItem span:not(.activeRail),
+  .collapsed .accountText,
+  .collapsed .signOutButton,
+  .collapsed .collapseButton span {
+    display: flex;
+  }
+
+  .collapsed .brandRow {
+    justify-content: space-between;
+    padding: 0 17px;
+  }
+
+  .collapsed .workspaceCard {
+    width: calc(100% - 24px);
+    min-height: 58px;
+    justify-content: flex-start;
+    padding: 9px 10px;
+  }
+
+  .collapsed .navLabel {
+    height: 20px;
+    color: #8f9c95;
+    text-align: left;
+  }
+
+  .collapsed .navLabel::after {
+    display: none;
+  }
+
+  .collapsed .navItem,
+  .collapsed .collapseButton {
+    justify-content: flex-start;
+    padding: 0 10px;
+  }
+
+  .collapsed .accountRow {
+    justify-content: flex-start;
+    padding: 7px 10px;
+  }
+
+  .collapseButton {
+    display: none;
+  }
+}
