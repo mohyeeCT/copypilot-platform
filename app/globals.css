@@ -63,6 +63,27 @@
   /* Scrollbar */
   --scrollbar-track: #D8D3CB;
   --scrollbar-thumb: #B8B2A8;
+
+  /* Approved CopyPilot UI palette */
+  --bg:             #F3F5F1;
+  --surface:        #F7F8F5;
+  --surface-raised: #FFFFFF;
+  --sidebar-bg:     #121915;
+  --sidebar-nav-text:    #BCC6C0;
+  --sidebar-footer-text: #8F9C95;
+  --border:         #DCE2DD;
+  --border-strong:  #CBD4CD;
+  --border-subtle:  #E5EAE6;
+  --hover:          #EEF2EE;
+  --track-off:      #CAD4CD;
+  --text:           #18211D;
+  --muted:          #68736D;
+  --shadow-xs:      0 1px 2px rgba(19, 33, 25, 0.04);
+  --shadow-sm:      0 1px 3px rgba(19, 33, 25, 0.06);
+  --shadow-md:      0 4px 14px rgba(19, 33, 25, 0.07);
+  --shadow-lg:      0 10px 32px rgba(19, 33, 25, 0.10);
+  --scrollbar-track: #E4E9E5;
+  --scrollbar-thumb: #B8C3BC;
 }
 
 [data-theme="dark"] {
@@ -100,6 +121,22 @@
 
   --scrollbar-track: #15151E;
   --scrollbar-thumb: #28283A;
+
+  --bg:             #101512;
+  --surface:        #171E1A;
+  --surface-raised: #1C2520;
+  --sidebar-bg:     #090D0B;
+  --sidebar-nav-text:    #BCC6C0;
+  --sidebar-footer-text: #8F9C95;
+  --border:         #303B34;
+  --border-strong:  #414E46;
+  --border-subtle:  #273129;
+  --hover:          #202923;
+  --track-off:      #354139;
+  --text:           #EDF2EE;
+  --muted:          #9AA69F;
+  --scrollbar-track: #171E1A;
+  --scrollbar-thumb: #354139;
 }
 
 /* ── Base ─────────────────────────────────────────────────── */
@@ -180,13 +217,14 @@
     font-family: var(--font-sans), Inter, sans-serif;
     background: var(--surface);
     color: var(--text);
-    box-shadow: inset 2px 2px 5px rgba(0,0,0,.09), inset -2px -2px 5px rgba(255,255,255,.65);
+    box-shadow: none;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     outline: none;
   }
   .input-base::placeholder { color: var(--muted); opacity: 0.7; }
   .input-base:hover {
-    box-shadow: inset 3px 3px 7px rgba(0,0,0,.12), inset -3px -3px 7px rgba(255,255,255,.60);
+    border-color: var(--border-strong);
+    box-shadow: none;
   }
   .input-base:focus {
     border-color: var(--accent);
@@ -216,10 +254,10 @@
     box-shadow: inset 1px 2px 4px rgba(0,0,0,.14), inset -2px -1px 4px rgba(255,255,255,.30);
   }
   [data-theme="dark"] .input-base {
-    box-shadow: inset 2px 2px 5px rgba(0,0,0,.35), inset -2px -2px 5px rgba(255,255,255,.03);
+    box-shadow: none;
   }
   [data-theme="dark"] .input-base:hover {
-    box-shadow: inset 3px 3px 7px rgba(0,0,0,.45), inset -3px -3px 7px rgba(255,255,255,.02);
+    box-shadow: none;
   }
   [data-theme="dark"] .input-base:focus {
     box-shadow: 0 0 0 3px var(--accent-ring), inset 1px 1px 3px rgba(0,0,0,.25), inset -1px -1px 3px rgba(255,255,255,.02);
@@ -247,7 +285,7 @@
     border-radius: var(--radius);
     background: var(--button-primary);
     color: #fff;
-    box-shadow: var(--shadow-accent), 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    box-shadow: var(--shadow-accent);
     transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s;
     cursor: pointer;
     border: none;
@@ -257,7 +295,7 @@
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--button-primary-hover);
-    box-shadow: 0 2px 6px rgba(11,122,92,0.28), 0 6px 18px rgba(11,122,92,0.18);
+    box-shadow: 0 3px 10px rgba(11,122,92,0.18);
     transform: translateY(-1px);
   }
   .btn-primary:active:not(:disabled) {
@@ -280,10 +318,10 @@
     font-weight: 600;
     padding: 7px 14px;
     border-radius: var(--radius);
-    border: 1.5px solid var(--border);
-    background: transparent;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
     color: var(--text);
-    box-shadow: 3px 3px 8px rgba(0,0,0,.18), -2px -2px 6px rgba(255,255,255,.35);
+    box-shadow: var(--shadow-xs);
     transition: border-color 0.15s ease-in-out, color 0.15s ease-in-out, background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.12s ease-in-out;
     cursor: pointer;
     white-space: nowrap;
@@ -295,7 +333,7 @@
     color: var(--accent);
     background: var(--accent-subtle);
     transform: translateY(-1px);
-    box-shadow: 4px 4px 10px rgba(0,0,0,.20), -3px -3px 8px rgba(255,255,255,.40);
+    box-shadow: var(--shadow-sm);
   }
   .btn-ghost:active:not(:disabled) {
     transform: scale(.98) translateY(0);
