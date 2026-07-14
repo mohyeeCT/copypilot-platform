@@ -504,7 +504,7 @@ export default function NewAIOJob() {
           {/* Copy Settings */}
           <JobSection title="Configuration" description="AI, business, brand, and client brief controls." className="space-y-4">
             <h2 className="font-semibold text-sm">Copy Settings</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">AI Provider</label>
                 <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} />
@@ -514,7 +514,7 @@ export default function NewAIOJob() {
                 <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider] ?? []} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Business Type</label>
                 <CustomSelect value={bizType} onChange={setBizType}
@@ -522,7 +522,7 @@ export default function NewAIOJob() {
                 <NicheSelect value={niche} onChange={setNiche} businessType={bizType} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Name</label>
                 <input className="input-base" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="Acme Inc." />
@@ -574,7 +574,7 @@ export default function NewAIOJob() {
             </button>
             {showAdvanced && (
               <div className="px-5 pb-5 space-y-4 border-t border-border">
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">DFS Location Code</label>
                     <input type="number" className="input-base" value={locationCode} onChange={e => setLocationCode(Number(e.target.value))} />

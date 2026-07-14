@@ -67,7 +67,7 @@
 }
 
 .composerGrid {
-  grid-template-columns: minmax(0, 1fr) 344px !important;
+  grid-template-columns: minmax(0, 1fr) 420px !important;
   align-items: start;
   gap: 16px !important;
 }
@@ -1362,11 +1362,17 @@
   border: 0 !important;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1320px) {
   .composerGrid {
-    grid-template-columns: minmax(0, 1fr) 316px !important;
+    grid-template-columns: 1fr !important;
   }
 
+  .settingsRail {
+    position: static;
+  }
+}
+
+@media (max-width: 1120px) {
   .urlHeader,
   .urlRow {
     grid-template-columns: 30px minmax(190px, 1.2fr) minmax(135px, 0.8fr) 110px minmax(135px, 0.7fr) 30px;
