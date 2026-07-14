@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, PlusCircle } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import pulseStyles from '@/components/brand-pulse/BrandPulseWorkspace.module.css'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -184,7 +186,7 @@ export default function NewBrandPulseProfileAlertPage() {
 
   return (
     <AppLayout title="New Brand Pulse Alert">
-      <div className="max-w-full">
+      <div className={`max-w-full ${pulseStyles.page} ${workspaceStyles.newPage}`}>
         <Link href={profileId ? `/brand-mentions/profiles/${profileId}` : '/brand-mentions'} className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
           <ArrowLeft size={16} /> Back to Profile
         </Link>
@@ -218,8 +220,8 @@ export default function NewBrandPulseProfileAlertPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
-              <div className="space-y-4 lg:col-span-5">
+            <div className={`grid grid-cols-1 gap-6 lg:grid-cols-7 ${workspaceStyles.composerGrid}`}>
+              <div className={`space-y-4 lg:col-span-5 ${workspaceStyles.composerMain}`}>
                 <JobSection title="Alert definition" description="Name the alert and define the exact term the monitor should search for.">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <div>
@@ -327,7 +329,7 @@ export default function NewBrandPulseProfileAlertPage() {
                 </JobSection>
               </div>
 
-              <div className="space-y-4 lg:col-span-2">
+              <div className={`space-y-4 lg:col-span-2 ${workspaceStyles.settingsRail}`}>
                 <JobSection title="Status" description="Active alerts can be crawled immediately after creation.">
                   <div className="space-y-4">
                     <div>

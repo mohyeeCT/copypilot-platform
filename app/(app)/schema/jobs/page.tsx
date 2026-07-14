@@ -15,6 +15,8 @@ export default function SchemaJobsPage() {
       accent:      '#4F9EFF',
       emptyTitle:  'No Schema Generator jobs yet',
       emptyDesc:   'Generate schema.org JSON-LD from URLs, page content, and optional SERP context.',
+      variant:     'schema',
+      description: 'Generate and validate structured data for client pages.',
       listJobs:    (token) => schemaApi.listJobs(token),
       deleteJob:   (token, id) => schemaApi.deleteJob(token, id),
       duplicateJob:(token, id) => schemaApi.duplicateJob(token, id),

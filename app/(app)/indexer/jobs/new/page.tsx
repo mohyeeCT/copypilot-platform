@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Papa from 'papaparse'
 import { AlignLeft, ArrowLeft, FileText, Link2, Search } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { createClient } from '@/lib/supabase'
@@ -182,8 +183,8 @@ export default function NewIndexerJobPage() {
 
   return (
     <AppLayout title="New Indexer Job">
-      <div className="max-w-full">
-        <Link href="/indexer/jobs" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
+      <div className={`max-w-full ${workspaceStyles.newPage}`}>
+        <Link href="/indexer/jobs" className={workspaceStyles.backLink}>
           <ArrowLeft size={16} /> Back to Indexer jobs
         </Link>
         <JobLauncherShell
@@ -216,10 +217,10 @@ export default function NewIndexerJobPage() {
             </p>
           )}
 
-          <div className="grid grid-cols-7 gap-6">
-            <div className="col-span-5 space-y-4">
+          <div className={`grid grid-cols-7 gap-6 ${workspaceStyles.composerGrid}`}>
+            <div className={`col-span-5 space-y-4 ${workspaceStyles.composerMain}`}>
               <JobSection title="Inputs" description="Name the run and add the URLs that should be submitted.">
-                <div className="card space-y-4 p-4">
+                <div className="space-y-4">
                   <div>
                     <label className="mb-1 block text-xs text-muted">Job name (optional)</label>
                     <input
@@ -323,9 +324,9 @@ export default function NewIndexerJobPage() {
               </JobSection>
             </div>
 
-            <div className="col-span-2 space-y-4">
+            <div className={`col-span-2 space-y-4 ${workspaceStyles.settingsRail}`}>
               <JobSection title="Configuration" description="Indexer jobs submit URL_UPDATED notifications through Google.">
-                <div className="card space-y-3 p-4">
+                <div className={workspaceStyles.settingsBody}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted">Action</span>
                     <span className="text-xs font-medium text-text">Submit for indexing</span>

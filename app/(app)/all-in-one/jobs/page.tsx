@@ -15,6 +15,8 @@ export default function Page() {
       accent:      '#0B7A5C',
       emptyTitle:  'No All in One jobs yet',
       emptyDesc:   'Run the full pipeline — meta copy, FAQs, and page copy from a single job per URL.',
+      variant:     'aio',
+      description: 'Coordinate meta, FAQ, and page-copy production in one workflow.',
       listJobs:    (token) => aioApi.listJobs(token),
       deleteJob:   (token, id) => aioApi.deleteJob(token, id),
       duplicateJob:(token, id) => aioApi.duplicateJob(token, id),

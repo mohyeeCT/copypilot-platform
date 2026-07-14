@@ -1,7 +1,9 @@
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import AppLayout from '@/components/layout/AppLayout'
+import styles from '@/components/meta/MetaCopyWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -13,7 +15,7 @@ import { createClient } from '@/lib/supabase'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { introApi } from '@/lib/api/intro'
 import { getProviderMetadata, listTemplates, saveTemplate, deleteTemplate, listBrandProfiles } from '@/lib/api/shared'
-import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown } from 'lucide-react'
+import { Upload, Plus, Trash2, AlertCircle, BookmarkPlus, ChevronDown, ArrowLeft } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -286,7 +288,10 @@ export default function NewJobPage() {
 
   return (
     <AppLayout title="New Intro Job">
-      <div className="max-w-full">
+      <div className={`max-w-full ${styles.newPage}`}>
+        <Link href="/intro/jobs" className={styles.backLink}>
+          <ArrowLeft size={14} /> All Page Intro jobs
+        </Link>
         <JobLauncherShell
           eyebrow="Intro"
           title="New intro job"
@@ -406,11 +411,11 @@ export default function NewJobPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-7 gap-4">
+        <div className={`grid grid-cols-7 gap-6 ${styles.composerGrid}`}>
           {/* Left: rows + job name */}
-          <div className="col-span-5 space-y-4">
+          <div className={`col-span-5 space-y-4 ${styles.composerMain}`}>
             <JobSection title="Inputs" description="Add URL rows and optional keyword seeds. Paste, CSV, and manual entry keep the same parsing rules.">
-            <div className="card p-4 space-y-3">
+            <div className="space-y-3">
               <div>
                 <label className="text-xs text-muted block mb-1">Job name</label>
                 <input value={jobName} onChange={e => setJobName(e.target.value)}
@@ -555,10 +560,10 @@ export default function NewJobPage() {
           </div>
 
           {/* Right: settings */}
-          <div className="col-span-2 space-y-4">
+          <div className={`col-span-2 space-y-4 ${styles.settingsRail}`}>
             <JobSection title="Configuration" description="Intro-specific output controls stay visible because they directly shape the generated copy.">
             {/* AI Provider */}
-            <div className="card p-4 space-y-3">
+            <div className={styles.settingsBody}>
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
               <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
               <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} className="text-xs" />
@@ -566,7 +571,7 @@ export default function NewJobPage() {
             </div>
 
             {/* Copy Settings */}
-            <div className="card p-4 space-y-3">
+            <div className={styles.settingsBody}>
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">Copy Settings</h3>
               <div>
                 <label className="text-xs text-muted block mb-1">Business type</label>
@@ -649,7 +654,7 @@ export default function NewJobPage() {
             </div>
 
             {/* DataForSEO */}
-            <div className="card p-4 space-y-3">
+            <div className={styles.settingsBody}>
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">DataForSEO</h3>
               <input value={dfsLogin} onChange={e => setDfsLogin(e.target.value)}
                 className="input-base text-xs" placeholder="Login email" />
@@ -666,7 +671,7 @@ export default function NewJobPage() {
             </div>
 
             {/* Options */}
-            <div className="card p-4 space-y-3">
+            <div className={styles.settingsBody}>
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">Options</h3>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>

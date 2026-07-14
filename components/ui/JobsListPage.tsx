@@ -35,7 +35,7 @@ interface ToolConfig {
   deleteJob: (token: string, id: string) => Promise<unknown>
   duplicateJob: (token: string, id: string) => Promise<{job_id?: string}>
   renameJob: (token: string, id: string, name: string) => Promise<unknown>
-  variant?: 'default' | 'meta' | 'faq'
+  variant?: 'default' | 'meta' | 'faq' | 'intro' | 'aio' | 'schema'
   description?: string
 }
 
@@ -91,8 +91,17 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const Icon = tool.icon
-  const isWorkflowVariant = tool.variant === 'meta' || tool.variant === 'faq'
-  const workflowLabel = tool.variant === 'faq' ? 'FAQ' : 'Meta'
+  const workflowLabels = {
+    meta: 'Meta',
+    faq: 'FAQ',
+    intro: 'Page Intro',
+    aio: 'All in One',
+    schema: 'Schema',
+  } as const
+  const isWorkflowVariant = Boolean(tool.variant && tool.variant !== 'default')
+  const workflowLabel = tool.variant && tool.variant !== 'default'
+    ? workflowLabels[tool.variant]
+    : tool.label
 
   const load = useCallback(async (quiet = false) => {
     const sb = createClient()

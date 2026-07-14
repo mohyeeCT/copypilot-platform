@@ -4,8 +4,10 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, Ban, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, RefreshCw, Settings, Star, XCircle } from 'lucide-react'
+import { ArrowLeft, Ban, BarChart3, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, Eye, History, RefreshCw, Settings, Star, X, XCircle } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import pulseStyles from '@/components/brand-pulse/BrandPulseWorkspace.module.css'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import ExportMenu from '@/components/ui/ExportMenu'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
@@ -933,6 +935,47 @@ function CrawlStatusBadge({ status }: { status: string }) {
   )
 }
 
+function MentionEvidenceDrawer({ mention, keyword, onClose }: { mention: BrandMention; keyword?: string | null; onClose: () => void }) {
+  const title = mentionTitle(mention)
+  const snippet = mentionSnippet(mention)
+  const url = mentionUrl(mention)
+  const evidence = mentionMatchEvidence(mention, keyword)
+
+  return (
+    <div className={pulseStyles.drawerBackdrop} role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <aside className={pulseStyles.drawer} data-ui="brand-pulse-evidence" role="dialog" aria-modal="true" aria-labelledby="mention-evidence-title">
+        <header className={pulseStyles.drawerHeader}>
+          <div><span>Mention evidence</span><h2 id="mention-evidence-title">Result details</h2></div>
+          <button type="button" autoFocus className={pulseStyles.drawerClose} aria-label="Close mention evidence" title="Close" onClick={onClose}><X size={15} /></button>
+        </header>
+        <div className={pulseStyles.drawerBody}>
+          <section><h3>{title}</h3>{snippet && <p>{snippet}</p>}</section>
+          <section>
+            <h3>Evidence</h3>
+            <div className={pulseStyles.evidenceGrid}>
+              <div><span>Matched phrase</span><strong>{evidence.phrase}</strong></div>
+              <div><span>Visible in</span><strong>{evidence.locations.length ? evidence.locations.join(', ') : 'Not visible'}</strong></div>
+              <div><span>Source</span><strong>{titleCase(mentionSource(mention))}</strong></div>
+              <div><span>Review</span><strong>{reviewStatusLabel(mentionReviewStatus(mention))}</strong></div>
+              <div><span>Sentiment</span><strong>{titleCase(mentionSentiment(mention))}</strong></div>
+              <div><span>Quality</span><strong>{mentionQualityLabel(mention)} {mentionQualityScore(mention)}</strong></div>
+              <div><span>Category</span><strong>{titleCase(mentionCategory(mention))}</strong></div>
+              <div><span>Domain rank</span><strong>{mentionDomainRank(mention)}</strong></div>
+            </div>
+          </section>
+          <section><h3>Timing</h3><div className={pulseStyles.evidenceGrid}><div><span>Published</span><strong>{formatDate(mentionPublished(mention))}</strong></div><div><span>Discovered</span><strong>{formatDate(mentionDiscovered(mention))}</strong></div></div></section>
+        </div>
+        <footer className={pulseStyles.drawerFooter}>
+          <div className={pulseStyles.drawerActions}>
+            {url && <a href={url} target="_blank" rel="noreferrer" className="btn-ghost text-xs"><ExternalLink size={13} /> Open source</a>}
+          </div>
+          <button type="button" className="btn-primary text-xs" onClick={onClose}>Done</button>
+        </footer>
+      </aside>
+    </div>
+  )
+}
+
 async function getSessionToken() {
   const sb = createClient()
   const { data: { session } } = await sb.auth.getSession()
@@ -940,6 +983,8 @@ async function getSessionToken() {
 }
 
 export default function BrandMentionAlertDetailPage() {
+  const [activeView, setActiveView] = useState<'mentions' | 'insights' | 'history'>('mentions')
+  const [selectedMention, setSelectedMention] = useState<BrandMention | null>(null)
   const params = useParams()
   const router = useRouter()
   const alertId = Array.isArray(params.id) ? params.id[0] : params.id as string
@@ -1018,6 +1063,20 @@ export default function BrandMentionAlertDetailPage() {
     setReviewMode(parseReviewMode(params))
     setFiltersReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!selectedMention) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectedMention(null)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [selectedMention])
 
   useEffect(() => {
     if (!filtersReady) return
@@ -1424,7 +1483,7 @@ export default function BrandMentionAlertDetailPage() {
 
   return (
     <AppLayout title="Brand Pulse Alert">
-      <div className="max-w-full">
+      <div className={`max-w-full ${pulseStyles.page}`}>
         <Link href="/brand-mentions" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
           <ArrowLeft size={16} /> Back to Brand Pulse
         </Link>
@@ -1477,24 +1536,12 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-            <div className="card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Keyword</p>
-              <p className="mt-2 break-words font-mono text-sm text-text">{alert?.keyword || '-'}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Type</p>
-              <p className="mt-2 text-sm font-semibold text-text">{titleCase(alert?.alert_type)}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Last crawl</p>
-              <p className="mt-2 text-sm text-text">{formatDate(lastCrawl)}</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">API mentions</p>
-              <p className="mt-2 text-sm font-semibold text-text">{alert?.mention_count ?? alert?.total_mentions ?? mentions.length}</p>
-            </div>
-          </div>
+          <section className={workspaceStyles.metricStrip} aria-label="Brand Pulse alert summary">
+            <div><span>Keyword</span><strong>{alert?.keyword || '-'}</strong><small>Tracked phrase</small></div>
+            <div><span>Type</span><strong>{titleCase(alert?.alert_type)}</strong><small>Alert category</small></div>
+            <div><span>Last crawl</span><strong>{formatDate(lastCrawl)}</strong><small>Most recent run</small></div>
+            <div><span>Mentions</span><strong>{alert?.mention_count ?? alert?.total_mentions ?? mentions.length}</strong><small>API results</small></div>
+          </section>
 
           <JobSection title="Crawl controls" className="brand-pulse-crawl-panel">
             <div className="brand-pulse-crawl-actions brand-pulse-crawl-toolbar">
@@ -1630,6 +1677,22 @@ export default function BrandMentionAlertDetailPage() {
             </div>
           </JobSection>
 
+          <nav className={pulseStyles.viewTabs} aria-label="Brand Pulse alert views">
+            {([
+              { value: 'mentions', label: 'Mentions', icon: Eye },
+              { value: 'insights', label: 'Insights', icon: BarChart3 },
+              { value: 'history', label: 'Crawl history', icon: History },
+            ] as const).map(item => {
+              const Icon = item.icon
+              return (
+                <button key={item.value} type="button" data-active={activeView === item.value ? 'true' : 'false'} aria-pressed={activeView === item.value} onClick={() => setActiveView(item.value)}>
+                  <Icon size={14} /> {item.label}
+                </button>
+              )
+            })}
+          </nav>
+
+          {activeView === 'insights' && (
           <JobSection title="DFS insights" className="brand-pulse-coverage">
             <div className="brand-pulse-insight-header">
               <div className="brand-pulse-insight-summary">
@@ -1737,7 +1800,10 @@ export default function BrandMentionAlertDetailPage() {
             )}
 
           </JobSection>
+          )}
 
+          {activeView === 'mentions' && (
+          <>
           <JobSection title="Mention filters" description="Filters reload the mention list and are reflected in the URL.">
             {latestCrawlRun && (
               <div className="brand-pulse-latest-crawl-strip mb-4 flex flex-col gap-3 rounded-lg border border-border bg-bg/60 p-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1900,7 +1966,6 @@ export default function BrandMentionAlertDetailPage() {
                       const approveBusy = pendingMentionAction === `${mention.id}:review:approved`
                       const noiseBusy = pendingMentionAction === `${mention.id}:review:noise`
                       const falsePositiveBusy = pendingMentionAction === `${mention.id}:review:false_positive`
-                      const matchEvidence = mentionMatchEvidence(mention, alert?.keyword)
                       return (
                         <Fragment key={mention.id || `${url}-${index}`}>
                         <tr className="border-b border-border transition-colors last:border-0 hover:bg-bg">
@@ -1934,45 +1999,9 @@ export default function BrandMentionAlertDetailPage() {
                                 </button>
                               )}
                             </div>
-                            <details className="brand-pulse-evidence">
-                              <summary>Evidence</summary>
-                              <div className="brand-pulse-evidence-panel">
-                                <div className="brand-pulse-evidence-grid">
-                                  <div>
-                                    <span>Matched phrase</span>
-                                    <strong>{matchEvidence.phrase}</strong>
-                                  </div>
-                                  <div>
-                                    <span>Visible in</span>
-                                    <strong>{matchEvidence.locations.length ? matchEvidence.locations.join(', ') : 'Not visible'}</strong>
-                                  </div>
-                                  <div>
-                                    <span>Source</span>
-                                    <strong>{titleCase(mentionSource(mention))}</strong>
-                                  </div>
-                                  <div>
-                                    <span>Review</span>
-                                    <strong>{reviewStatusLabel(reviewStatus)}</strong>
-                                  </div>
-                                </div>
-                                <div className="brand-pulse-evidence-text">
-                                  <span>Title</span>
-                                  <p>{title}</p>
-                                </div>
-                                {snippet && (
-                                  <div className="brand-pulse-evidence-text">
-                                    <span>Snippet</span>
-                                    <p>{snippet}</p>
-                                  </div>
-                                )}
-                                <div className="brand-pulse-evidence-chips">
-                                  <span>Sentiment {titleCase(mentionSentiment(mention))}</span>
-                                  <span>Quality {mentionQualityLabel(mention)} {mentionQualityScore(mention)}</span>
-                                  <span>Category {titleCase(mentionCategory(mention))}</span>
-                                  {domainRank !== '-' && <span>Rank {domainRank}</span>}
-                                </div>
-                              </div>
-                            </details>
+                            <button type="button" className={pulseStyles.inspectButton} onClick={() => setSelectedMention(mention)}>
+                              <Eye size={12} /> Inspect evidence
+                            </button>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex min-w-28 flex-col gap-1">
@@ -2088,7 +2117,10 @@ export default function BrandMentionAlertDetailPage() {
               </>
             )}
           </JobSection>
+          </>
+          )}
 
+          {activeView === 'history' && (
           <JobSection title="Recent crawl runs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted">{runs.length} crawl {runs.length === 1 ? 'run' : 'runs'} recorded.</p>
@@ -2159,7 +2191,9 @@ export default function BrandMentionAlertDetailPage() {
               </div>
             ) : null}
           </JobSection>
+          )}
         </JobLauncherShell>
+        {selectedMention && <MentionEvidenceDrawer mention={selectedMention} keyword={alert?.keyword} onClose={() => setSelectedMention(null)} />}
       </div>
     </AppLayout>
   )

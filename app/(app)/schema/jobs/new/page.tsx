@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import Switch from '@/components/ui/Switch'
@@ -139,8 +140,8 @@ export default function NewSchemaJobPage() {
 
   return (
     <AppLayout title="New Schema Generator Job">
-      <div className="max-w-full">
-        <Link href="/schema/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
+      <div className={`max-w-full ${workspaceStyles.newPage}`}>
+        <Link href="/schema/jobs" className={workspaceStyles.backLink}>
           <ArrowLeft size={16} /> Back to Schema jobs
         </Link>
         <JobLauncherShell
@@ -172,10 +173,10 @@ export default function NewSchemaJobPage() {
             </button>
           }
         >
-          <div className="grid grid-cols-7 gap-6">
-            <div className="col-span-5 space-y-4">
+          <div className={`grid grid-cols-7 gap-6 ${workspaceStyles.composerGrid}`}>
+            <div className={`col-span-5 space-y-4 ${workspaceStyles.composerMain}`}>
               <JobSection title="Inputs" description="Name the run and provide the page that should receive generated schema markup.">
-                <div className="card p-4 space-y-4">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name</label>
                     <input className="input-base" value={jobName} onChange={e => setJobName(e.target.value)} placeholder="e.g. LocalBusiness schema" />
@@ -192,9 +193,9 @@ export default function NewSchemaJobPage() {
               )}
             </div>
 
-            <div className="col-span-2 space-y-4">
+            <div className={`col-span-2 space-y-4 ${workspaceStyles.settingsRail}`}>
               <JobSection title="Configuration" description="Schema type and AI settings for this generated JSON-LD.">
-                <div className="card p-4 space-y-4">
+                <div className={workspaceStyles.settingsBody}>
                   <div>
                     <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Schema type</label>
                     <CustomSelect value={schemaType} onChange={setSchemaType} options={SCHEMA_TYPES} />
@@ -211,7 +212,7 @@ export default function NewSchemaJobPage() {
               </JobSection>
 
               <JobSection title="Data & context" description="Choose which page and search signals should guide the schema.">
-                <div className="card p-4 space-y-3">
+                <div className={workspaceStyles.settingsBody}>
                   {[
                     { label: 'Scrape target page', description: 'Reads content from the URL you entered.', value: scrapeTarget, setter: setScrapeTarget },
                     { label: 'Scrape homepage', description: 'Adds business-wide details from the website homepage.', value: scrapeHomepage, setter: setScrapeHomepage },

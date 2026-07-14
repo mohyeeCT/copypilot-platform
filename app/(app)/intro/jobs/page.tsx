@@ -15,6 +15,8 @@ export default function Page() {
       accent:      '#60A5FA',
       emptyTitle:  'No Intro jobs yet',
       emptyDesc:   'Generate keyword-optimised intro paragraphs for existing pages using GSC and DFS data.',
+      variant:     'intro',
+      description: 'Create and review page introductions across client URLs.',
       listJobs:    (token) => introApi.listJobs(token),
       deleteJob:   (token, id) => introApi.deleteJob(token, id),
       duplicateJob:(token, id) => introApi.duplicateJob(token, id),

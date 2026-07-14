@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, FolderPlus, RefreshCw } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import pulseStyles from '@/components/brand-pulse/BrandPulseWorkspace.module.css'
 import { JobLauncherShell } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { brandMentionsApi } from '@/lib/api/brand-mentions'
@@ -113,7 +114,7 @@ export default function BrandMentionsOverviewPage() {
 
   return (
     <AppLayout title="Brand Pulse">
-      <div className="max-w-full">
+      <div className={`max-w-full ${pulseStyles.page}`}>
         <JobLauncherShell
           compact
           eyebrow="Insights"

@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Upload, Trash2, CheckCircle, Server, Zap } from 'lucide-react'
+import { Activity, BadgeCheck, KeyRound, Upload, Trash2, CheckCircle, Server, Zap } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import settingsStyles from '@/components/settings/SettingsWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
@@ -24,6 +25,7 @@ const BACKENDS = [
 const AI_PROVIDERS = ['Claude', 'OpenAI', 'Gemini (free)', 'Mistral (free tier)', 'Groq (free tier)']
 
 export default function SettingsPage() {
+  const [activeView, setActiveView] = useState<'connections' | 'profiles' | 'platform'>('connections')
   const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
   const [gscProperties, setGscProperties] = useState<GscProperty[]>([])
   const [gscPropertiesExpanded, setGscPropertiesExpanded] = useState(false)
@@ -385,7 +387,9 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
+      <div className={settingsStyles.settingsPage}>
       <JobLauncherShell
+        compact
         eyebrow="Account settings"
         title="Settings"
         description="Manage saved credentials, Search Console access, brand profiles, and platform health."
@@ -439,8 +443,30 @@ export default function SettingsPage() {
         )}
 
         {/* Google Search Console — Google account */}
-        <div className="grid items-start gap-5 xl:grid-cols-2">
-          <div className="space-y-4">
+        <nav className={settingsStyles.sectionNav} aria-label="Settings sections">
+          {([
+            { value: 'connections', label: 'Connections', icon: KeyRound },
+            { value: 'profiles', label: 'Brand profiles', icon: BadgeCheck },
+            { value: 'platform', label: 'Platform', icon: Activity },
+          ] as const).map(item => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.value}
+                type="button"
+                data-active={activeView === item.value ? 'true' : 'false'}
+                aria-pressed={activeView === item.value}
+                onClick={() => setActiveView(item.value)}
+              >
+                <Icon size={14} /> {item.label}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className={settingsStyles.viewPanel}>
+          <div className={activeView === 'connections' ? settingsStyles.connectionsGrid : 'hidden'}>
+        <div className={settingsStyles.primaryConnection}>
         <JobSection
           title="Google account"
           description="Preferred for Search Console copy tools and Indexer submissions, plus Google exports."
@@ -531,6 +557,7 @@ export default function SettingsPage() {
         </JobSection>
 
         {/* Google Search Console — Service account */}
+        </div>
         <JobSection
           title="Service account"
           description="Service account remains available for fallback and legacy workflows."
@@ -683,6 +710,9 @@ export default function SettingsPage() {
           )}
         </JobSection>
 
+          </div>
+
+          <div className={activeView === 'platform' ? settingsStyles.platformPanel : 'hidden'}>
         <JobSection
           title="Platform health"
           description="Live status for the services that power CopyPilot tools."
@@ -728,16 +758,17 @@ export default function SettingsPage() {
         </JobSection>
           </div>
 
-          <aside className="xl:sticky xl:top-6">
+          <div className={activeView === 'profiles' ? settingsStyles.profilesPanel : 'hidden'}>
             <BrandProfilesCard
               listBrandProfiles={listBrandProfiles}
               createBrandProfile={createBrandProfile}
               updateBrandProfile={updateBrandProfile}
               deleteBrandProfile={deleteBrandProfile}
             />
-          </aside>
+          </div>
         </div>
       </JobLauncherShell>
+      </div>
     </AppLayout>
   )
 }

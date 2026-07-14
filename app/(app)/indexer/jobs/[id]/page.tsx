@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { AlertTriangle, ArrowLeft, CheckCircle, Clock, RefreshCw, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
@@ -98,15 +99,6 @@ function downloadXLSX(job: Job) {
   XLSX.writeFile(wb, `indexer-${job.id.slice(0, 8)}.xlsx`)
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="card py-4 text-center">
-      <div className={clsx('text-2xl font-bold', color)}>{value}</div>
-      <div className="mt-1 text-xs text-muted">{label}</div>
-    </div>
-  )
-}
-
 export default function IndexerJobResultPage() {
   const params = useParams()
   const router = useRouter()
@@ -190,12 +182,13 @@ export default function IndexerJobResultPage() {
 
   return (
     <AppLayout title="Indexer Result">
-      <div className="max-w-full">
-        <Link href="/indexer/jobs" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
+      <div className={`max-w-full ${workspaceStyles.newPage}`}>
+        <Link href="/indexer/jobs" className={workspaceStyles.backLink}>
           <ArrowLeft size={16} /> Back to Indexer jobs
         </Link>
 
         <JobLauncherShell
+          compact
           eyebrow="Indexer result"
           title={job.name}
           description={new Date(job.created_at).toLocaleString('en-GB', {
@@ -260,16 +253,16 @@ export default function IndexerJobResultPage() {
             />
           )}
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Total URLs" value={job.total_urls} color="text-text" />
-            <StatCard label="Submitted" value={job.submitted_urls || 0} color="text-success" />
-            <StatCard label="Failed" value={job.failed_urls || 0} color="text-error" />
-            <StatCard label="Queued" value={job.queued_urls || 0} color="text-warning" />
-          </div>
+          <section className={workspaceStyles.metricStrip} aria-label="Indexer result summary">
+            <div><span>Total URLs</span><strong>{job.total_urls}</strong><small>Submitted in this batch</small></div>
+            <div><span>Submitted</span><strong className={workspaceStyles.successValue}>{job.submitted_urls || 0}</strong><small>Accepted by Google</small></div>
+            <div><span>Failed</span><strong className={job.failed_urls ? workspaceStyles.warningValue : undefined}>{job.failed_urls || 0}</strong><small>Can be requested again</small></div>
+            <div><span>Queued</span><strong className={job.queued_urls ? workspaceStyles.warningValue : undefined}>{job.queued_urls || 0}</strong><small>Waiting for quota</small></div>
+          </section>
 
           {job.results.length > 0 && (
             <div className="card overflow-hidden p-0">
-              <div className="flex items-center gap-1 border-b border-border px-4 pt-4">
+              <div className={workspaceStyles.resultFilters} role="tablist" aria-label="Filter Indexer results">
                 {[
                   { id: 'all', label: `All (${job.results.length})` },
                   { id: 'submitted', label: `Submitted (${job.results.filter(result => result.status === 'submitted').length})` },
@@ -278,11 +271,11 @@ export default function IndexerJobResultPage() {
                 ].map(item => (
                   <button
                     key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === item.id}
                     onClick={() => setFilter(item.id)}
-                    className={clsx(
-                      '-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors',
-                      filter === item.id ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-text'
-                    )}
+                    data-active={filter === item.id ? 'true' : 'false'}
                   >
                     {item.label}
                   </button>
@@ -290,7 +283,7 @@ export default function IndexerJobResultPage() {
               </div>
 
               <div className="max-h-[60vh] overflow-auto">
-                <table className="w-full text-sm">
+                <table className="min-w-[780px] w-full table-fixed text-sm">
                   <thead className="sticky top-0 bg-surface">
                     <tr className="border-b border-border">
                       <th className="w-8 px-4 py-3">
@@ -300,9 +293,9 @@ export default function IndexerJobResultPage() {
                           onChange={checked => setSelected(checked ? new Set(filteredResults.map(result => result.url)) : new Set())}
                         />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted">URL</th>
+                      <th className="w-[300px] px-6 py-3 text-left text-xs font-medium text-muted">URL</th>
                       <th className="w-28 px-4 py-3 text-left text-xs font-medium text-muted">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted">Message</th>
+                      <th className="w-[240px] px-4 py-3 text-left text-xs font-medium text-muted">Message</th>
                       <th className="w-40 px-4 py-3 text-left text-xs font-medium text-muted">Timestamp</th>
                     </tr>
                   </thead>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, PlusCircle, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import { JobLauncherShell, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
@@ -109,8 +110,9 @@ export default function IndexerJobsPage() {
 
   return (
     <AppLayout title="Indexer">
-      <div className="max-w-full">
+      <div className={`max-w-full ${workspaceStyles.newPage}`}>
         <JobLauncherShell
+          compact
           eyebrow="Indexer"
           title="Indexer Jobs"
           description="Submit URLs to Google's Indexing API and track daily quota, queued URLs, and submission results."
@@ -135,14 +137,14 @@ export default function IndexerJobsPage() {
           }
         >
           {quota && (
-            <div className="card p-4">
+            <div className="rounded-lg border border-border bg-surface-raised p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-text">Daily quota</span>
                 <span className="text-xs text-muted">{quota.used} / {quota.limit} used today</span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-border">
                 <div
-                  className={clsx('h-1.5 rounded-full transition-all', {
+                  className={clsx('h-1.5 rounded-full transition-[width,background-color]', {
                     'bg-accent': quotaPct < 70,
                     'bg-warning': quotaPct >= 70 && quotaPct < 90,
                     'bg-error': quotaPct >= 90,

@@ -1,0 +1,250 @@
+.outputGrid,
+.diagnosticsGrid,
+.strategyGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.outputGrid,
+.diagnosticsGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.strategyGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.outputCard,
+.diagnostic,
+.strategyItem,
+.faqItem,
+.sectionItem,
+.linkItem,
+.gapItem {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+}
+
+.outputCard,
+.diagnostic {
+  padding: 12px;
+}
+
+.outputCard span,
+.diagnostic span,
+.strategyItem span,
+.gapItem span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.outputCard strong,
+.diagnostic strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.outputCard small,
+.diagnostic small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.strategyItem {
+  padding: 12px;
+}
+
+.strategyItem p {
+  margin: 5px 0 0;
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--border));
+  border-radius: 7px;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.sectionHeading {
+  margin-bottom: 10px;
+}
+
+.sectionHeading span {
+  display: block;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.sectionHeading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.faqStack,
+.sectionStack,
+.linkList,
+.gapList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.faqItem,
+.linkItem,
+.gapItem {
+  padding: 12px;
+}
+
+.faqItem strong,
+.sectionHeader strong,
+.linkItem strong {
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.faqItem p,
+.linkItem p,
+.gapItem p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.sectionItem {
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sectionHeader span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+}
+
+.sectionItem > p {
+  margin: 0;
+  padding: 12px;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.sectionRerun {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sectionRerun input {
+  min-width: 0;
+}
+
+.internalLinks {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+}
+
+.internalLinks summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.internalLinks summary::-webkit-details-marker {
+  display: none;
+}
+
+.internalLinks summary strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.internalLinks summary span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.69rem;
+}
+
+.internalLinksBody {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.internalLinksBody > div:first-child {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 0;
+}
+
+.linkMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.67rem;
+}
+
+@media (max-width: 760px) {
+  .outputGrid,
+  .diagnosticsGrid,
+  .strategyGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionRerun {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .internalLinks summary {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,104 @@
+.settingsPage {
+  min-width: 0;
+}
+
+.settingsPage :global(.job-launcher-hero) {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+}
+
+.sectionNav {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.sectionNav button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.74rem;
+  font-weight: 650;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.sectionNav button:hover {
+  color: var(--text);
+}
+
+.sectionNav button[data-active='true'] {
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+}
+
+.connectionsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
+}
+
+.connectionsGrid > :last-child {
+  grid-column: 1 / -1;
+}
+
+.primaryConnection :global(.job-section-header) {
+  border-bottom-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.primaryConnection {
+  outline: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  outline-offset: -1px;
+}
+
+.viewPanel {
+  min-width: 0;
+}
+
+.profilesPanel :global(.job-section) {
+  box-shadow: var(--shadow-xs);
+}
+
+.platformPanel {
+  max-width: 980px;
+}
+
+@media (max-width: 920px) {
+  .connectionsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .connectionsGrid > :last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .sectionNav {
+    width: 100%;
+  }
+
+  .sectionNav button {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionNav button {
+    transition: none;
+  }
+}

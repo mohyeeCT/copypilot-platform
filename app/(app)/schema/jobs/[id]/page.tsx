@@ -1,16 +1,19 @@
 'use client'
+
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Copy, ExternalLink } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { AlertTriangle, ArrowLeft, Check, Copy, Database, ExternalLink, FileJson, Search } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import AppLayout from '@/components/layout/AppLayout'
+import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
+import schemaStyles from '@/components/schema/SchemaWorkspace.module.css'
 import Badge from '@/components/ui/Badge'
 import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
-import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
-import * as XLSX from 'xlsx'
+import { createClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,9 +38,24 @@ interface Job {
   completed_rows?: number
   failed_rows?: number
   current_step?: string
-  logs?: {ts: string; msg: string}[]
+  logs?: { ts: string; msg: string }[]
   progress?: { total?: number; completed?: number; failed?: number }
   results?: SchemaResult[]
+}
+
+type DetailTab = 'json' | 'source' | 'validation'
+
+function resultState(result: SchemaResult) {
+  if (result.error || result.status === 'error' || result.status === 'failed') return 'error'
+  if (!result.schema_json) return 'review'
+  return 'ready'
+}
+
+function resultStateLabel(result: SchemaResult) {
+  const state = resultState(result)
+  if (state === 'error') return 'Error'
+  if (state === 'review') return 'Needs review'
+  return 'Ready'
 }
 
 export default function SchemaJobPage() {
@@ -47,21 +65,25 @@ export default function SchemaJobPage() {
   const [cancelling, setCancelling] = useState(false)
   const [copied, setCopied] = useState('')
   const [exportingSheets, setExportingSheets] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [detailTab, setDetailTab] = useState<DetailTab>('json')
 
   const load = useCallback(async () => {
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
-    if (!session) { router.push('/login'); return }
-    const data = await schemaApi.getJob(session.access_token, id as string)
-    setJob(data)
+    if (!session) {
+      router.push('/login')
+      return
+    }
+    setJob(await schemaApi.getJob(session.access_token, id as string))
   }, [id, router])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
   useEffect(() => {
     if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
-    const t = setInterval(load, 2500)
-    return () => clearInterval(t)
+    const timer = window.setInterval(() => { void load() }, 2500)
+    return () => window.clearInterval(timer)
   }, [job, load])
 
   async function handleCancel() {
@@ -80,14 +102,14 @@ export default function SchemaJobPage() {
   }
 
   function copyText(text: string, key: string) {
-    navigator.clipboard.writeText(text)
+    void navigator.clipboard.writeText(text)
     setCopied(key)
-    setTimeout(() => setCopied(''), 1500)
+    window.setTimeout(() => setCopied(''), 1500)
   }
 
   function buildExportRows() {
     const headers = ['URL', 'Status', 'Schema Type', 'Schema JSON', 'Schema Script', 'Error']
-    const rows = (job!.results || []).map(result => ({
+    const rows = (job?.results || []).map(result => ({
       'URL': result.url || '',
       'Status': result.status || '',
       'Schema Type': result.schema_type || '',
@@ -103,19 +125,20 @@ export default function SchemaJobPage() {
     const { headers, rows } = buildExportRows()
     const csvRows = rows.map(row => headers.map(header => `"${String(row[header as keyof typeof row] ?? '').replace(/"/g, '""')}"`).join(','))
     const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `schema_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
-    a.click()
+    const anchor = document.createElement('a')
+    anchor.href = URL.createObjectURL(blob)
+    anchor.download = `schema_${(job.name || 'job').replace(/\s+/g, '_')}.csv`
+    anchor.click()
+    URL.revokeObjectURL(anchor.href)
   }
 
   function downloadXlsx() {
     if (!job?.results?.length) return
     const { rows } = buildExportRows()
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Results')
-    XLSX.writeFile(wb, `schema_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Results')
+    XLSX.writeFile(workbook, `schema_${(job.name || 'job').replace(/\s+/g, '_')}.xlsx`)
   }
 
   async function exportGoogleSheets() {
@@ -136,114 +159,125 @@ export default function SchemaJobPage() {
     }
   }
 
-  if (!job) return (
-    <AppLayout title="Schema Generator">
-      <div className="flex items-center justify-center h-48">
-        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    </AppLayout>
-  )
+  if (!job) {
+    return (
+      <AppLayout title="Schema Generator">
+        <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" /></div>
+      </AppLayout>
+    )
+  }
 
-  const total = job.total_rows ?? job.progress?.total ?? 0
-  const completed = job.completed_rows ?? job.progress?.completed ?? 0
-  const failed = job.failed_rows ?? job.progress?.failed ?? 0
-  const firstUrl = job.results?.[0]?.url
+  const results = job.results || []
+  const total = job.total_rows ?? job.progress?.total ?? results.length
+  const completed = job.completed_rows ?? job.progress?.completed ?? results.length
+  const failed = job.failed_rows ?? job.progress?.failed ?? results.filter(result => resultState(result) === 'error').length
+  const selectedIndex = results[activeIndex] ? activeIndex : 0
+  const selectedResult = results[selectedIndex]
+  const result = selectedResult as SchemaResult
+  const ready = results.filter(result => resultState(result) === 'ready').length
 
   return (
     <AppLayout title="Schema Generator">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/schema/jobs" className="text-muted hover:text-text transition-colors">
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold truncate">{job.name}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Badge label={job.status} />
-              <span className="text-xs text-muted font-mono">{completed}/{total} rows</span>
-              {failed > 0 && <span className="text-xs text-error font-mono">{failed} failed</span>}
-            </div>
+      <div className={workspaceStyles.jobPage}>
+        <header className={workspaceStyles.pageHeader}>
+          <div className={workspaceStyles.pageHeaderCopy}>
+            <Link href="/schema/jobs" className={workspaceStyles.backButton}><ArrowLeft size={14} /> All Schema jobs</Link>
+            <span className={workspaceStyles.eyebrow}>Schema Generator job</span>
+            <h1>{job.name || 'Untitled job'}</h1>
+            <div className={workspaceStyles.headerMeta}><Badge label={job.status} /><span>{completed}/{total} rows</span>{failed > 0 && <span className="text-error">{failed} failed</span>}</div>
           </div>
-          {job.results && job.results.length > 0 && (
-            <div className="flex items-center gap-2">
-              <ExportMenu
-                onCsv={downloadCsv}
-                onXlsx={downloadXlsx}
-                onGoogleSheets={exportGoogleSheets}
-                sheetsLoading={exportingSheets}
-              />
-            </div>
-          )}
-        </div>
+          {results.length > 0 && <div className={workspaceStyles.headerActions}><ExportMenu onCsv={downloadCsv} onXlsx={downloadXlsx} onGoogleSheets={exportGoogleSheets} sheetsLoading={exportingSheets} /></div>}
+        </header>
 
         {(job.status === 'running' || job.status === 'cancelling') && (
-          <RunningJobPanel
-            status={job.status}
-            completedRows={completed}
-            totalRows={total}
-            failedRows={failed}
-            currentStep={job.current_step || 'Generating structured data...'}
-            logs={job.logs}
-            cancelling={cancelling}
-            onCancel={handleCancel}
-          />
+          <RunningJobPanel status={job.status} completedRows={completed} totalRows={total} failedRows={failed} currentStep={job.current_step || 'Generating structured data...'} logs={job.logs} cancelling={cancelling} onCancel={handleCancel} />
         )}
 
-        <div className="space-y-4">
-          {(job.results || []).map((result, index) => (
-            <div key={`${result.url}-${index}`} className="card p-5">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-muted uppercase tracking-wider">{result.schema_type}</p>
-                  <p className="text-sm font-mono text-muted mt-1 break-all">{result.url}</p>
-                </div>
-                <Badge label={result.status} />
-              </div>
+        {results.length > 0 && (
+          <>
+            <section className={workspaceStyles.metricStrip} aria-label="Schema result summary">
+              <div><span>Rows</span><strong>{results.length}</strong><small>URLs processed</small></div>
+              <div><span>Ready</span><strong className={workspaceStyles.successValue}>{ready}</strong><small>JSON-LD generated</small></div>
+              <div><span>Errors</span><strong className={failed ? workspaceStyles.warningValue : undefined}>{failed}</strong><small>Source or generation issue</small></div>
+              <div><span>Types</span><strong>{new Set(results.map(result => result.schema_type).filter(Boolean)).size}</strong><small>Schema types generated</small></div>
+            </section>
 
-              {result.error ? (
-                <p className="text-sm text-error">{result.error}</p>
-              ) : (
-                <div className="space-y-3">
-                  {result.source_summary?.scraped_sections?.length === 0 && (
-                    <p
-                      className="rounded border px-3 py-2 text-xs text-warning"
-                      style={{
-                        background: 'rgba(198, 123, 0, 0.08)',
-                        borderColor: 'rgba(198, 123, 0, 0.22)',
-                      }}
-                    >
-                      No page content was available for this URL; schema was generated without source data.
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => copyText(result.schema_json || '', `json-${index}`)} className="btn-ghost text-xs flex items-center gap-1.5">
-                      <Copy size={12} /> {copied === `json-${index}` ? 'Copied!' : 'Copy JSON'}
-                    </button>
-                    <button onClick={() => copyText(result.schema_script || '', `script-${index}`)} className="btn-ghost text-xs flex items-center gap-1.5">
-                      <Copy size={12} /> {copied === `script-${index}` ? 'Copied!' : 'Copy script'}
-                    </button>
-                    <a href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(result.url)}`} target="_blank" rel="noreferrer" className="btn-ghost text-xs flex items-center gap-1.5">
-                      <ExternalLink size={12} /> Rich Results
-                    </a>
-                    <a href="https://validator.schema.org/" target="_blank" rel="noreferrer" className="btn-ghost text-xs flex items-center gap-1.5">
-                      <ExternalLink size={12} /> Schema.org
-                    </a>
-                  </div>
-                  <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto rounded-lg border border-border p-4" style={{ background: 'var(--surface)' }}>
-                    {result.schema_json}
-                  </pre>
+            <div className={workspaceStyles.reviewWorkspace}>
+              <section className={workspaceStyles.resultQueue}>
+                <header className={workspaceStyles.queueHeader}><div><h2>Schema rows</h2><p>{results.length} generated results</p></div></header>
+                <div className={workspaceStyles.resultList}>
+                  {results.map((result, index) => {
+                    const state = resultState(result)
+                    return (
+                      <article key={`${result.url}-${index}`} className={`${workspaceStyles.resultRow} ${schemaStyles.resultRow} ${selectedIndex === index ? workspaceStyles.resultRowActive : ''}`}>
+                        <button type="button" className={workspaceStyles.resultPrimary} onClick={() => { setActiveIndex(index); setDetailTab('json') }}>
+                          <span className={workspaceStyles.resultPrimaryTop}><strong>{result.schema_type || `Row ${index + 1}`}</strong><span className={workspaceStyles.statusPill} data-state={state}>{resultStateLabel(result)}</span></span>
+                          <p>{result.error || 'Structured data generated for this page.'}</p>
+                          <span className={workspaceStyles.resultMeta}><span>{result.url}</span></span>
+                        </button>
+                      </article>
+                    )
+                  })}
                 </div>
+              </section>
+
+              {selectedResult && (
+                <section className={workspaceStyles.resultDetail}>
+                  <header className={workspaceStyles.detailHeader}>
+                    <div><span className={workspaceStyles.eyebrow}>Selected schema</span><h2>{selectedResult.schema_type}</h2><p>{selectedResult.url}</p></div>
+                    <div className={workspaceStyles.detailHeaderActions}><span className={workspaceStyles.statusPill} data-state={resultState(selectedResult)}>{resultStateLabel(selectedResult)}</span></div>
+                  </header>
+                  <nav className={workspaceStyles.detailTabs} aria-label="Schema result detail">
+                    {([['json', 'JSON-LD'], ['source', 'Source context'], ['validation', 'Validation']] as Array<[DetailTab, string]>).map(([value, label]) => <button type="button" key={value} aria-pressed={detailTab === value} data-active={detailTab === value ? 'true' : 'false'} onClick={() => setDetailTab(value)}>{label}</button>)}
+                  </nav>
+
+                  {detailTab === 'json' && (
+                    <div className={workspaceStyles.detailBody}>
+                      {selectedResult.error ? <section className={workspaceStyles.qualitySummary}><span className={workspaceStyles.qualityIcon} data-state="error"><AlertTriangle size={18} /></span><div><h3>Schema was not generated</h3><p>{selectedResult.error}</p></div></section> : (
+                        <div><div className={schemaStyles.codeHeader}><span>application/ld+json</span><button type="button" className={workspaceStyles.copyButton} aria-label="Copy schema JSON" title="Copy schema JSON" onClick={() => copyText(selectedResult.schema_json || '', `json-${selectedIndex}`)}>{copied === `json-${selectedIndex}` ? <Check size={13} /> : <Copy size={13} />}</button></div><pre className={schemaStyles.codeBlock}>{selectedResult.schema_json || '// No JSON-LD was saved for this row.'}</pre></div>
+                      )}
+                    </div>
+                  )}
+
+                  {detailTab === 'source' && (
+                    <div className={workspaceStyles.detailBody}>
+                      <div className={schemaStyles.sourceGrid}>
+                        <div className={schemaStyles.sourceCard}><span>Target page</span><strong>{selectedResult.url}</strong><p>Page receiving the structured data.</p></div>
+                        <div className={schemaStyles.sourceCard}><span>Scraped sections</span><strong>{selectedResult.source_summary?.scraped_sections?.length || 0}</strong><p>{selectedResult.source_summary?.scraped_sections?.join(', ') || 'No page sections were recorded.'}</p></div>
+                        <div className={schemaStyles.sourceCard}><span>SERP context</span><strong>{selectedResult.source_summary?.serp_used ? 'Used' : 'Not used'}</strong><p>Search-result evidence for entity details.</p></div>
+                        <div className={schemaStyles.sourceCard}><span>Schema type</span><strong>{selectedResult.schema_type}</strong><p>Selected structured-data template.</p></div>
+                      </div>
+                      {result.source_summary?.scraped_sections?.length === 0 && (
+                        <div
+                          className={`${schemaStyles.sourceWarning} text-warning`}
+                          style={{ background: 'rgba(198, 123, 0, 0.08)', borderColor: 'rgba(198, 123, 0, 0.22)' }}
+                        >
+                          <AlertTriangle size={14} />
+                          <span>No page content was available for this URL. Schema was generated without owned-page source data.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {detailTab === 'validation' && (
+                    <div className={workspaceStyles.detailBody}>
+                      <div className={schemaStyles.validationGrid}>
+                        <div className={schemaStyles.validationCard}><span>Google Rich Results</span><strong>Check search eligibility</strong><p>Open Google&apos;s validator with the target URL.</p><a href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(selectedResult.url)}`} target="_blank" rel="noreferrer">Open Rich Results <ExternalLink size={12} /></a></div>
+                        <div className={schemaStyles.validationCard}><span>Schema.org Validator</span><strong>Validate vocabulary</strong><p>Paste the generated JSON-LD into Schema.org&apos;s validator.</p><a href="https://validator.schema.org/" target="_blank" rel="noreferrer">Open validator <ExternalLink size={12} /></a></div>
+                        <div className={schemaStyles.validationCard}><span>Ready-to-paste script</span><strong>{selectedResult.schema_script ? 'Available' : 'Not included'}</strong><p>Copy the complete script block for implementation.</p>{selectedResult.schema_script && <button type="button" className="btn-ghost mt-3 text-xs" onClick={() => copyText(selectedResult.schema_script || '', `script-${selectedIndex}`)}>{copied === `script-${selectedIndex}` ? <Check size={13} /> : <Copy size={13} />} Copy script</button>}</div>
+                        <div className={schemaStyles.validationCard}><span>Generated file</span><strong>{selectedResult.schema_json ? 'JSON-LD available' : 'Unavailable'}</strong><p>Use the export menu to archive this result with the job.</p></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <footer className={workspaceStyles.detailFooter}><span>Row {selectedIndex + 1} of {results.length}</span><div>{selectedResult.schema_json && <button type="button" className="btn-primary text-xs" onClick={() => copyText(selectedResult.schema_json || '', `footer-${selectedIndex}`)}>{copied === `footer-${selectedIndex}` ? <Check size={13} /> : <FileJson size={13} />} {copied === `footer-${selectedIndex}` ? 'Copied' : 'Copy JSON-LD'}</button>}</div></footer>
+                </section>
               )}
             </div>
-          ))}
+          </>
+        )}
 
-          {!job.results?.length && (
-            <div className="card p-8 text-center">
-              <p className="text-sm text-muted">Schema output will appear here when generation starts.</p>
-              {firstUrl && <p className="text-xs text-muted font-mono mt-2">{firstUrl}</p>}
-            </div>
-          )}
-        </div>
+        {!results.length && job.status !== 'running' && <div className={workspaceStyles.emptyResults}><Search size={22} /><strong>No schema output yet</strong><p>Generated JSON-LD will appear when this job returns a result.</p></div>}
       </div>
     </AppLayout>
   )

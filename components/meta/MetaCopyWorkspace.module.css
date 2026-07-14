@@ -78,6 +78,11 @@
   min-width: 0;
 }
 
+.composerFooter {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .settingsRail {
   position: sticky;
   top: 0;

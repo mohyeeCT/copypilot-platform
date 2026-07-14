@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, FolderPlus } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import pulseStyles from '@/components/brand-pulse/BrandPulseWorkspace.module.css'
 import { JobLauncherShell, JobSection } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { brandMentionsApi } from '@/lib/api/brand-mentions'
@@ -89,7 +90,7 @@ export default function NewBrandPulseProfilePage() {
 
   return (
     <AppLayout title="New Brand Pulse Profile">
-      <div className="max-w-full">
+      <div className={`max-w-full ${pulseStyles.page}`}>
         <Link href="/brand-mentions" className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-text">
           <ArrowLeft size={16} /> Back to Brand Pulse
         </Link>

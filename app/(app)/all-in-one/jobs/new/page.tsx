@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import styles from '@/components/meta/MetaCopyWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
+import Switch from '@/components/ui/Switch'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { toDisplayOptions } from '@/lib/option-labels'
 import { createClient } from '@/lib/supabase'
@@ -284,8 +286,8 @@ export default function NewAIOJob() {
 
   return (
     <AppLayout title="All in One">
-      <div className="max-w-full">
-        <Link href="/all-in-one/jobs" className="inline-flex items-center gap-2 text-sm text-muted hover:text-text transition-colors mb-4">
+      <div className={`max-w-full ${styles.newPage}`}>
+        <Link href="/all-in-one/jobs" className={styles.backLink}>
           <ArrowLeft size={16} /> Back to All in One jobs
         </Link>
         <JobLauncherShell
@@ -314,8 +316,8 @@ export default function NewAIOJob() {
             </button>
           }
         >
-          <div className="grid grid-cols-7 gap-6">
-            <div className="col-span-5 space-y-4">
+          <div className={`grid grid-cols-7 gap-6 ${styles.composerGrid}`}>
+            <div className={`col-span-5 space-y-4 ${styles.composerMain}`}>
           {/* Job name */}
           <JobSection title="Inputs" description="Name the run before adding URL rows. All defaults and row behavior are unchanged.">
             <label className="block text-xs text-muted uppercase tracking-wider mb-2">Job Name (optional)</label>
@@ -331,8 +333,8 @@ export default function NewAIOJob() {
                 { label: 'Meta Copy', desc: 'Title tag, meta description, H1', value: genMeta, set: setGenMeta },
                 { label: 'FAQs', desc: 'FAQ section with Schema.org JSON-LD', value: genFaqs, set: setGenFaqs },
               ].map(({ label, desc, value, set }) => (
-                <button key={label} onClick={() => set(!value)}
-                  className={`p-3 rounded-xl border text-left transition-all ${value ? 'border-accent bg-accent/8' : 'border-border hover:border-accent/40'}`}>
+                <button key={label} type="button" aria-pressed={value} onClick={() => set(!value)}
+                  className={`p-3 rounded-lg border text-left transition-colors ${value ? 'border-accent bg-accent/8' : 'border-border hover:border-accent/40'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${value ? 'bg-accent border-accent' : 'border-border'}`}>
                       {value && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
@@ -434,7 +436,7 @@ export default function NewAIOJob() {
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-12 gap-2 text-xs text-muted px-1 mb-1">
+                <div className="hidden sm:grid grid-cols-12 gap-2 text-xs text-muted px-1 mb-1">
                   <span className="col-span-5">URL *</span>
                   <span className="col-span-3">Keyword</span>
                   <span className="col-span-2">Page Type</span>
@@ -442,19 +444,19 @@ export default function NewAIOJob() {
                 </div>
                 {rows.map((row, i) => (
                   <div key={i} className="space-y-1.5">
-                    <div className="grid grid-cols-12 gap-2 items-center">
-                      <input className="input-base col-span-5 text-xs" placeholder="https://..." value={row.url}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                      <input aria-label={`URL for row ${i + 1}`} className="input-base sm:col-span-5 text-xs" placeholder="https://..." value={row.url}
                         onChange={e => { const r = [...rows]; r[i] = {...r[i], url: e.target.value}; setRows(r) }} />
-                      <input className="input-base col-span-3 text-xs" placeholder="keyword" value={row.keyword}
+                      <input aria-label={`Keyword for row ${i + 1}`} className="input-base sm:col-span-3 text-xs" placeholder="Keyword (optional)" value={row.keyword}
                         onChange={e => { const r = [...rows]; r[i] = {...r[i], keyword: e.target.value}; setRows(r) }} />
-                      <CustomSelect className="col-span-2 text-xs" value={row.page_type}
+                      <CustomSelect className="sm:col-span-2 text-xs" value={row.page_type}
                         onChange={value => { const r = [...rows]; r[i] = {...r[i], page_type: value}; setRows(r) }}
                         options={PAGE_TYPES.map(pt => ({ value: pt, label: PAGE_LABELS[pt] }))} />
-                      <div className="col-span-2 flex gap-1">
-                        <input className="input-base text-xs flex-1" placeholder="H1" value={row.h1}
+                      <div className="sm:col-span-2 flex gap-1">
+                        <input aria-label={`H1 for row ${i + 1}`} className="input-base text-xs flex-1" placeholder="Current H1 (optional)" value={row.h1}
                           onChange={e => { const r = [...rows]; r[i] = {...r[i], h1: e.target.value}; setRows(r) }} />
                         {rows.length > 1 && (
-                          <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-muted hover:text-error shrink-0"><X size={14} /></button>
+                          <button type="button" aria-label={`Remove row ${i + 1}`} title="Remove row" onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-muted hover:text-error shrink-0"><X size={14} /></button>
                         )}
                       </div>
                     </div>
@@ -482,7 +484,7 @@ export default function NewAIOJob() {
           </JobSection>
             </div>
 
-            <div className="col-span-2 space-y-4">
+            <div className={`col-span-2 space-y-4 ${styles.settingsRail}`}>
 
           <JobSection title="Run readiness" description="Input coverage before research and generation begin." className="space-y-2">
             {readinessItems.map(item => (
@@ -534,12 +536,9 @@ export default function NewAIOJob() {
                   ]} />
               </div>
             </div>
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <div onClick={() => setIncludeBrand(!includeBrand)}
-                className={`w-9 h-5 rounded-full transition-colors relative ${includeBrand ? 'bg-accent' : 'bg-border'}`}>
-                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeBrand ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
               <span className="text-sm">Include brand name in meta copy</span>
+              <Switch ariaLabel="Include brand name in meta copy" checked={includeBrand} onChange={setIncludeBrand} />
             </label>
             <div>
               <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Client Brief</label>
@@ -554,10 +553,7 @@ export default function NewAIOJob() {
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm">GSC (optional)</h2>
               <label className="flex items-center gap-2 cursor-pointer">
-                <div onClick={() => setUseGsc(!useGsc)}
-                  className={`w-9 h-5 rounded-full transition-colors relative ${useGsc ? 'bg-accent' : 'bg-border'}`}>
-                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${useGsc ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                </div>
+                <Switch ariaLabel="Use Search Console data" checked={useGsc} onChange={setUseGsc} />
                 <span className="text-sm text-muted">Use GSC data</span>
               </label>
             </div>
@@ -606,7 +602,7 @@ export default function NewAIOJob() {
 
             </div>
 
-            <div className="col-span-5 space-y-4">
+            <div className={`space-y-4 ${styles.composerFooter}`}>
 
           {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
 
