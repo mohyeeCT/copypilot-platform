@@ -1882,7 +1882,8 @@
   gap: 12px;
 }
 
-.sheetSectionTitle button {
+.sheetSectionTitle button,
+.sheetSectionTitle a {
   display: inline-flex;
   align-items: center;
   gap: 4px;

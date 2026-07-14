@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -86,19 +86,34 @@ type Batch = {
   created_at?: string
   error?: string | null
 }
+type Citation = {
+  id?: string
+  domain?: string
+  url?: string
+  title?: string
+  excerpt?: string
+  classification?: string
+  position?: number
+}
 type Run = {
   id: string
+  profile_id?: string
   surface: string
   method: string
   model_name?: string
   status: string
+  response_text?: string
+  raw_response?: unknown
   brand_mentioned?: boolean
   prominence?: string
   sentiment?: string
   summary?: string
+  web_search_requested?: boolean
+  web_search_used?: boolean | null
+  cost_usd?: number
   created_at?: string
-  request_snapshot?: { prompt_text?: string }
-  citations?: Array<{ domain?: string; url?: string }>
+  request_snapshot?: { prompt_text?: string; google_query?: string }
+  citations?: Citation[]
 }
 type SurfaceMetrics = {
   visibility_score?: number | null
@@ -216,6 +231,130 @@ function SurfaceMark({ surface }: { surface: string }) {
   )
 }
 
+function responseExcerpt(value?: string) {
+  const response = value?.trim() || ''
+  if (response.length <= 900) return response
+  return `${response.slice(0, 900).trimEnd()}...`
+}
+
+function ResultDrawer({
+  run,
+  loading,
+  error,
+  ownedDomain,
+  onClose,
+}: {
+  run: Run | null
+  loading: boolean
+  error: string
+  ownedDomain?: string
+  onClose: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (run && !dialog.open) dialog.showModal()
+    if (!run && dialog.open) dialog.close()
+  }, [run])
+
+  const citationDomains: string[] = []
+  for (const citation of run?.citations || []) {
+    const domain = normalizeDomain(citation.domain || hostname(citation.url || ''))
+    if (domain && !citationDomains.includes(domain)) citationDomains.push(domain)
+  }
+
+  const mentionLabel = run?.status === 'complete'
+    ? run.brand_mentioned ? 'Yes' : 'No'
+    : run?.status ? sentenceCase(run.status) : '-'
+  const excerpt = responseExcerpt(run?.response_text)
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className={clsx(styles.dialog, styles.sheetDialog)}
+      aria-labelledby="geopilot-result-drawer-title"
+      onCancel={event => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClose={onClose}
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      {run ? (
+        <aside className={styles.resultSheet}>
+          <div className={styles.sheetHeader}>
+            <div>
+              <span className={styles.eyebrow}>Measurement result</span>
+              <h2 id="geopilot-result-drawer-title">Result details</h2>
+            </div>
+            <button type="button" className={styles.dialogClose} aria-label="Close result details" onClick={onClose}><X size={17} /></button>
+          </div>
+
+          <div className={styles.sheetBody}>
+            <div className={styles.sheetPrompt}>
+              <SurfaceMark surface={run.surface} />
+              <p>{run.request_snapshot?.prompt_text || 'Tracked prompt'}</p>
+              <small>{run.method || run.model_name || 'Measurement result'} / {dateLabel(run.created_at)}</small>
+            </div>
+
+            <div className={styles.sheetStats}>
+              <div>
+                <span>Brand mention</span>
+                <strong className={run.status === 'complete' ? run.brand_mentioned ? styles.positive : styles.negative : undefined}>{mentionLabel}</strong>
+              </div>
+              <div><span>Prominence</span><strong>{run.prominence ? sentenceCase(run.prominence) : '-'}</strong></div>
+              <div><span>Sentiment</span><strong>{run.sentiment ? sentenceCase(run.sentiment) : '-'}</strong></div>
+            </div>
+
+            {loading ? (
+              <div className={styles.loadingState} role="status"><RefreshCw size={18} className={styles.spinning} /> Loading result details</div>
+            ) : error ? (
+              <div className={styles.errorNotice} role="alert">{error}</div>
+            ) : (
+              <>
+                <section className={styles.sheetSection}>
+                  <h3>Summary</h3>
+                  <p>{run.summary || 'No summary was returned for this measurement.'}</p>
+                </section>
+                <section className={styles.sheetSection}>
+                  <div className={styles.sheetSectionTitle}>
+                    <h3>Response excerpt</h3>
+                    <Link href={`/geopilot/runs/${run.id}`}>View full result <ExternalLink size={12} /></Link>
+                  </div>
+                  <blockquote>{excerpt || 'No answer text was returned.'}</blockquote>
+                </section>
+                <section className={styles.sheetSection}>
+                  <h3>Citation domains</h3>
+                  {citationDomains.length ? (
+                    <div className={styles.domainList}>
+                      {citationDomains.map(domain => (
+                        <div key={domain}>
+                          <Link2 size={14} />
+                          <span>{domain}</span>
+                          {isOwnedDomain(domain, ownedDomain) ? <small>Owned</small> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className={styles.compactEmpty}>No citations were returned for this measurement.</p>}
+                </section>
+              </>
+            )}
+          </div>
+
+          <footer className={styles.sheetFooter}>
+            <Link href={`/geopilot/runs/${run.id}`} className={styles.secondaryButton}>View full result <ExternalLink size={13} /></Link>
+            <button type="button" className={styles.primaryButton} onClick={onClose}>Done</button>
+          </footer>
+        </aside>
+      ) : null}
+    </dialog>
+  )
+}
+
 function VisibilityChart({ points, brandName }: { points: Array<{ date: string; value: number }>; brandName: string }) {
   if (!points.length) {
     return (
@@ -266,10 +405,12 @@ function ResultsTable({
   runs,
   total,
   ownedDomain,
+  onInspect,
 }: {
   runs: Run[]
   total: number
   ownedDomain?: string
+  onInspect: (run: Run) => void
 }) {
   return (
     <>
@@ -294,10 +435,10 @@ function ResultsTable({
                 return (
                   <tr key={run.id}>
                     <td>
-                      <Link href={`/geopilot/runs/${run.id}`} className={styles.promptButton}>
+                      <button type="button" className={styles.promptButton} onClick={() => onInspect(run)}>
                         <strong>{run.request_snapshot?.prompt_text || 'Tracked prompt'}</strong>
                         <small>{run.method || run.model_name || 'Measurement result'}</small>
-                      </Link>
+                      </button>
                     </td>
                     <td><SurfaceMark surface={run.surface} /></td>
                     <td>
@@ -319,9 +460,9 @@ function ResultsTable({
                     </td>
                     <td><span className={styles.timeCell}><Clock3 size={13} /> {dateLabel(run.created_at)}</span></td>
                     <td>
-                      <Link href={`/geopilot/runs/${run.id}`} className={styles.rowAction} aria-label="Inspect measurement result">
+                      <button type="button" className={styles.rowAction} aria-label="Inspect measurement result" onClick={() => onInspect(run)}>
                         <ChevronRight size={16} />
-                      </Link>
+                      </button>
                     </td>
                   </tr>
                 )
@@ -362,6 +503,10 @@ export default function GeoPilotProfilePage() {
   const [runTarget, setRunTarget] = useState<GeoPilotRunTarget | null>(null)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
+  const [selectedRun, setSelectedRun] = useState<Run | null>(null)
+  const [resultLoading, setResultLoading] = useState(false)
+  const [resultError, setResultError] = useState('')
+  const resultRequestId = useRef(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -448,6 +593,37 @@ export default function GeoPilotProfilePage() {
     } finally {
       setAction('')
     }
+  }
+
+  async function inspectRun(run: Run) {
+    const requestId = ++resultRequestId.current
+    setSelectedRun(run)
+    setResultError('')
+
+    if (!accessToken) {
+      setResultLoading(false)
+      setResultError('Result details are unavailable until your session is ready.')
+      return
+    }
+
+    setResultLoading(true)
+    try {
+      const data = await geopilotApi.getRun(accessToken, run.id)
+      if (resultRequestId.current === requestId) setSelectedRun(data.run)
+    } catch {
+      if (resultRequestId.current === requestId) {
+        setResultError('Result details could not be loaded. Open the full result to try again.')
+      }
+    } finally {
+      if (resultRequestId.current === requestId) setResultLoading(false)
+    }
+  }
+
+  function closeResult() {
+    resultRequestId.current += 1
+    setSelectedRun(null)
+    setResultLoading(false)
+    setResultError('')
   }
 
   async function saveCollection() {
@@ -771,7 +947,7 @@ export default function GeoPilotProfilePage() {
                 </button>
               </div>
               <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
-              <ResultsTable runs={filteredRuns.slice(0, 8)} total={runs.length} ownedDomain={profile.primary_domain} />
+              <ResultsTable runs={filteredRuns.slice(0, 8)} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
             </section>
 
             <div className={styles.supportGrid}>
@@ -920,7 +1096,7 @@ export default function GeoPilotProfilePage() {
               </div>
             </div>
             <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
-            <ResultsTable runs={filteredRuns} total={runs.length} ownedDomain={profile.primary_domain} />
+            <ResultsTable runs={filteredRuns} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
           </section>
         ) : null}
 
@@ -973,6 +1149,14 @@ export default function GeoPilotProfilePage() {
             onRun={(surfaces, includeCalibration) => void runNow(surfaces, includeCalibration)}
           />
         ) : null}
+
+        <ResultDrawer
+          run={selectedRun}
+          loading={resultLoading}
+          error={resultError}
+          ownedDomain={profile?.primary_domain}
+          onClose={closeResult}
+        />
 
         {editingCollection ? (
           <div className={styles.modalBackdrop}>
