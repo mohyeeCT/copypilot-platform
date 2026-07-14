@@ -13,6 +13,7 @@ import {
   buildMeasurementMethods,
   collectionMethodLabel,
   measurementCostKey,
+  runModeForMeasurementMethods,
   surfaceLabel,
   type GeoPilotRunMode,
 } from '@/lib/geopilot-methods'
@@ -30,6 +31,7 @@ export type GeoPilotRunTarget = {
     enabled: boolean
     surfaces: GeoPilotPrimarySurface[]
   }
+  defaultMeasurementMethods?: GeoPilotMeasurementMethods
   budget?: {
     monthlyBudgetUsd: number
     monthActualUsd: number
@@ -51,10 +53,10 @@ type RunSurfaceDialogProps = {
 
 export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSurfaceDialogProps) {
   const [surfaces, setSurfaces] = useState<GeoPilotPrimarySurface[]>(target.surfaces)
-  const [runModes, setRunModes] = useState<Partial<Record<GeoPilotPrimarySurface, GeoPilotRunMode>>>({
-    chatgpt: 'api',
-    gemini: 'api',
-  })
+  const [runModes, setRunModes] = useState<Partial<Record<GeoPilotPrimarySurface, GeoPilotRunMode>>>(() => ({
+    chatgpt: runModeForMeasurementMethods('chatgpt', target.defaultMeasurementMethods),
+    gemini: runModeForMeasurementMethods('gemini', target.defaultMeasurementMethods),
+  }))
   const [includeCalibration, setIncludeCalibration] = useState(target.calibrationCount > 0)
   const measurementMethods = buildMeasurementMethods(surfaces, runModes)
   const calibrationMeasurements = includeCalibration ? target.calibrationCount : 0

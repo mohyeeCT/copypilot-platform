@@ -65,6 +65,46 @@ export function buildMeasurementMethods(
   ) as GeoPilotMeasurementMethods
 }
 
+export function runModeForMeasurementMethods(
+  surface: GeoPilotPrimarySurface,
+  measurementMethods?: GeoPilotMeasurementMethods,
+): GeoPilotRunMode {
+  const methods = measurementMethods?.[surface] || [PRIMARY_METHOD_BY_SURFACE[surface]]
+  const hasApi = methods.includes('model_api')
+  const hasConsumerUi = methods.includes('consumer_ui_organic')
+  if (hasApi && hasConsumerUi) return 'both'
+  if (hasConsumerUi) return 'consumer_ui'
+  return 'api'
+}
+
+export function normalizeCollectionMeasurementMethods(
+  surfaces: GeoPilotPrimarySurface[],
+  measurementMethods?: GeoPilotMeasurementMethods,
+): GeoPilotMeasurementMethods {
+  return Object.fromEntries(surfaces.map(surface => [
+    surface,
+    methodsForRunMode(surface, runModeForMeasurementMethods(surface, measurementMethods)),
+  ])) as GeoPilotMeasurementMethods
+}
+
+export function updateCollectionRunMode(
+  surfaces: GeoPilotPrimarySurface[],
+  measurementMethods: GeoPilotMeasurementMethods,
+  surface: GeoPilotPrimarySurface,
+  mode: GeoPilotRunMode,
+): GeoPilotMeasurementMethods {
+  return {
+    ...normalizeCollectionMeasurementMethods(surfaces, measurementMethods),
+    [surface]: methodsForRunMode(surface, mode),
+  }
+}
+
+export function collectionRunModeLabel(mode: GeoPilotRunMode) {
+  if (mode === 'consumer_ui') return 'Consumer UI'
+  if (mode === 'both') return 'Both'
+  return 'API'
+}
+
 export function measurementCostKey(surface: string, method: string) {
   return `${surface}:${method}`
 }

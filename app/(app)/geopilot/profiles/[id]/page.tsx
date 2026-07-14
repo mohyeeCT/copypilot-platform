@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/RunSurfaceDialog'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { createClient } from '@/lib/supabase'
@@ -42,11 +43,16 @@ import {
 } from '@/lib/api/geopilot'
 import { formatUsd } from '@/lib/geopilot-costs'
 import {
+  buildMeasurementMethods,
+  collectionRunModeLabel,
   collectionMethodLabel,
+  CONSUMER_UI_SURFACES,
   deliveryMethodLabel,
   isPrimaryCollectionMethod,
   measurementCostKey,
+  normalizeCollectionMeasurementMethods,
   PRIMARY_METHOD_BY_SURFACE,
+  runModeForMeasurementMethods,
   surfaceMethodLabel,
 } from '@/lib/geopilot-methods'
 import styles from '@/components/geopilot/GeoPilotProfile.module.css'
@@ -71,6 +77,7 @@ type Collection = {
   prompt_count?: number
   prompts?: Prompt[]
   surfaces?: GeoPilotPrimarySurface[]
+  measurement_methods?: GeoPilotMeasurementMethods
   active?: boolean
   funnel_stage?: 'awareness' | 'consideration' | 'decision' | null
   country_code?: string | null
@@ -702,6 +709,7 @@ export default function GeoPilotProfilePage() {
     const collections = collection ? [collection] : profile?.collections || []
     const prompts = collections.flatMap(item => item.prompts || []).filter(prompt => prompt.active !== false)
     const promptCount = prompts.length || collections.reduce((sum, item) => sum + (item.prompt_count || 0), 0)
+    const targetSurfaces = collection?.surfaces?.length ? [...collection.surfaces] : [...ALL_GEOPILOT_SURFACES]
     const averageCosts: Record<string, number | null> = {}
     for (const [surfaceKey, methods] of Object.entries(costs.by_method || {})) {
       for (const [method, item] of Object.entries(methods || {})) {
@@ -729,7 +737,10 @@ export default function GeoPilotProfilePage() {
       label: collection?.name || profile?.name || 'profile',
       promptCount,
       calibrationCount: prompts.filter(prompt => prompt.calibration).length,
-      surfaces: collection?.surfaces?.length ? [...collection.surfaces] : [...ALL_GEOPILOT_SURFACES],
+      surfaces: targetSurfaces,
+      defaultMeasurementMethods: collection
+        ? normalizeCollectionMeasurementMethods(targetSurfaces, collection.measurement_methods)
+        : undefined,
       averageCosts,
       fixedCosts,
       consumerUi: {
@@ -813,9 +824,32 @@ export default function GeoPilotProfilePage() {
     setResultError('')
   }
 
+  function updateEditingCollectionSchedule(schedule: 'manual' | 'daily') {
+    setEditingCollection(current => {
+      if (!current) return current
+      const surfaces = current.surfaces?.length ? current.surfaces : [...ALL_GEOPILOT_SURFACES]
+      return {
+        ...current,
+        schedule,
+        measurement_methods: schedule === 'daily'
+          ? buildMeasurementMethods(surfaces, {})
+          : normalizeCollectionMeasurementMethods(surfaces, current.measurement_methods),
+      }
+    })
+  }
+
+  function updateEditingCollectionSurfaces(surfaces: GeoPilotPrimarySurface[]) {
+    setEditingCollection(current => current ? {
+      ...current,
+      surfaces,
+      measurement_methods: normalizeCollectionMeasurementMethods(surfaces, current.measurement_methods),
+    } : current)
+  }
+
   async function saveCollection() {
     if (!accessToken || !editingCollection) return
     setAction(`collection-${editingCollection.id}`)
+    const selectedSurfaces = editingCollection.surfaces?.length ? editingCollection.surfaces : [...ALL_GEOPILOT_SURFACES]
     const payload: GeoPilotCollectionPayload = {
       name: editingCollection.name,
       objective: editingCollection.objective || '',
@@ -825,7 +859,8 @@ export default function GeoPilotProfilePage() {
       location_name: editingCollection.location_name || null,
       language_code: editingCollection.language_code || null,
       device: editingCollection.device || null,
-      surfaces: editingCollection.surfaces?.length ? editingCollection.surfaces : [...ALL_GEOPILOT_SURFACES],
+      surfaces: selectedSurfaces,
+      measurement_methods: normalizeCollectionMeasurementMethods(selectedSurfaces, editingCollection.measurement_methods),
       monthly_budget_usd: editingCollection.monthly_budget_usd || null,
       active: editingCollection.active !== false,
     }
@@ -1295,6 +1330,10 @@ export default function GeoPilotProfilePage() {
             <div className={styles.collectionGrid}>
               {collections.map(collection => {
                 const collectionCost = costByCollection.get(collection.id)
+                const selectedSurfaces = collection.surfaces?.length ? collection.surfaces : ALL_GEOPILOT_SURFACES
+                const methodSummary = selectedSurfaces
+                  .filter(surfaceKey => CONSUMER_UI_SURFACES.includes(surfaceKey))
+                  .map(surfaceKey => `${SURFACES[surfaceKey]} ${collectionRunModeLabel(runModeForMeasurementMethods(surfaceKey, collection.measurement_methods))}`)
                 return <article key={collection.id} className={styles.collectionCard}>
                   <header className={styles.collectionHeader}>
                     <div>
@@ -1305,7 +1344,8 @@ export default function GeoPilotProfilePage() {
                         </span>
                       </div>
                       <p>{collection.schedule === 'daily' ? 'Daily schedule' : 'Manual schedule'} / {collection.prompt_count || collection.prompts?.length || 0} prompts</p>
-                      <small>{(collection.surfaces?.length ? collection.surfaces : ALL_GEOPILOT_SURFACES).map(item => GEOPILOT_SURFACES.find(option => option.value === item)?.label).filter(Boolean).join(' / ')}</small>
+                      <small>{selectedSurfaces.map(item => GEOPILOT_SURFACES.find(option => option.value === item)?.label).filter(Boolean).join(' / ')}</small>
+                      {methodSummary.length ? <small>{methodSummary.join(' / ')}</small> : null}
                       <small className={clsx(
                         styles.budgetLine,
                         collectionCost?.budget_state === 'near' && styles.stateWarning,
@@ -1320,10 +1360,14 @@ export default function GeoPilotProfilePage() {
                         className={styles.iconButton}
                         title="Edit collection"
                         aria-label={`Edit ${collection.name}`}
-                        onClick={() => setEditingCollection({
-                          ...collection,
-                          surfaces: collection.surfaces?.length ? collection.surfaces : [...ALL_GEOPILOT_SURFACES],
-                        })}
+                        onClick={() => {
+                          const surfaces = collection.surfaces?.length ? collection.surfaces : [...ALL_GEOPILOT_SURFACES]
+                          setEditingCollection({
+                            ...collection,
+                            surfaces,
+                            measurement_methods: normalizeCollectionMeasurementMethods(surfaces, collection.measurement_methods),
+                          })
+                        }}
                       >
                         <Pencil size={14} />
                       </button>
@@ -1459,9 +1503,17 @@ export default function GeoPilotProfilePage() {
               <div className={styles.modalBody}>
                 <label className={styles.fieldLabel}>Name<input className="input-base" value={editingCollection.name} onChange={event => setEditingCollection({ ...editingCollection, name: event.target.value })} /></label>
                 <label className={styles.fieldLabel}>Objective<textarea className="input-base" rows={3} value={editingCollection.objective || ''} onChange={event => setEditingCollection({ ...editingCollection, objective: event.target.value })} /></label>
-                <label className={styles.fieldLabel}>Schedule<select className="input-base" value={editingCollection.schedule || 'daily'} onChange={event => setEditingCollection({ ...editingCollection, schedule: event.target.value as 'daily' | 'manual' })}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
+                <label className={styles.fieldLabel}>Schedule<select className="input-base" value={editingCollection.schedule || 'daily'} onChange={event => updateEditingCollectionSchedule(event.target.value as 'daily' | 'manual')}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
                 <label className={styles.fieldLabel}>Monthly budget (USD)<input className="input-base" type="number" min="0.01" step="0.01" placeholder="No budget" value={editingCollection.monthly_budget_usd ?? ''} onChange={event => setEditingCollection({ ...editingCollection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} /></label>
-                <div><p className={styles.fieldLabel}>Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={surfaces => setEditingCollection({ ...editingCollection, surfaces })} /></div>
+                <div><p className={styles.fieldLabel}>Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={updateEditingCollectionSurfaces} /></div>
+                <CollectionMethodSelector
+                  surfaces={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES}
+                  measurementMethods={normalizeCollectionMeasurementMethods(editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES, editingCollection.measurement_methods)}
+                  consumerUiEnabled={capabilities.consumer_ui.enabled}
+                  consumerUiSurfaces={capabilities.consumer_ui.surfaces}
+                  schedule={editingCollection.schedule || 'daily'}
+                  onChange={measurementMethods => setEditingCollection({ ...editingCollection, measurement_methods: measurementMethods })}
+                />
               </div>
               <div className={styles.modalFooter}>
                 <button type="button" className={styles.secondaryButton} onClick={() => setEditingCollection(null)}>Cancel</button>

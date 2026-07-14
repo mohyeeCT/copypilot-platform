@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Plus, Search, Trash2 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { JobLauncherShell, JobSection } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
-import { geopilotApi, type GeoPilotCollectionPayload, type GeoPilotPromptPayload } from '@/lib/api/geopilot'
+import { geopilotApi, type GeoPilotCollectionPayload, type GeoPilotPrimarySurface, type GeoPilotPromptPayload } from '@/lib/api/geopilot'
+import { buildMeasurementMethods, normalizeCollectionMeasurementMethods } from '@/lib/geopilot-methods'
 
 type DraftPrompt = GeoPilotPromptPayload & { selected: boolean }
 const blankPrompt = (): DraftPrompt => ({ prompt_text: '', google_query: '', category: '', funnel_stage: null, calibration: false, source: 'manual', active: true, selected: true })
@@ -18,15 +20,44 @@ export default function NewGeoPilotCollectionPage() {
   const profileId = params.id
   const router = useRouter()
   const [collectionId, setCollectionId] = useState('')
-  const [collection, setCollection] = useState<GeoPilotCollectionPayload>({ name: '', objective: '', funnel_stage: null, schedule: 'daily', surfaces: [...ALL_GEOPILOT_SURFACES], monthly_budget_usd: null, active: true })
+  const [collection, setCollection] = useState<GeoPilotCollectionPayload>({ name: '', objective: '', funnel_stage: null, schedule: 'daily', surfaces: [...ALL_GEOPILOT_SURFACES], measurement_methods: buildMeasurementMethods(ALL_GEOPILOT_SURFACES, {}), monthly_budget_usd: null, active: true })
+  const [consumerUi, setConsumerUi] = useState<{ enabled: boolean; surfaces: GeoPilotPrimarySurface[] }>({ enabled: false, surfaces: [] })
   const [prompts, setPrompts] = useState<DraftPrompt[]>([blankPrompt()])
   const [busy, setBusy] = useState<'collection' | 'suggest' | 'prompts' | ''>('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadCapabilities() {
+      const { data: { session } } = await createClient().auth.getSession()
+      if (!session) { router.push('/login'); return }
+      const capabilities = await geopilotApi.capabilities(session.access_token)
+      if (active) setConsumerUi(capabilities.consumer_ui)
+    }
+    void loadCapabilities().catch(() => undefined)
+    return () => { active = false }
+  }, [router])
 
   async function accessToken() {
     const { data: { session } } = await createClient().auth.getSession()
     if (!session) { router.push('/login'); return null }
     return session.access_token
+  }
+  function updateSchedule(schedule: 'manual' | 'daily') {
+    setCollection(current => ({
+      ...current,
+      schedule,
+      measurement_methods: schedule === 'daily'
+        ? buildMeasurementMethods(current.surfaces, {})
+        : normalizeCollectionMeasurementMethods(current.surfaces, current.measurement_methods),
+    }))
+  }
+  function updateSurfaces(surfaces: GeoPilotPrimarySurface[]) {
+    setCollection(current => ({
+      ...current,
+      surfaces,
+      measurement_methods: normalizeCollectionMeasurementMethods(surfaces, current.measurement_methods),
+    }))
   }
   async function createCollection() {
     setError('')
@@ -70,8 +101,9 @@ export default function NewGeoPilotCollectionPage() {
   return <AppLayout title="New Prompt Collection"><Link href={`/geopilot/profiles/${profileId}`} className="mb-4 inline-flex items-center gap-2 text-sm text-muted hover:text-text"><ArrowLeft size={16} /> Back to Profile</Link><JobLauncherShell compact eyebrow="GEOPilot" title="New Prompt Collection">
     {error && <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>}
     <JobSection title="Collection">
-      <div className="grid gap-4 lg:grid-cols-2"><label className="text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={collection.name} onChange={event => setCollection({ ...collection, name: event.target.value })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Schedule<select className="input-base mt-1" value={collection.schedule} onChange={event => setCollection({ ...collection, schedule: event.target.value as 'manual' | 'daily' })} disabled={Boolean(collectionId)}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label><label className="text-xs font-semibold text-muted">Monthly budget (USD)<input className="input-base mt-1" type="number" min="0.01" step="0.01" placeholder="No budget" value={collection.monthly_budget_usd ?? ''} onChange={event => setCollection({ ...collection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted lg:col-span-2">Research objective<textarea className="input-base mt-1 min-h-20" value={collection.objective} onChange={event => setCollection({ ...collection, objective: event.target.value })} disabled={Boolean(collectionId)} /></label></div>
-      <div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted">Tracked sources</p><SurfaceSelector selected={collection.surfaces} onChange={surfaces => setCollection({ ...collection, surfaces })} disabled={Boolean(collectionId)} /></div>
+      <div className="grid gap-4 lg:grid-cols-2"><label className="text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={collection.name} onChange={event => setCollection({ ...collection, name: event.target.value })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Schedule<select className="input-base mt-1" value={collection.schedule} onChange={event => updateSchedule(event.target.value as 'manual' | 'daily')} disabled={Boolean(collectionId)}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label><label className="text-xs font-semibold text-muted">Monthly budget (USD)<input className="input-base mt-1" type="number" min="0.01" step="0.01" placeholder="No budget" value={collection.monthly_budget_usd ?? ''} onChange={event => setCollection({ ...collection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted lg:col-span-2">Research objective<textarea className="input-base mt-1 min-h-20" value={collection.objective} onChange={event => setCollection({ ...collection, objective: event.target.value })} disabled={Boolean(collectionId)} /></label></div>
+      <div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted">Tracked sources</p><SurfaceSelector selected={collection.surfaces} onChange={updateSurfaces} disabled={Boolean(collectionId)} /></div>
+      <div className="mt-4"><CollectionMethodSelector surfaces={collection.surfaces} measurementMethods={collection.measurement_methods} consumerUiEnabled={consumerUi.enabled} consumerUiSurfaces={consumerUi.surfaces} schedule={collection.schedule} onChange={measurementMethods => setCollection(current => ({ ...current, measurement_methods: measurementMethods }))} disabled={Boolean(collectionId)} /></div>
       {!collectionId ? <button type="button" className="btn-primary mt-4 gap-2" onClick={() => void createCollection()} disabled={busy === 'collection'}><Check size={15} />{busy === 'collection' ? 'Creating...' : 'Create Collection'}</button> : <p className="mt-4 text-xs font-semibold text-success">Collection created. Add the prompts you want to track.</p>}
     </JobSection>
     {collectionId && <JobSection title="Tracked prompts" description={`${prompts.filter(item => item.selected && item.prompt_text.trim()).length} of 15 selected`}>

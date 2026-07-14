@@ -65,6 +65,7 @@ export type GeoPilotCollectionPayload = {
   language_code?: string | null
   device?: 'desktop' | 'mobile' | null
   surfaces: GeoPilotPrimarySurface[]
+  measurement_methods: GeoPilotMeasurementMethods
   monthly_budget_usd?: number | null
   active: boolean
 }
