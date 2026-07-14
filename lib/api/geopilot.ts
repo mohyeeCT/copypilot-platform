@@ -44,7 +44,37 @@ export type GeoPilotCollectionPayload = {
   language_code?: string | null
   device?: 'desktop' | 'mobile' | null
   surfaces: GeoPilotPrimarySurface[]
+  monthly_budget_usd?: number | null
   active: boolean
+}
+
+export type GeoPilotCostSurface = {
+  actual_usd: number
+  average_usd: number | null
+  priced_measurements: number
+  unpriced_measurements: number
+}
+
+export type GeoPilotCollectionCost = {
+  collection_id: string
+  name: string
+  monthly_budget_usd: number | null
+  month_actual_usd: number
+  remaining_usd: number | null
+  utilization_percent: number | null
+  budget_state: 'unset' | 'ok' | 'near' | 'over'
+}
+
+export type GeoPilotCostSummary = {
+  period_days: number
+  period_actual_usd: number
+  month_actual_usd: number
+  priced_measurements: number
+  unpriced_measurements: number
+  by_surface: Partial<Record<GeoPilotSurface, GeoPilotCostSurface>>
+  by_collection: GeoPilotCollectionCost[]
+  by_batch: Array<{ batch_id: string; actual_usd: number; priced_measurements: number }>
+  estimate_basis_days: number
 }
 
 export type GeoPilotPromptPayload = {
@@ -98,6 +128,7 @@ export const geopilotApi = {
   getBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}`, token),
   cancelBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}/cancel`, token, { method: 'POST' }),
   dashboard: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/dashboard?days=${days}`, token),
+  costs: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/costs?days=${days}`, token),
   listRuns: (token: string, profileId: string, days: number, surface = '') =>
     f(`/api/geopilot/profiles/${profileId}/runs?days=${days}${surface ? `&surface=${encodeURIComponent(surface)}` : ''}`, token),
   getRun: (token: string, id: string) => f(`/api/geopilot/runs/${id}`, token),

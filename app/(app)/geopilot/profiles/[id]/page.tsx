@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  CircleDollarSign,
   Download,
   ExternalLink,
   Link2,
@@ -32,9 +33,11 @@ import {
   downloadGeoPilotCsv,
   geopilotApi,
   type GeoPilotCollectionPayload,
+  type GeoPilotCostSummary,
   type GeoPilotPrimarySurface,
   type GeoPilotPromptPayload,
 } from '@/lib/api/geopilot'
+import { formatUsd } from '@/lib/geopilot-costs'
 import styles from '@/components/geopilot/GeoPilotProfile.module.css'
 
 type RecordValue = Record<string, unknown>
@@ -63,6 +66,7 @@ type Collection = {
   location_name?: string | null
   language_code?: string | null
   device?: 'desktop' | 'mobile' | null
+  monthly_budget_usd?: number | null
 }
 type Profile = {
   id: string
@@ -231,6 +235,18 @@ function SurfaceMark({ surface }: { surface: string }) {
   )
 }
 
+const EMPTY_COST_SUMMARY: GeoPilotCostSummary = {
+  period_days: 30,
+  period_actual_usd: 0,
+  month_actual_usd: 0,
+  priced_measurements: 0,
+  unpriced_measurements: 0,
+  by_surface: {},
+  by_collection: [],
+  by_batch: [],
+  estimate_basis_days: 90,
+}
+
 function responseExcerpt(value?: string) {
   const response = value?.trim() || ''
   if (response.length <= 900) return response
@@ -308,6 +324,7 @@ function ResultDrawer({
               </div>
               <div><span>Prominence</span><strong>{run.prominence ? sentenceCase(run.prominence) : '-'}</strong></div>
               <div><span>Sentiment</span><strong>{run.sentiment ? sentenceCase(run.sentiment) : '-'}</strong></div>
+              <div><span>Provider cost</span><strong>{formatUsd(run.cost_usd)}</strong></div>
             </div>
 
             {loading ? (
@@ -490,6 +507,8 @@ export default function GeoPilotProfilePage() {
   const [accessToken, setAccessToken] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [dashboard, setDashboard] = useState<Dashboard>({})
+  const [costs, setCosts] = useState<GeoPilotCostSummary>(EMPTY_COST_SUMMARY)
+  const [costsUnavailable, setCostsUnavailable] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
@@ -517,15 +536,20 @@ export default function GeoPilotProfilePage() {
         return
       }
       setAccessToken(session.access_token)
-      const [profileData, dashboardData, runsData, insightsData, batchesData] = await Promise.all([
+      const [profileData, dashboardData, costResult, runsData, insightsData, batchesData] = await Promise.all([
         geopilotApi.getProfile(session.access_token, id),
         geopilotApi.dashboard(session.access_token, id, days),
+        geopilotApi.costs(session.access_token, id, days)
+          .then(data => ({ data, unavailable: false }))
+          .catch(() => ({ data: { ...EMPTY_COST_SUMMARY, period_days: days }, unavailable: true })),
         geopilotApi.listRuns(session.access_token, id, days, surface),
         geopilotApi.listInsights(session.access_token, id),
         geopilotApi.listBatches(session.access_token, id),
       ])
       setProfile(profileData.profile)
       setDashboard(dashboardData)
+      setCosts(costResult.data)
+      setCostsUnavailable(costResult.unavailable)
       setRuns(runsData.runs || [])
       setInsights(insightsData.insights || [])
       setBatches(batchesData.batches || [])
@@ -554,12 +578,26 @@ export default function GeoPilotProfilePage() {
     const collections = collection ? [collection] : profile?.collections || []
     const prompts = collections.flatMap(item => item.prompts || []).filter(prompt => prompt.active !== false)
     const promptCount = prompts.length || collections.reduce((sum, item) => sum + (item.prompt_count || 0), 0)
+    const averageCosts = Object.fromEntries(
+      Object.entries(costs.by_surface).map(([key, value]) => [key, value?.average_usd ?? null]),
+    )
+    const collectionCost = collection
+      ? costs.by_collection.find(item => item.collection_id === collection.id)
+      : undefined
+    const profileBudgetWarnings = costs.by_collection.filter(item => item.budget_state === 'near' || item.budget_state === 'over').length
     setRunTarget({
       collectionId: collection?.id,
       label: collection?.name || profile?.name || 'profile',
       promptCount,
       calibrationCount: prompts.filter(prompt => prompt.calibration).length,
       surfaces: collection?.surfaces?.length ? [...collection.surfaces] : [...ALL_GEOPILOT_SURFACES],
+      averageCosts,
+      budget: collectionCost?.monthly_budget_usd != null ? {
+        monthlyBudgetUsd: collectionCost.monthly_budget_usd,
+        monthActualUsd: collectionCost.month_actual_usd,
+        state: collectionCost.budget_state === 'unset' ? 'ok' : collectionCost.budget_state,
+      } : undefined,
+      profileBudgetWarnings: collection ? 0 : profileBudgetWarnings,
     })
   }
 
@@ -639,6 +677,7 @@ export default function GeoPilotProfilePage() {
       language_code: editingCollection.language_code || null,
       device: editingCollection.device || null,
       surfaces: editingCollection.surfaces?.length ? editingCollection.surfaces : [...ALL_GEOPILOT_SURFACES],
+      monthly_budget_usd: editingCollection.monthly_budget_usd || null,
       active: editingCollection.active !== false,
     }
     try {
@@ -715,6 +754,8 @@ export default function GeoPilotProfilePage() {
     sum + (run.citations || []).filter(citation => isOwnedDomain(citation.domain, profile?.primary_domain)).length
   ), 0)
   const latestBatch = batches[0] || profile?.latest_batch || null
+  const costByBatch = new Map(costs.by_batch.map(item => [item.batch_id, item]))
+  const costByCollection = new Map(costs.by_collection.map(item => [item.collection_id, item]))
   const profileDetails = [
     profile?.primary_domain,
     profile?.country_code,
@@ -960,7 +1001,7 @@ export default function GeoPilotProfilePage() {
                     <div key={batch.id} className={styles.compactRow}>
                       <span className={clsx(styles.runState, statusClass(batch.status))}>{sentenceCase(batch.status)}</span>
                       <div><strong>{batch.completed_runs || 0} of {batch.total_runs || 0} measurements</strong><small>{dateLabel(batch.created_at)}</small></div>
-                      {batch.failed_runs ? <span className={styles.stateError}>{batch.failed_runs} failed</span> : null}
+                      {batch.failed_runs ? <span className={styles.stateError}>{batch.failed_runs} failed</span> : <strong>{formatUsd(costByBatch.get(batch.id)?.actual_usd)}</strong>}
                     </div>
                   ))}
                   {!batches.length ? <p className={styles.compactEmpty}>No runs yet.</p> : null}
@@ -980,6 +1021,29 @@ export default function GeoPilotProfilePage() {
                   ))}
                   {!citationDomains.length ? <p className={styles.compactEmpty}>No citations collected in this period.</p> : null}
                 </div>
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>Cost control</h2><p>Recorded provider charges, excluding unpriced measurements</p></div>
+                  <CircleDollarSign size={16} className={styles.stateGood} />
+                </div>
+                {costsUnavailable ? <p className={styles.compactEmpty}>Cost data is temporarily unavailable. Other profile data is still current.</p> : <>
+                  <div className={styles.costStats}>
+                    <div><span>{days}-day spend</span><strong>{formatUsd(costs.period_actual_usd)}</strong></div>
+                    <div><span>This month</span><strong>{formatUsd(costs.month_actual_usd)}</strong></div>
+                  </div>
+                  <div className={styles.compactList}>
+                    {Object.entries(costs.by_surface).map(([key, item]) => (
+                      <div key={key} className={styles.costSurfaceRow}>
+                        <span>{SURFACES[key] || sentenceCase(key)}</span>
+                        <div><strong>{formatUsd(item?.actual_usd)}</strong><small>{item?.priced_measurements || 0} priced</small></div>
+                      </div>
+                    ))}
+                    {!Object.keys(costs.by_surface).length ? <p className={styles.compactEmpty}>Cost history appears after provider-priced measurements.</p> : null}
+                    {costs.unpriced_measurements ? <p className={styles.costFootnote}>{costs.unpriced_measurements} measurement{costs.unpriced_measurements === 1 ? '' : 's'} had no provider cost.</p> : null}
+                  </div>
+                </>}
               </section>
 
               <section className={styles.panel}>
@@ -1017,8 +1081,9 @@ export default function GeoPilotProfilePage() {
               <Link className={styles.primaryButton} href={`/geopilot/profiles/${id}/collections/new`}><Plus size={15} /> New collection</Link>
             </div>
             <div className={styles.collectionGrid}>
-              {collections.map(collection => (
-                <article key={collection.id} className={styles.collectionCard}>
+              {collections.map(collection => {
+                const collectionCost = costByCollection.get(collection.id)
+                return <article key={collection.id} className={styles.collectionCard}>
                   <header className={styles.collectionHeader}>
                     <div>
                       <div className={styles.collectionTitle}>
@@ -1029,6 +1094,13 @@ export default function GeoPilotProfilePage() {
                       </div>
                       <p>{collection.schedule === 'daily' ? 'Daily schedule' : 'Manual schedule'} / {collection.prompt_count || collection.prompts?.length || 0} prompts</p>
                       <small>{(collection.surfaces?.length ? collection.surfaces : ALL_GEOPILOT_SURFACES).map(item => GEOPILOT_SURFACES.find(option => option.value === item)?.label).filter(Boolean).join(' / ')}</small>
+                      <small className={clsx(
+                        styles.budgetLine,
+                        collectionCost?.budget_state === 'near' && styles.stateWarning,
+                        collectionCost?.budget_state === 'over' && styles.stateError,
+                      )}>
+                        Monthly spend {formatUsd(collectionCost?.month_actual_usd)}{collectionCost?.monthly_budget_usd != null ? ` of ${formatUsd(collectionCost.monthly_budget_usd)}` : ' / no budget set'}
+                      </small>
                     </div>
                     <div className={styles.collectionActions}>
                       <button
@@ -1073,7 +1145,7 @@ export default function GeoPilotProfilePage() {
                     {!collection.prompts?.length ? <p className={styles.compactEmpty}>No prompts in this collection.</p> : null}
                   </div>
                 </article>
-              ))}
+              })}
               {!collections.length ? (
                 <div className={styles.sectionEmpty}>
                   <Target size={22} />
@@ -1169,6 +1241,7 @@ export default function GeoPilotProfilePage() {
                 <label className={styles.fieldLabel}>Name<input className="input-base" value={editingCollection.name} onChange={event => setEditingCollection({ ...editingCollection, name: event.target.value })} /></label>
                 <label className={styles.fieldLabel}>Objective<textarea className="input-base" rows={3} value={editingCollection.objective || ''} onChange={event => setEditingCollection({ ...editingCollection, objective: event.target.value })} /></label>
                 <label className={styles.fieldLabel}>Schedule<select className="input-base" value={editingCollection.schedule || 'daily'} onChange={event => setEditingCollection({ ...editingCollection, schedule: event.target.value as 'daily' | 'manual' })}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
+                <label className={styles.fieldLabel}>Monthly budget (USD)<input className="input-base" type="number" min="0.01" step="0.01" placeholder="No budget" value={editingCollection.monthly_budget_usd ?? ''} onChange={event => setEditingCollection({ ...editingCollection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} /></label>
                 <div><p className={styles.fieldLabel}>Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={surfaces => setEditingCollection({ ...editingCollection, surfaces })} /></div>
               </div>
               <div className={styles.modalFooter}>

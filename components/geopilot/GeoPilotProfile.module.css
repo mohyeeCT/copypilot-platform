@@ -1819,7 +1819,7 @@
 
 .sheetStats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-top: 17px;
   border: 1px solid var(--p-border);
   border-radius: 7px;
@@ -2381,6 +2381,65 @@
   font-weight: 500;
 }
 
+.costStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px 18px 4px;
+}
+
+.costStats div {
+  display: flex;
+  min-height: 62px;
+  justify-content: center;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--p-border);
+  border-radius: 7px;
+  background: var(--p-surface-soft);
+}
+
+.costStats span,
+.costSurfaceRow small,
+.costFootnote {
+  color: var(--p-muted);
+  font-size: 8px;
+}
+
+.costStats strong {
+  margin-top: 3px;
+  color: var(--p-text);
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.costSurfaceRow {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--p-border);
+  color: var(--p-text);
+  font-size: 10px;
+}
+
+.costSurfaceRow > div {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+.costSurfaceRow strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+}
+
+.costFootnote {
+  margin-top: 10px;
+}
+
 .tabSection,
 .tabResults {
   margin-top: 20px;
@@ -2462,6 +2521,12 @@
   margin-top: 4px;
   color: var(--p-muted);
   font-size: 9px;
+}
+
+.collectionHeader .budgetLine {
+  margin-top: 7px;
+  color: var(--p-text);
+  font-weight: 600;
 }
 
 .collectionActions {
