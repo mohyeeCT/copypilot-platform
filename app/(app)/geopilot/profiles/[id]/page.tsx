@@ -10,6 +10,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  CircleHelp,
   CircleDollarSign,
   Download,
   ExternalLink,
@@ -44,12 +45,17 @@ import {
 } from '@/lib/api/geopilot'
 import { formatUsd } from '@/lib/geopilot-costs'
 import {
+  availableSurfaceMethods,
+  buildDashboardTrend,
+  type GeoPilotDashboardMetric,
+  type GeoPilotTrendPoint,
+} from '@/lib/geopilot-dashboard'
+import {
   buildMeasurementMethods,
   collectionRunModeLabel,
   collectionMethodLabel,
   CONSUMER_UI_SURFACES,
   deliveryMethodLabel,
-  isPrimaryCollectionMethod,
   measurementCostKey,
   normalizeCollectionMeasurementMethods,
   PRIMARY_METHOD_BY_SURFACE,
@@ -92,6 +98,7 @@ type Profile = {
   name: string
   brand_name: string
   primary_domain?: string
+  owned_domains?: string[]
   country_code?: string
   language_code?: string
   device?: string
@@ -142,6 +149,7 @@ type Run = {
   prominence?: string
   sentiment?: string
   summary?: string
+  competitors_mentioned?: string[]
   web_search_requested?: boolean
   web_search_used?: boolean | null
   cost_usd?: number
@@ -158,6 +166,8 @@ type SurfaceMetrics = {
   citation_share?: number | null
   ai_overview_coverage?: number | null
   successful_runs?: number
+  mentioned_runs?: number
+  cited_runs?: number
 }
 type Dashboard = {
   overall_visibility?: number | null
@@ -199,6 +209,28 @@ const SURFACES: Record<string, string> = {
 const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
 type ResultOutcome = '' | 'mentioned' | 'not_found' | 'failed'
 
+const DASHBOARD_METRIC_DEFINITIONS: Record<GeoPilotDashboardMetric, {
+  label: string
+  description: string
+}> = {
+  visibility_score: {
+    label: 'Visibility',
+    description: 'The unweighted average of surface visibility. Each surface measures successful prompts that mention the tracked brand.',
+  },
+  share_of_voice: {
+    label: 'Share of voice',
+    description: 'Brand mentions divided by mentions of the tracked brand and configured competitors in the latest successful responses.',
+  },
+  citation_share: {
+    label: 'Owned citation coverage',
+    description: 'Cited responses containing at least one owned domain divided by all responses that include citations.',
+  },
+  ai_overview_coverage: {
+    label: 'AI Overview coverage',
+    description: 'Successful tracked Google searches where an AI Overview appeared, whether or not the tracked brand was mentioned.',
+  },
+}
+
 function metric(value?: number | null, suffix = '%') {
   if (value == null) return '-'
   const number = Number(value)
@@ -233,10 +265,17 @@ function normalizeDomain(value?: string) {
   return normalized.split('/')[0].split(':')[0]
 }
 
-function isOwnedDomain(domain: string | undefined, ownedDomain: string | undefined) {
+function isOwnedDomain(
+  domain: string | undefined,
+  ownedDomains: string | undefined | Array<string | undefined>,
+) {
   const candidate = normalizeDomain(domain)
-  const owned = normalizeDomain(ownedDomain)
-  return Boolean(candidate && owned && (candidate === owned || candidate.endsWith(`.${owned}`)))
+  if (!candidate) return false
+  const values = Array.isArray(ownedDomains) ? ownedDomains : [ownedDomains]
+  return values.some(value => {
+    const owned = normalizeDomain(value)
+    return Boolean(owned && (candidate === owned || candidate.endsWith(`.${owned}`)))
+  })
 }
 
 function safeExternalUrl(value: string) {
@@ -259,6 +298,10 @@ function statusClass(status: string) {
   if (status === 'partial') return styles.stateWarning
   if (status === 'cancelled') return styles.stateMuted
   return styles.stateActive
+}
+
+function percent(numerator: number, denominator: number) {
+  return denominator ? (numerator / denominator) * 100 : null
 }
 
 function latestMeasurementRuns(runs: Run[]) {
@@ -284,10 +327,21 @@ function matchesOutcome(run: Run, outcome: ResultOutcome) {
   return run.status === 'complete' && run.brand_mentioned !== true
 }
 
-function filterMeasurementRuns(runs: Run[], query: string, outcome: ResultOutcome) {
+function filterMeasurementRuns(
+  runs: Run[],
+  query: string,
+  outcome: ResultOutcome,
+  surface: string,
+  collectionMethod: string,
+) {
   const normalized = query.trim().toLowerCase()
   return runs.filter(run => {
     if (!matchesOutcome(run, outcome)) return false
+    if (surface && run.surface !== surface) return false
+    const runMethod = run.collection_method
+      || PRIMARY_METHOD_BY_SURFACE[run.surface as keyof typeof PRIMARY_METHOD_BY_SURFACE]
+      || ''
+    if (collectionMethod && runMethod !== collectionMethod) return false
     if (!normalized) return true
     const prompt = run.request_snapshot?.prompt_text || ''
     const label = SURFACES[run.surface] || run.surface
@@ -481,28 +535,115 @@ function ResultDrawer({
   )
 }
 
-type TrendPoint = { date: string; value: number }
+type MiniTrendPoint = { date: string; value: number }
+type ChartCoordinate = GeoPilotTrendPoint & {
+  timestamp: number
+  x: number
+  y: number
+}
 
-function VisibilityChart({ points, brandName }: { points: TrendPoint[]; brandName: string }) {
+function trendTimestamp(date: string) {
+  return Date.parse(date.length === 10 ? `${date}T00:00:00Z` : date)
+}
+
+function splitChartSegments(coordinates: ChartCoordinate[]) {
+  const segments: ChartCoordinate[][] = []
+  for (const coordinate of coordinates) {
+    const current = segments.at(-1)
+    const previous = current?.at(-1)
+    if (!current || (previous && coordinate.timestamp - previous.timestamp > 36 * 60 * 60 * 1000)) {
+      segments.push([coordinate])
+    } else {
+      current.push(coordinate)
+    }
+  }
+  return segments
+}
+
+function MetricTrendChart({
+  points,
+  comparisonPoints = [],
+  metricLabel,
+  brandName,
+  primaryLabel,
+}: {
+  points: GeoPilotTrendPoint[]
+  comparisonPoints?: GeoPilotTrendPoint[]
+  metricLabel: string
+  brandName: string
+  primaryLabel: string
+}) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [locked, setLocked] = useState(false)
+
+  useEffect(() => {
+    setActiveIndex(null)
+    setLocked(false)
+  }, [points, comparisonPoints])
+
+  const width = 720
+  const top = 15
+  const bottom = 215
+  const { coordinates, comparisonCoordinates } = useMemo(() => {
+    const timestamps = [...points, ...comparisonPoints]
+      .map(point => trendTimestamp(point.date))
+      .filter(Number.isFinite)
+    const first = Math.min(...timestamps)
+    const last = Math.max(...timestamps)
+    const dateRange = last - first
+    const position = (point: GeoPilotTrendPoint): ChartCoordinate => {
+      const timestamp = trendTimestamp(point.date)
+      const x = dateRange ? ((timestamp - first) / dateRange) * width : width / 2
+      const y = top + ((100 - Math.max(0, Math.min(100, point.value))) / 100) * (bottom - top)
+      return { ...point, timestamp, x, y }
+    }
+    return {
+      coordinates: points.map(position),
+      comparisonCoordinates: comparisonPoints.map(position),
+    }
+  }, [comparisonPoints, points])
+
   if (!points.length) {
     return (
       <div className={styles.chartEmpty}>
         <BarChart3 size={22} />
         <strong>No trend data yet</strong>
-        <p>Visibility history appears after a completed measurement run.</p>
+        <p>{metricLabel} history appears after a completed measurement run.</p>
       </div>
     )
   }
 
-  const width = 720
-  const top = 15
-  const bottom = 215
-  const coordinates = points.map((point, index) => {
-    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width
-    const y = top + ((100 - Math.max(0, Math.min(100, point.value))) / 100) * (bottom - top)
-    return { ...point, x, y }
-  })
+  const segments = splitChartSegments(coordinates)
+  const comparisonSegments = splitChartSegments(comparisonCoordinates)
   const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])]
+  const activePoint = activeIndex == null ? null : coordinates[activeIndex] || null
+
+  function activateNearest(clientX: number, element: HTMLDivElement) {
+    const rect = element.getBoundingClientRect()
+    if (!rect.width) return
+    const pointerX = Math.max(0, Math.min(width, ((clientX - rect.left) / rect.width) * width))
+    let nearestIndex = 0
+    let nearestDistance = Number.POSITIVE_INFINITY
+    for (const [index, coordinate] of coordinates.entries()) {
+      const distance = Math.abs(coordinate.x - pointerX)
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestIndex = index
+      }
+    }
+    setActiveIndex(nearestIndex)
+  }
+
+  function moveActivePoint(direction: number) {
+    setActiveIndex(current => {
+      if (current == null) return direction > 0 ? 0 : coordinates.length - 1
+      return Math.max(0, Math.min(coordinates.length - 1, current + direction))
+    })
+  }
+
+  const activeSummary = activePoint
+    ? `${new Date(activePoint.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, ${metricLabel} ${metric(activePoint.value)}, ${activePoint.successfulRuns} successful measurements`
+    : ''
 
   return (
     <div className={styles.chartWrap}>
@@ -510,13 +651,74 @@ function VisibilityChart({ points, brandName }: { points: TrendPoint[]; brandNam
         <span>100</span><span>75</span><span>50</span><span>25</span><span>0</span>
       </div>
       <div className={styles.chartCanvas}>
-        <svg viewBox="0 0 720 230" role="img" aria-label={`${brandName} visibility trend over the selected period`}>
-          <g className={styles.gridLines}>
-            {[15, 65, 115, 165, 215].map(y => <line key={y} x1="0" y1={y} x2="720" y2={y} />)}
-          </g>
-          <polyline className={styles.chartPrimary} points={coordinates.map(point => `${point.x},${point.y}`).join(' ')} />
-          <circle className={styles.chartPoint} cx={coordinates.at(-1)?.x} cy={coordinates.at(-1)?.y} r="5" />
-        </svg>
+        <div
+          className={styles.chartPlot}
+          role="group"
+          tabIndex={0}
+          aria-label={`${brandName} ${metricLabel.toLowerCase()} trend for ${primaryLabel}`}
+          onFocus={() => setActiveIndex(current => current ?? coordinates.length - 1)}
+          onBlur={() => { setActiveIndex(null); setLocked(false) }}
+          onPointerMove={event => { if (!locked) activateNearest(event.clientX, event.currentTarget) }}
+          onPointerDown={event => activateNearest(event.clientX, event.currentTarget)}
+          onPointerLeave={() => { if (!locked) setActiveIndex(null) }}
+          onClick={() => { if (activePoint) setLocked(current => !current) }}
+          onKeyDown={event => {
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault()
+              moveActivePoint(event.key === 'ArrowRight' ? 1 : -1)
+            } else if (event.key === 'Home') {
+              event.preventDefault()
+              setActiveIndex(0)
+            } else if (event.key === 'End') {
+              event.preventDefault()
+              setActiveIndex(coordinates.length - 1)
+            } else if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setLocked(current => !current)
+            } else if (event.key === 'Escape') {
+              setActiveIndex(null)
+              setLocked(false)
+            }
+          }}
+        >
+          <svg viewBox="0 0 720 230" aria-hidden="true">
+            <g className={styles.gridLines}>
+              {[15, 65, 115, 165, 215].map(y => <line key={y} x1="0" y1={y} x2="720" y2={y} />)}
+            </g>
+            {comparisonSegments.map((segment, index) => (
+              <polyline key={`comparison-${index}`} className={styles.chartComparison} points={segment.map(point => `${point.x},${point.y}`).join(' ')} />
+            ))}
+            {segments.map((segment, index) => (
+              <polyline key={`primary-${index}`} className={styles.chartPrimary} points={segment.map(point => `${point.x},${point.y}`).join(' ')} />
+            ))}
+            {coordinates.map((point, index) => (
+              <circle key={`${point.date}-${index}`} className={styles.chartDot} cx={point.x} cy={point.y} r="2.5" />
+            ))}
+            {activePoint ? (
+              <>
+                <line className={styles.chartCursor} x1={activePoint.x} y1={top} x2={activePoint.x} y2={bottom} />
+                <circle className={styles.chartPoint} cx={activePoint.x} cy={activePoint.y} r="5" />
+              </>
+            ) : null}
+          </svg>
+          {activePoint ? (
+            <div
+              className={styles.chartTooltip}
+              style={{ left: `${Math.max(13, Math.min(87, (activePoint.x / width) * 100))}%` }}
+            >
+              <time>{new Date(activePoint.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</time>
+              <strong>{metric(activePoint.value)}</strong>
+              <span>{metricLabel}</span>
+              <small>
+                {activePoint.successfulRuns} successful
+                {metricLabel === 'Visibility' ? `, ${activePoint.mentionedRuns} mentioned` : ''}
+                {metricLabel === 'Owned citation coverage' ? `, ${activePoint.citedRuns} cited` : ''}
+              </small>
+              <small>{activePoint.methods.map(collectionMethodLabel).join(', ')}</small>
+            </div>
+          ) : null}
+          <span className={styles.srOnly} aria-live="polite">{activeSummary}</span>
+        </div>
         <div className={styles.chartXAxis} aria-hidden="true">
           {labelIndexes.map(index => (
             <span key={`${points[index].date}-${index}`}>
@@ -529,8 +731,8 @@ function VisibilityChart({ points, brandName }: { points: TrendPoint[]; brandNam
   )
 }
 
-function MiniMethodTrend({ api, consumerUi, label }: { api: TrendPoint[]; consumerUi: TrendPoint[]; label: string }) {
-  const coordinates = (points: TrendPoint[]) => points.slice(-14).map((point, index, values) => {
+function MiniMethodTrend({ api, consumerUi, label }: { api: MiniTrendPoint[]; consumerUi: MiniTrendPoint[]; label: string }) {
+  const coordinates = (points: MiniTrendPoint[]) => points.slice(-14).map((point, index, values) => {
     const x = values.length === 1 ? 58 : (index / (values.length - 1)) * 116
     const y = 4 + ((100 - Math.max(0, Math.min(100, point.value))) / 100) * 28
     return `${x},${y}`
@@ -554,8 +756,8 @@ function MethodComparison({
     surface: 'chatgpt' | 'gemini'
     api: SurfaceMetrics
     consumerUi: SurfaceMetrics
-    apiTrend: TrendPoint[]
-    consumerUiTrend: TrendPoint[]
+    apiTrend: MiniTrendPoint[]
+    consumerUiTrend: MiniTrendPoint[]
   }>
 }) {
   return (
@@ -722,6 +924,8 @@ export default function GeoPilotProfilePage() {
   const [surface, setSurface] = useState('')
   const [collectionMethod, setCollectionMethod] = useState('')
   const [resultOutcome, setResultOutcome] = useState<ResultOutcome>('')
+  const [dashboardMetric, setDashboardMetric] = useState<GeoPilotDashboardMetric>('visibility_score')
+  const [metricHelp, setMetricHelp] = useState<GeoPilotDashboardMetric | null>(null)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('')
@@ -754,7 +958,7 @@ export default function GeoPilotProfilePage() {
         geopilotApi.costs(session.access_token, id, days)
           .then(data => ({ data, unavailable: false }))
           .catch(() => ({ data: { ...EMPTY_COST_SUMMARY, period_days: days }, unavailable: true })),
-        geopilotApi.listRuns(session.access_token, id, days, surface, collectionMethod),
+        geopilotApi.listRuns(session.access_token, id, days),
         geopilotApi.listInsights(session.access_token, id),
         geopilotApi.listBatches(session.access_token, id),
         capabilityRequest,
@@ -773,7 +977,7 @@ export default function GeoPilotProfilePage() {
     } finally {
       setLoading(false)
     }
-  }, [collectionMethod, days, id, router, surface])
+  }, [days, id, router])
 
   useEffect(() => { void load() }, [load])
 
@@ -1024,39 +1228,59 @@ export default function GeoPilotProfilePage() {
     return sum + (activePrompts?.length || collection.prompt_count || 0)
   }, 0), [collections])
   const latestRuns = useMemo(() => latestMeasurementRuns(runs), [runs])
-  const primaryLoadedRuns = useMemo(
-    () => latestRuns.filter(run => (
-      PRIMARY_SURFACES.includes(run.surface as GeoPilotPrimarySurface)
-      && isPrimaryCollectionMethod(run.surface, run.collection_method)
-    )),
-    [latestRuns],
+  const displaySurfaces = useMemo(
+    () => dashboard.display_surfaces || dashboard.surfaces || {},
+    [dashboard.display_surfaces, dashboard.surfaces],
   )
+  const displayMethods = useMemo(() => {
+    const methods: Partial<Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod>> = {}
+    for (const surfaceKey of PRIMARY_SURFACES) {
+      methods[surfaceKey] = displaySurfaces[surfaceKey]?.collection_method
+        || PRIMARY_METHOD_BY_SURFACE[surfaceKey]
+    }
+    return methods
+  }, [displaySurfaces])
+  const displayLoadedRuns = useMemo(() => latestRuns.filter(run => {
+    if (!PRIMARY_SURFACES.includes(run.surface as GeoPilotPrimarySurface)) return false
+    const surfaceKey = run.surface as GeoPilotPrimarySurface
+    const method = run.collection_method || PRIMARY_METHOD_BY_SURFACE[surfaceKey]
+    return method === displayMethods[surfaceKey]
+  }), [displayMethods, latestRuns])
   const citationDomains = useMemo(() => {
     const counts = new Map<string, number>()
-    primaryLoadedRuns.flatMap(run => run.citations || []).forEach(citation => {
+    displayLoadedRuns.flatMap(run => run.citations || []).forEach(citation => {
       if (citation.domain) counts.set(citation.domain, (counts.get(citation.domain) || 0) + 1)
     })
     return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
-  }, [primaryLoadedRuns])
-  const dailyTrend = useMemo(() => {
-    const grouped = new Map<string, number[]>()
-    for (const row of dashboard.timeline || []) {
-      const date = String(row.metric_date || '')
-      const rowSurface = String(row.surface || '')
-      const rowMethod = row.collection_method ? String(row.collection_method) : undefined
-      const value = Number(row.visibility_score)
-      if (
-        !date
-        || !Number.isFinite(value)
-        || !PRIMARY_SURFACES.includes(rowSurface as GeoPilotPrimarySurface)
-        || !isPrimaryCollectionMethod(rowSurface, rowMethod)
-      ) continue
-      grouped.set(date, [...(grouped.get(date) || []), value])
-    }
-    return [...grouped]
-      .map(([date, values]) => ({ date, value: values.reduce((sum, value) => sum + value, 0) / values.length }))
-      .slice(-14)
-  }, [dashboard.timeline])
+  }, [displayLoadedRuns])
+  const analysisSurface = PRIMARY_SURFACES.includes(surface as GeoPilotPrimarySurface)
+    ? surface as GeoPilotPrimarySurface
+    : undefined
+  const surfaceMethods = useMemo(() => analysisSurface
+    ? availableSurfaceMethods(dashboard.timeline || [], latestRuns, analysisSurface)
+    : [], [analysisSurface, dashboard.timeline, latestRuns])
+  const explicitAnalysisMethod = collectionMethod as GeoPilotCollectionMethod
+  const analysisMethod = analysisSurface
+    ? surfaceMethods.includes(explicitAnalysisMethod)
+      ? explicitAnalysisMethod
+      : displayMethods[analysisSurface] || PRIMARY_METHOD_BY_SURFACE[analysisSurface]
+    : undefined
+  const chartPoints = useMemo(() => buildDashboardTrend({
+    timeline: dashboard.timeline || [],
+    metric: dashboardMetric,
+    surface: dashboardMetric === 'ai_overview_coverage' ? 'google_ai_overview' : analysisSurface,
+    method: dashboardMetric === 'ai_overview_coverage' ? 'google_search_result' : analysisMethod,
+    displayMethods,
+  }), [analysisMethod, analysisSurface, dashboard.timeline, dashboardMetric, displayMethods])
+  const comparisonPoints = useMemo(() => (
+    analysisSurface && dashboardMetric !== 'ai_overview_coverage'
+      ? buildDashboardTrend({
+        timeline: dashboard.timeline || [],
+        metric: dashboardMetric,
+        displayMethods,
+      })
+      : []
+  ), [analysisSurface, dashboard.timeline, dashboardMetric, displayMethods])
   const methodTrends = useMemo(() => {
     const grouped = new Map<string, Map<string, number[]>>()
     for (const row of dashboard.timeline || []) {
@@ -1079,20 +1303,27 @@ export default function GeoPilotProfilePage() {
     ]))
   }, [dashboard.timeline])
   const filteredRuns = useMemo(
-    () => filterMeasurementRuns(runs, query, resultOutcome),
-    [query, resultOutcome, runs],
+    () => filterMeasurementRuns(runs, query, resultOutcome, surface, collectionMethod),
+    [collectionMethod, query, resultOutcome, runs, surface],
   )
   const filteredLatestRuns = useMemo(
-    () => filterMeasurementRuns(latestRuns, query, resultOutcome),
-    [latestRuns, query, resultOutcome],
+    () => filterMeasurementRuns(latestRuns, query, resultOutcome, surface, collectionMethod),
+    [collectionMethod, latestRuns, query, resultOutcome, surface],
   )
-  const displaySurfaces = dashboard.display_surfaces || dashboard.surfaces || {}
   const totalSuccessfulRuns = Object.values(displaySurfaces)
     .reduce((sum, item) => sum + (item.successful_runs || 0), 0)
-  const totalCitations = primaryLoadedRuns.reduce((sum, run) => sum + (run.citations?.length || 0), 0)
-  const ownedCitations = primaryLoadedRuns.reduce((sum, run) => (
-    sum + (run.citations || []).filter(citation => isOwnedDomain(citation.domain, profile?.primary_domain)).length
+  const currentSuccessfulRuns = displayLoadedRuns.filter(run => run.status === 'complete')
+  const currentBrandMentions = currentSuccessfulRuns.filter(run => run.brand_mentioned).length
+  const currentEntityMentions = currentBrandMentions + currentSuccessfulRuns.reduce((sum, run) => (
+    sum + new Set(run.competitors_mentioned || []).size
   ), 0)
+  const currentShareOfVoice = percent(currentBrandMentions, currentEntityMentions)
+  const currentCitedResponses = currentSuccessfulRuns.filter(run => (run.citations || []).length > 0)
+  const ownedDomains = [profile?.primary_domain, ...(profile?.owned_domains || [])]
+  const currentOwnedCitedResponses = currentCitedResponses.filter(run => (
+    (run.citations || []).some(citation => isOwnedDomain(citation.domain, ownedDomains))
+  ))
+  const currentCitationCoverage = percent(currentOwnedCitedResponses.length, currentCitedResponses.length)
   const methodComparisonRows = (['chatgpt', 'gemini'] as const).map(surfaceKey => ({
     surface: surfaceKey,
     api: dashboard.method_comparison?.[surfaceKey]?.model_api || {},
@@ -1124,30 +1355,96 @@ export default function GeoPilotProfilePage() {
     profile?.device ? sentenceCase(profile.device) : '',
     profile?.language_code?.toUpperCase(),
   ].filter(Boolean)
+  const googleMetrics = displaySurfaces.google_ai_overview || {}
+  const googleSuccessfulRuns = googleMetrics.successful_runs || 0
+  const googleOverviewCount = googleMetrics.ai_overview_coverage == null
+    ? 0
+    : Math.round((googleMetrics.ai_overview_coverage / 100) * googleSuccessfulRuns)
+  const chartMetricDefinition = DASHBOARD_METRIC_DEFINITIONS[dashboardMetric]
+  const effectiveChartSurface = dashboardMetric === 'ai_overview_coverage'
+    ? 'google_ai_overview'
+    : analysisSurface
+  const effectiveChartMethod = effectiveChartSurface === 'google_ai_overview'
+    ? 'google_search_result'
+    : analysisMethod
+  const chartPrimaryLabel = effectiveChartSurface
+    ? `${SURFACES[effectiveChartSurface]} via ${collectionMethodLabel(effectiveChartMethod)}`
+    : 'Current measurement methods'
+  const chartSubtitle = effectiveChartSurface
+    ? `Daily ${chartMetricDefinition.label.toLowerCase()} for ${SURFACES[effectiveChartSurface]}`
+    : `Daily surface average from the methods shown in By surface`
+  const showMethodToggle = Boolean(
+    analysisSurface
+    && CONSUMER_UI_SURFACES.includes(analysisSurface)
+    && surfaceMethods.includes('model_api')
+    && surfaceMethods.includes('consumer_ui_organic'),
+  )
+
+  function selectDashboardMetric(nextMetric: GeoPilotDashboardMetric) {
+    setDashboardMetric(nextMetric)
+    setMetricHelp(null)
+    if (nextMetric === 'ai_overview_coverage') {
+      setSurface('google_ai_overview')
+      setCollectionMethod('google_search_result')
+    }
+  }
+
+  function selectDashboardSurface(nextSurface: string) {
+    setSurface(nextSurface)
+    if (!PRIMARY_SURFACES.includes(nextSurface as GeoPilotPrimarySurface)) {
+      setCollectionMethod('')
+      if (dashboardMetric === 'ai_overview_coverage') setDashboardMetric('visibility_score')
+      return
+    }
+    const surfaceKey = nextSurface as GeoPilotPrimarySurface
+    setCollectionMethod(displayMethods[surfaceKey] || PRIMARY_METHOD_BY_SURFACE[surfaceKey])
+    if (dashboardMetric === 'ai_overview_coverage' && surfaceKey !== 'google_ai_overview') {
+      setDashboardMetric('visibility_score')
+    }
+  }
+
+  function toggleDashboardSurface(nextSurface: GeoPilotPrimarySurface) {
+    selectDashboardSurface(surface === nextSurface ? '' : nextSurface)
+  }
+
+  function metricsForSurface(surfaceKey: GeoPilotPrimarySurface) {
+    if (
+      surfaceKey === analysisSurface
+      && analysisMethod
+      && (surfaceKey === 'chatgpt' || surfaceKey === 'gemini')
+    ) {
+      return dashboard.method_comparison?.[surfaceKey]?.[analysisMethod] || displaySurfaces[surfaceKey] || {}
+    }
+    return displaySurfaces[surfaceKey] || {}
+  }
 
   const metrics = [
     {
-      label: 'Visibility',
+      key: 'visibility_score' as const,
+      label: DASHBOARD_METRIC_DEFINITIONS.visibility_score.label,
       value: metric(dashboard.display_overall_visibility ?? dashboard.overall_visibility),
-      note: `${totalSuccessfulRuns} successful measurements`,
+      note: `${totalSuccessfulRuns} successful measurements across current methods`,
       icon: Target,
     },
     {
-      label: 'Share of voice',
-      value: metric(dashboard.overall_share_of_voice),
-      note: `${profile?.competitors?.length || 0} configured competitors`,
+      key: 'share_of_voice' as const,
+      label: DASHBOARD_METRIC_DEFINITIONS.share_of_voice.label,
+      value: metric(currentShareOfVoice ?? dashboard.overall_share_of_voice),
+      note: `${currentBrandMentions} brand mentions against ${profile?.competitors?.length || 0} competitors`,
       icon: BarChart3,
     },
     {
-      label: 'Owned citations',
-      value: metric(dashboard.overall_citation_share),
-      note: `${ownedCitations} of ${totalCitations} loaded citations`,
+      key: 'citation_share' as const,
+      label: DASHBOARD_METRIC_DEFINITIONS.citation_share.label,
+      value: metric(currentCitationCoverage ?? dashboard.overall_citation_share),
+      note: `${currentOwnedCitedResponses.length} of ${currentCitedResponses.length} cited responses include an owned domain`,
       icon: Link2,
     },
     {
-      label: 'AI Overview coverage',
-      value: metric(dashboard.surfaces?.google_ai_overview?.ai_overview_coverage),
-      note: `${dashboard.surfaces?.google_ai_overview?.successful_runs || 0} Google measurements`,
+      key: 'ai_overview_coverage' as const,
+      label: DASHBOARD_METRIC_DEFINITIONS.ai_overview_coverage.label,
+      value: metric(googleMetrics.ai_overview_coverage),
+      note: `${googleOverviewCount} of ${googleSuccessfulRuns} Google searches showed an AI Overview`,
       icon: Sparkles,
     },
   ]
@@ -1257,43 +1554,98 @@ export default function GeoPilotProfilePage() {
               {metrics.map(item => {
                 const Icon = item.icon
                 return (
-                  <article key={item.label} className={styles.metricItem}>
-                    <div className={styles.metricLabelRow}>
-                      <span className={styles.metricIcon}><Icon size={14} /></span>
-                      <span className={styles.metricLabel}>{item.label}</span>
-                    </div>
-                    <div className={styles.metricValueRow}><strong>{item.value}</strong></div>
-                    <p>{item.note}</p>
+                  <article
+                    key={item.key}
+                    className={clsx(styles.metricItem, dashboardMetric === item.key && styles.metricItemActive)}
+                  >
+                    <button
+                      type="button"
+                      className={styles.metricSelectButton}
+                      aria-pressed={dashboardMetric === item.key}
+                      aria-label={`Show ${item.label} trend`}
+                      onClick={() => selectDashboardMetric(item.key)}
+                    >
+                      <div className={styles.metricLabelRow}>
+                        <span className={styles.metricIcon}><Icon size={14} /></span>
+                        <span className={styles.metricLabel}>{item.label}</span>
+                      </div>
+                      <div className={styles.metricValueRow}><strong>{item.value}</strong></div>
+                      <p>{item.note}</p>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.metricHelpButton}
+                      aria-label={`About ${item.label}`}
+                      aria-expanded={metricHelp === item.key}
+                      aria-controls={`metric-help-${item.key}`}
+                      title={`About ${item.label}`}
+                      onClick={() => setMetricHelp(current => current === item.key ? null : item.key)}
+                      onKeyDown={event => {
+                        if (event.key === 'Escape') setMetricHelp(null)
+                      }}
+                    >
+                      <CircleHelp size={13} />
+                    </button>
+                    {metricHelp === item.key ? (
+                      <div id={`metric-help-${item.key}`} className={styles.metricHelpPopover} role="tooltip">
+                        <strong>{item.label}</strong>
+                        <p>{DASHBOARD_METRIC_DEFINITIONS[item.key].description}</p>
+                      </div>
+                    ) : null}
                   </article>
                 )
               })}
             </section>
 
             <div className={styles.dashboardGrid}>
-              <section className={styles.panel}>
+              <section className={clsx(styles.panel, styles.chartPanel)}>
                 <div className={styles.panelHeader}>
                   <div>
-                    <h2>Visibility trend</h2>
-                    <p>Primary API baseline for prompts that mention {profile.brand_name || profile.name}</p>
+                    <h2>{chartMetricDefinition.label} trend</h2>
+                    <p>{chartSubtitle}</p>
                   </div>
-                  <div className={styles.rangeControl} aria-label="Chart date range">
-                    {[7, 30, 90].map(option => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={days === option ? styles.segmentActive : undefined}
-                        aria-pressed={days === option}
-                        onClick={() => setDays(option)}
-                      >
-                        {option}d
-                      </button>
-                    ))}
+                  <div className={styles.chartControls}>
+                    {showMethodToggle ? (
+                      <div className={clsx(styles.rangeControl, styles.methodControl)} aria-label={`${SURFACES[analysisSurface as string]} measurement method`}>
+                        {(['model_api', 'consumer_ui_organic'] as GeoPilotCollectionMethod[]).map(method => (
+                          <button
+                            key={method}
+                            type="button"
+                            className={analysisMethod === method ? styles.segmentActive : undefined}
+                            aria-pressed={analysisMethod === method}
+                            onClick={() => setCollectionMethod(method)}
+                          >
+                            {method === 'model_api' ? 'API' : 'Consumer UI'}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className={styles.rangeControl} aria-label="Chart date range">
+                      {[7, 30, 90].map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={days === option ? styles.segmentActive : undefined}
+                          aria-pressed={days === option}
+                          onClick={() => setDays(option)}
+                        >
+                          {option}d
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div className={styles.chartLegend}>
-                  <span><i className={styles.legendPrimary} /> Primary measurement methods</span>
+                  <span><i className={styles.legendPrimary} /> {chartPrimaryLabel}</span>
+                  {comparisonPoints.length ? <span><i className={styles.legendComparison} /> Overall current methods</span> : null}
                 </div>
-                <VisibilityChart points={dailyTrend} brandName={profile.brand_name || profile.name} />
+                <MetricTrendChart
+                  points={chartPoints}
+                  comparisonPoints={comparisonPoints}
+                  metricLabel={chartMetricDefinition.label}
+                  brandName={profile.brand_name || profile.name}
+                  primaryLabel={chartPrimaryLabel}
+                />
               </section>
 
               <section className={clsx(styles.panel, styles.surfacePanel)}>
@@ -1302,14 +1654,38 @@ export default function GeoPilotProfilePage() {
                     <h2>By surface</h2>
                     <p>Current visibility from each surface&apos;s latest measured method</p>
                   </div>
+                  {analysisSurface ? (
+                    <button
+                      type="button"
+                      className={styles.surfaceReset}
+                      aria-label="Show all surfaces"
+                      title="Show all surfaces"
+                      onClick={() => selectDashboardSurface('')}
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
                 </div>
                 <div className={styles.surfaceRail}>
                   {PRIMARY_SURFACES.map(key => {
-                    const data = displaySurfaces[key]
+                    const data = metricsForSurface(key)
                     const value = data?.visibility_score
                     const tone = surfaceTone(key)
+                    const selected = analysisSurface === key
+                    const method = selected && analysisMethod
+                      ? analysisMethod
+                      : data?.collection_method || displayMethods[key] || PRIMARY_METHOD_BY_SURFACE[key]
+                    const successfulRuns = data?.successful_runs || 0
+                    const mentionedRuns = data?.mentioned_runs || 0
                     return (
-                      <div key={key} className={styles.surfaceMetric}>
+                      <button
+                        key={key}
+                        type="button"
+                        className={clsx(styles.surfaceMetric, selected && styles.surfaceMetricActive)}
+                        aria-pressed={selected}
+                        aria-label={`${SURFACES[key]}, ${metric(value)}, ${mentionedRuns} of ${successfulRuns} mentioned via ${collectionMethodLabel(method)}`}
+                        onClick={() => toggleDashboardSurface(key)}
+                      >
                         <div className={styles.surfaceMetricTop}>
                           <span><i className={styles[`rail_${tone}`]} /> {SURFACES[key]}</span>
                           <strong>{metric(value)}</strong>
@@ -1318,9 +1694,11 @@ export default function GeoPilotProfilePage() {
                           <span className={styles[`bar_${tone}`]} style={{ width: `${Math.max(0, Math.min(100, value || 0))}%` }} />
                         </div>
                         <small className={styles.stateMuted}>
-                          {collectionMethodLabel(data?.collection_method || PRIMARY_METHOD_BY_SURFACE[key])} / {data?.successful_runs || 0} successful measurements
+                          {successfulRuns
+                            ? `${mentionedRuns} of ${successfulRuns} mentioned via ${collectionMethodLabel(method)}`
+                            : `No successful measurements via ${collectionMethodLabel(method)}`}
                         </small>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -1357,7 +1735,7 @@ export default function GeoPilotProfilePage() {
                 query={query}
                 setQuery={setQuery}
                 surface={surface}
-                setSurface={setSurface}
+                setSurface={selectDashboardSurface}
                 collectionMethod={collectionMethod}
                 setCollectionMethod={setCollectionMethod}
                 resultOutcome={resultOutcome}
@@ -1577,7 +1955,7 @@ export default function GeoPilotProfilePage() {
               query={query}
               setQuery={setQuery}
               surface={surface}
-              setSurface={setSurface}
+              setSurface={selectDashboardSurface}
               collectionMethod={collectionMethod}
               setCollectionMethod={setCollectionMethod}
               resultOutcome={resultOutcome}

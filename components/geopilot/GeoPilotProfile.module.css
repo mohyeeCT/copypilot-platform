@@ -833,12 +833,48 @@
 }
 
 .metricItem {
+  position: relative;
   min-width: 0;
-  padding: 17px 18px 16px;
+  transition: background 140ms ease, box-shadow 140ms ease;
 }
 
 .metricItem + .metricItem {
   border-left: 1px solid var(--p-border);
+}
+
+.metricItemActive {
+  background: var(--p-accent-soft);
+  box-shadow: inset 0 -2px 0 var(--p-accent);
+}
+
+.metricSelectButton {
+  width: 100%;
+  min-height: 100%;
+  padding: 17px 42px 16px 18px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.metricSelectButton:hover {
+  background: var(--p-surface-soft);
+}
+
+.metricItemActive .metricSelectButton:hover {
+  background: transparent;
+}
+
+.metricSelectButton:focus-visible,
+.metricHelpButton:focus-visible,
+.surfaceMetric:focus-visible,
+.surfaceReset:focus-visible,
+.chartPlot:focus-visible {
+  outline: 2px solid var(--p-accent);
+  outline-offset: -2px;
 }
 
 .metricLabelRow,
@@ -898,10 +934,60 @@
   font-weight: 700;
 }
 
-.metricItem > p {
+.metricSelectButton > p {
   margin-top: 5px;
   color: var(--p-muted);
   font-size: 9px;
+}
+
+.metricHelpButton {
+  position: absolute;
+  z-index: 2;
+  top: 20px;
+  right: 13px;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--p-muted);
+  cursor: pointer;
+}
+
+.metricHelpButton:hover,
+.metricHelpButton[aria-expanded='true'] {
+  background: var(--p-surface);
+  color: var(--p-text);
+}
+
+.metricHelpPopover {
+  position: absolute;
+  z-index: 12;
+  top: 48px;
+  right: 12px;
+  width: min(230px, calc(100vw - 48px));
+  padding: 11px 12px;
+  border: 1px solid var(--p-border-strong);
+  border-radius: 6px;
+  background: var(--p-surface);
+  box-shadow: 0 8px 24px rgba(13, 24, 18, 0.14);
+}
+
+.metricHelpPopover strong {
+  display: block;
+  color: var(--p-text);
+  font-size: 10px;
+}
+
+.metricHelpPopover p {
+  margin-top: 4px;
+  color: var(--p-muted);
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .positive {
@@ -983,6 +1069,18 @@
   box-shadow: 0 0 0 1px var(--p-border);
 }
 
+.chartControls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.methodControl button {
+  min-width: 34px;
+}
+
 .chartLegend {
   display: flex;
   align-items: center;
@@ -1036,6 +1134,14 @@
   flex: 1;
 }
 
+.chartPlot {
+  position: relative;
+  height: 210px;
+  border-radius: 5px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
 .chartCanvas svg {
   display: block;
   width: 100%;
@@ -1074,6 +1180,53 @@
   vector-effect: non-scaling-stroke;
 }
 
+.chartDot {
+  fill: var(--p-accent);
+  opacity: 0.5;
+}
+
+.chartCursor {
+  stroke: var(--p-accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartTooltip {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  display: grid;
+  min-width: 145px;
+  padding: 9px 10px;
+  border-radius: 5px;
+  background: var(--p-text);
+  color: var(--p-surface);
+  box-shadow: 0 8px 22px rgba(13, 24, 18, 0.18);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.chartTooltip time,
+.chartTooltip span,
+.chartTooltip small {
+  opacity: 0.78;
+  font-size: 8px;
+}
+
+.chartTooltip strong {
+  margin-top: 2px;
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.chartTooltip small:first-of-type {
+  margin-top: 5px;
+}
+
 .chartXAxis {
   display: flex;
   justify-content: space-between;
@@ -1094,6 +1247,48 @@
   justify-content: center;
   gap: 16px;
   padding: 20px 18px;
+}
+
+.surfaceReset {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--p-border);
+  border-radius: 5px;
+  background: var(--p-surface);
+  color: var(--p-muted);
+  cursor: pointer;
+}
+
+.surfaceReset:hover {
+  border-color: var(--p-border-strong);
+  color: var(--p-text);
+}
+
+.surfaceMetric {
+  width: 100%;
+  min-height: 67px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.surfaceMetric:hover {
+  background: var(--p-surface-soft);
+}
+
+.surfaceMetricActive {
+  border-color: var(--p-border-strong);
+  background: var(--p-accent-soft);
 }
 
 .surfaceMetricTop {
@@ -1159,6 +1354,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
+  transition: width 180ms ease;
 }
 
 .surfaceMetric small {
@@ -3247,7 +3443,16 @@
   }
 
   .metricItem {
-    padding: 14px;
+    padding: 0;
+  }
+
+  .metricSelectButton {
+    padding: 14px 38px 14px 14px;
+  }
+
+  .metricHelpButton {
+    top: 14px;
+    right: 9px;
   }
 
   .metricLabel {
@@ -3269,6 +3474,17 @@
     padding-left: 14px;
   }
 
+  .chartPanel .panelHeader {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chartControls {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .chartWrap {
     min-height: 210px;
     padding: 10px 14px 14px;
@@ -3276,6 +3492,15 @@
 
   .chartCanvas svg {
     height: 176px;
+  }
+
+  .chartPlot {
+    height: 176px;
+  }
+
+  .chartTooltip {
+    min-width: 130px;
+    padding: 8px 9px;
   }
 
   .surfaceRail {
@@ -3491,7 +3716,11 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .mobileScrim,
-  .toast {
+  .toast,
+  .metricItem,
+  .metricSelectButton,
+  .surfaceMetric,
+  .progressTrack span {
     transition: none;
   }
 }
