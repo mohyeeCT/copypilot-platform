@@ -68,6 +68,22 @@ function initials(name: string, email: string) {
   return words.slice(0, 2).map(word => word[0]?.toUpperCase()).join('') || 'CP'
 }
 
+function getWorkspaceLabel(name: string, email: string) {
+  const accountName = name.trim()
+  const emailName = email.includes('@') ? email.split('@')[0]?.trim() : ''
+  const source = accountName && accountName !== 'CopyPilot user' ? accountName : emailName
+  const firstName = source.split(/[\s._+-]+/).find(Boolean)
+
+  if (!firstName) return 'My Workspace'
+
+  const normalizedName = firstName === firstName.toLowerCase() || firstName === firstName.toUpperCase()
+    ? firstName.toLowerCase()
+    : firstName
+  const displayName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1)
+
+  return `${displayName}'s Workspace`
+}
+
 function NavItem({ tool, active, collapsed, onClose }: {
   tool: Tool
   active: boolean
@@ -122,6 +138,7 @@ export default function Sidebar({
   const router = useRouter()
   const accountName = account?.name || 'CopyPilot user'
   const accountEmail = account?.email || 'Agency workspace'
+  const workspaceLabel = getWorkspaceLabel(accountName, accountEmail)
 
   function isActive(href: string) {
     return pathname.startsWith(href)
@@ -144,10 +161,10 @@ export default function Sidebar({
         </button>
       </div>
 
-      <div className={styles.workspaceCard} title={collapsed ? 'Agency workspace' : undefined}>
+      <div className={styles.workspaceCard} title={collapsed ? workspaceLabel : undefined}>
         <span className={styles.workspaceAvatar}><BriefcaseBusiness size={15} /></span>
         <span className={styles.workspaceText}>
-          <strong>Agency workspace</strong>
+          <strong>{workspaceLabel}</strong>
           <small>Copy and visibility tools</small>
         </span>
       </div>
