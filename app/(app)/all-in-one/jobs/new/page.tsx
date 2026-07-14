@@ -602,15 +602,15 @@ export default function NewAIOJob() {
 
             </div>
 
-            <div className={`space-y-4 ${styles.composerFooter}`}>
-
-          {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
-
-          <div className="card p-4 bg-warning/5 border-warning/20">
-            <p className="text-xs text-muted">
-              <span className="text-warning font-medium">Note:</span> All in One jobs are the longest-running jobs in the platform. A single URL with all three outputs enabled can take 5-15 minutes. For a 10-URL job, budget 1-2 hours. Run overnight for large batches.
-            </p>
           </div>
+
+          <div className={`space-y-4 ${styles.composerFooter}`}>
+            {error && <p className="text-error text-sm bg-error/10 border border-error/20 rounded-lg px-4 py-3">{error}</p>}
+
+            <div className="card p-4 bg-warning/5 border-warning/20">
+              <p className="text-xs text-muted">
+                <span className="text-warning font-medium">Note:</span> All in One jobs are the longest-running jobs in the platform. A single URL with all three outputs enabled can take 5-15 minutes. For a 10-URL job, budget 1-2 hours. Run overnight for large batches.
+              </p>
             </div>
           </div>
         </JobLauncherShell>

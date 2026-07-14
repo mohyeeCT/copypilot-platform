@@ -67,7 +67,7 @@
 }
 
 .composerGrid {
-  grid-template-columns: minmax(0, 1fr) 420px !important;
+  grid-template-columns: minmax(0, 1fr) clamp(480px, 30%, 560px) !important;
   align-items: start;
   gap: 16px !important;
 }
@@ -79,7 +79,6 @@
 }
 
 .composerFooter {
-  grid-column: 1 / -1;
   min-width: 0;
 }
 
