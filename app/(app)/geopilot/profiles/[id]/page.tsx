@@ -122,6 +122,7 @@ type Citation = {
 type Run = {
   id: string
   batch_id?: string
+  prompt_id?: string
   profile_id?: string
   surface: string
   method: string
@@ -149,6 +150,7 @@ type Run = {
   citations?: Citation[]
 }
 type SurfaceMetrics = {
+  collection_method?: GeoPilotCollectionMethod
   visibility_score?: number | null
   share_of_voice?: number | null
   prominence_score?: number | null
@@ -159,10 +161,12 @@ type SurfaceMetrics = {
 }
 type Dashboard = {
   overall_visibility?: number | null
+  display_overall_visibility?: number | null
   overall_share_of_voice?: number | null
   overall_citation_share?: number | null
   measured_surfaces?: GeoPilotPrimarySurface[]
   surfaces?: Record<string, SurfaceMetrics>
+  display_surfaces?: Record<string, SurfaceMetrics>
   primary_methods?: Partial<Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod>>
   method_comparison?: Partial<Record<'chatgpt' | 'gemini', Partial<Record<GeoPilotCollectionMethod, SurfaceMetrics>>>>
   calibration?: SurfaceMetrics
@@ -193,6 +197,7 @@ const SURFACES: Record<string, string> = {
   chatgpt_calibration: 'ChatGPT calibration',
 }
 const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
+type ResultOutcome = '' | 'mentioned' | 'not_found' | 'failed'
 
 function metric(value?: number | null, suffix = '%') {
   if (value == null) return '-'
@@ -256,6 +261,40 @@ function statusClass(status: string) {
   return styles.stateActive
 }
 
+function latestMeasurementRuns(runs: Run[]) {
+  const ordered = [...runs].sort((left, right) => (
+    String(right.created_at || '').localeCompare(String(left.created_at || ''))
+  ))
+  const latest = new Map<string, Run>()
+  for (const run of ordered) {
+    const key = JSON.stringify([
+      run.prompt_id || run.id,
+      run.surface,
+      run.collection_method || PRIMARY_METHOD_BY_SURFACE[run.surface as keyof typeof PRIMARY_METHOD_BY_SURFACE] || '',
+    ])
+    if (!latest.has(key)) latest.set(key, run)
+  }
+  return [...latest.values()]
+}
+
+function matchesOutcome(run: Run, outcome: ResultOutcome) {
+  if (!outcome) return true
+  if (outcome === 'failed') return run.status === 'failed'
+  if (outcome === 'mentioned') return run.status === 'complete' && run.brand_mentioned === true
+  return run.status === 'complete' && run.brand_mentioned !== true
+}
+
+function filterMeasurementRuns(runs: Run[], query: string, outcome: ResultOutcome) {
+  const normalized = query.trim().toLowerCase()
+  return runs.filter(run => {
+    if (!matchesOutcome(run, outcome)) return false
+    if (!normalized) return true
+    const prompt = run.request_snapshot?.prompt_text || ''
+    const label = SURFACES[run.surface] || run.surface
+    return prompt.toLowerCase().includes(normalized) || label.toLowerCase().includes(normalized)
+  })
+}
+
 function SurfaceMark({ surface }: { surface: string }) {
   const tone = surfaceTone(surface)
   return (
@@ -311,7 +350,6 @@ function ResultDrawer({
   error,
   ownedDomain,
   retrying,
-  retried,
   retryDisabled,
   onRetry,
   onClose,
@@ -321,7 +359,6 @@ function ResultDrawer({
   error: string
   ownedDomain?: string
   retrying: boolean
-  retried: boolean
   retryDisabled: boolean
   onRetry?: () => void
   onClose: () => void
@@ -430,9 +467,9 @@ function ResultDrawer({
 
           <footer className={styles.sheetFooter}>
             {run.status === 'failed' && onRetry ? (
-              <button type="button" className={styles.secondaryButton} onClick={onRetry} disabled={retryDisabled || retried}>
-                {retried ? <Check size={13} /> : <RefreshCw size={13} className={retrying ? styles.spinning : undefined} />}
-                {retried ? 'Retried' : retrying ? 'Starting' : 'Retry failed batch'}
+              <button type="button" className={styles.secondaryButton} onClick={onRetry} disabled={retryDisabled}>
+                <RefreshCw size={13} className={retrying ? styles.spinning : undefined} />
+                {retrying ? 'Starting' : 'Retry measurement'}
               </button>
             ) : null}
             <Link href={`/geopilot/runs/${run.id}`} className={styles.secondaryButton}>View full result <ExternalLink size={13} /></Link>
@@ -565,11 +602,17 @@ function ResultsTable({
   total,
   ownedDomain,
   onInspect,
+  onRetry,
+  retryingRunId,
+  retryDisabled,
 }: {
   runs: Run[]
   total: number
   ownedDomain?: string
   onInspect: (run: Run) => void
+  onRetry: (run: Run) => void
+  retryingRunId?: string
+  retryDisabled: boolean
 }) {
   return (
     <>
@@ -624,9 +667,23 @@ function ResultsTable({
                     </td>
                     <td><span className={styles.timeCell}><Clock3 size={13} /> {dateLabel(run.created_at)}</span></td>
                     <td>
-                      <button type="button" className={styles.rowAction} aria-label="Inspect measurement result" onClick={() => onInspect(run)}>
-                        <ChevronRight size={16} />
-                      </button>
+                      <div className={styles.rowActions}>
+                        {run.status === 'failed' ? (
+                          <button
+                            type="button"
+                            className={clsx(styles.rowAction, styles.rowRetryAction)}
+                            aria-label="Retry failed measurement"
+                            title="Retry failed measurement"
+                            onClick={() => onRetry(run)}
+                            disabled={retryDisabled}
+                          >
+                            <RefreshCw size={14} className={retryingRunId === run.id ? styles.spinning : undefined} />
+                          </button>
+                        ) : null}
+                        <button type="button" className={styles.rowAction} aria-label="Inspect measurement result" onClick={() => onInspect(run)}>
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -664,6 +721,7 @@ export default function GeoPilotProfilePage() {
   const [days, setDays] = useState(30)
   const [surface, setSurface] = useState('')
   const [collectionMethod, setCollectionMethod] = useState('')
+  const [resultOutcome, setResultOutcome] = useState<ResultOutcome>('')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('')
@@ -855,9 +913,9 @@ export default function GeoPilotProfilePage() {
     setResultError('')
   }
 
-  async function retryFailed(batchId: string) {
+  async function retryFailedBatch(batchId: string) {
     if (!accessToken) return
-    const actionKey = `retry-${batchId}`
+    const actionKey = `retry-batch-${batchId}`
     setAction(actionKey)
     setError('')
     try {
@@ -865,6 +923,22 @@ export default function GeoPilotProfilePage() {
       await load()
     } catch (retryError) {
       setError(retryError instanceof Error ? retryError.message : 'Failed to retry measurements.')
+    } finally {
+      setAction('')
+    }
+  }
+
+  async function retryFailedMeasurement(run: Run) {
+    if (!accessToken || run.status !== 'failed') return
+    const actionKey = `retry-run-${run.id}`
+    setAction(actionKey)
+    setError('')
+    try {
+      await geopilotApi.retryFailedRun(accessToken, run.id)
+      closeResult()
+      await load()
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : 'Failed to retry measurement.')
     } finally {
       setAction('')
     }
@@ -949,12 +1023,13 @@ export default function GeoPilotProfilePage() {
     const activePrompts = collection.prompts?.filter(prompt => prompt.active !== false)
     return sum + (activePrompts?.length || collection.prompt_count || 0)
   }, 0), [collections])
+  const latestRuns = useMemo(() => latestMeasurementRuns(runs), [runs])
   const primaryLoadedRuns = useMemo(
-    () => runs.filter(run => (
+    () => latestRuns.filter(run => (
       PRIMARY_SURFACES.includes(run.surface as GeoPilotPrimarySurface)
       && isPrimaryCollectionMethod(run.surface, run.collection_method)
     )),
-    [runs],
+    [latestRuns],
   )
   const citationDomains = useMemo(() => {
     const counts = new Map<string, number>()
@@ -1003,16 +1078,16 @@ export default function GeoPilotProfilePage() {
       })).slice(-14),
     ]))
   }, [dashboard.timeline])
-  const filteredRuns = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    if (!normalized) return runs
-    return runs.filter(run => {
-      const prompt = run.request_snapshot?.prompt_text || ''
-      const label = SURFACES[run.surface] || run.surface
-      return prompt.toLowerCase().includes(normalized) || label.toLowerCase().includes(normalized)
-    })
-  }, [query, runs])
-  const totalSuccessfulRuns = Object.values(dashboard.surfaces || {})
+  const filteredRuns = useMemo(
+    () => filterMeasurementRuns(runs, query, resultOutcome),
+    [query, resultOutcome, runs],
+  )
+  const filteredLatestRuns = useMemo(
+    () => filterMeasurementRuns(latestRuns, query, resultOutcome),
+    [latestRuns, query, resultOutcome],
+  )
+  const displaySurfaces = dashboard.display_surfaces || dashboard.surfaces || {}
+  const totalSuccessfulRuns = Object.values(displaySurfaces)
     .reduce((sum, item) => sum + (item.successful_runs || 0), 0)
   const totalCitations = primaryLoadedRuns.reduce((sum, run) => sum + (run.citations?.length || 0), 0)
   const ownedCitations = primaryLoadedRuns.reduce((sum, run) => (
@@ -1029,6 +1104,9 @@ export default function GeoPilotProfilePage() {
     (row.consumerUi.successful_runs || 0) > 0 || row.consumerUiTrend.length > 0
   ))
   const latestBatch = batches[0] || profile?.latest_batch || null
+  const retryingRunId = action.startsWith('retry-run-')
+    ? action.slice('retry-run-'.length)
+    : undefined
   const costByBatch = new Map(costs.by_batch.map(item => [item.batch_id, item]))
   const costByCollection = new Map(costs.by_collection.map(item => [item.collection_id, item]))
   const methodCostRows = Object.entries(costs.by_method || {}).flatMap(([surfaceKey, methods]) => (
@@ -1050,7 +1128,7 @@ export default function GeoPilotProfilePage() {
   const metrics = [
     {
       label: 'Visibility',
-      value: metric(dashboard.overall_visibility),
+      value: metric(dashboard.display_overall_visibility ?? dashboard.overall_visibility),
       note: `${totalSuccessfulRuns} successful measurements`,
       icon: Target,
     },
@@ -1222,12 +1300,12 @@ export default function GeoPilotProfilePage() {
                 <div className={styles.panelHeader}>
                   <div>
                     <h2>By surface</h2>
-                    <p>Visibility across primary measurement sources</p>
+                    <p>Current visibility from each surface&apos;s latest measured method</p>
                   </div>
                 </div>
                 <div className={styles.surfaceRail}>
                   {PRIMARY_SURFACES.map(key => {
-                    const data = dashboard.surfaces?.[key]
+                    const data = displaySurfaces[key]
                     const value = data?.visibility_score
                     const tone = surfaceTone(key)
                     return (
@@ -1239,7 +1317,9 @@ export default function GeoPilotProfilePage() {
                         <div className={styles.progressTrack}>
                           <span className={styles[`bar_${tone}`]} style={{ width: `${Math.max(0, Math.min(100, value || 0))}%` }} />
                         </div>
-                        <small className={styles.stateMuted}>{data?.successful_runs || 0} successful measurements</small>
+                        <small className={styles.stateMuted}>
+                          {collectionMethodLabel(data?.collection_method || PRIMARY_METHOD_BY_SURFACE[key])} / {data?.successful_runs || 0} successful measurements
+                        </small>
                       </div>
                     )
                   })}
@@ -1280,8 +1360,18 @@ export default function GeoPilotProfilePage() {
                 setSurface={setSurface}
                 collectionMethod={collectionMethod}
                 setCollectionMethod={setCollectionMethod}
+                resultOutcome={resultOutcome}
+                setResultOutcome={setResultOutcome}
               />
-              <ResultsTable runs={filteredRuns.slice(0, 8)} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
+              <ResultsTable
+                runs={filteredLatestRuns.slice(0, 8)}
+                total={latestRuns.length}
+                ownedDomain={profile.primary_domain}
+                onInspect={run => void inspectRun(run)}
+                onRetry={run => void retryFailedMeasurement(run)}
+                retryingRunId={retryingRunId}
+                retryDisabled={Boolean(activeBatch) || Boolean(action)}
+              />
             </section>
 
             <div className={styles.supportGrid}>
@@ -1296,18 +1386,16 @@ export default function GeoPilotProfilePage() {
                       <div key={batch.id} className={styles.compactRow}>
                         <span className={clsx(styles.runState, statusClass(batch.status))}>{sentenceCase(batch.status)}</span>
                         <div><strong>{batch.completed_runs || 0} of {batch.total_runs || 0} measurements</strong><small>{dateLabel(batch.created_at)}</small></div>
-                        {batch.failed_runs ? hasBeenRetried ? (
-                          <span className={styles.retryComplete}><Check size={12} /> Retried</span>
-                        ) : (
+                        {batch.failed_runs ? (
                           <button
                             type="button"
                             className={styles.retryButton}
-                            onClick={() => void retryFailed(batch.id)}
+                            onClick={() => void retryFailedBatch(batch.id)}
                             disabled={Boolean(activeBatch) || Boolean(action)}
                             title={activeBatch ? 'Wait for the active run to finish' : `Retry ${batch.failed_runs} failed measurements`}
                           >
-                            <RefreshCw size={12} className={action === `retry-${batch.id}` ? styles.spinning : undefined} />
-                            {action === `retry-${batch.id}` ? 'Starting' : `Retry failed (${batch.failed_runs})`}
+                            <RefreshCw size={12} className={action === `retry-batch-${batch.id}` ? styles.spinning : undefined} />
+                            {action === `retry-batch-${batch.id}` ? 'Starting' : hasBeenRetried ? `Retry again (${batch.failed_runs})` : `Retry failed (${batch.failed_runs})`}
                           </button>
                         ) : <strong>{formatUsd(costByBatch.get(batch.id)?.actual_usd)}</strong>}
                       </div>
@@ -1492,8 +1580,18 @@ export default function GeoPilotProfilePage() {
               setSurface={setSurface}
               collectionMethod={collectionMethod}
               setCollectionMethod={setCollectionMethod}
+              resultOutcome={resultOutcome}
+              setResultOutcome={setResultOutcome}
             />
-            <ResultsTable runs={filteredRuns} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
+            <ResultsTable
+              runs={filteredRuns}
+              total={runs.length}
+              ownedDomain={profile.primary_domain}
+              onInspect={run => void inspectRun(run)}
+              onRetry={run => void retryFailedMeasurement(run)}
+              retryingRunId={retryingRunId}
+              retryDisabled={Boolean(activeBatch) || Boolean(action)}
+            />
           </section>
         ) : null}
 
@@ -1552,10 +1650,9 @@ export default function GeoPilotProfilePage() {
           loading={resultLoading}
           error={resultError}
           ownedDomain={profile?.primary_domain}
-          retrying={Boolean(selectedRun?.batch_id && action === `retry-${selectedRun.batch_id}`)}
-          retried={Boolean(selectedRun?.batch_id && retriedBatchIds.has(selectedRun.batch_id))}
+          retrying={Boolean(selectedRun?.id && action === `retry-run-${selectedRun.id}`)}
           retryDisabled={Boolean(activeBatch) || Boolean(action)}
-          onRetry={selectedRun?.batch_id ? () => void retryFailed(selectedRun.batch_id as string) : undefined}
+          onRetry={selectedRun?.status === 'failed' ? () => void retryFailedMeasurement(selectedRun) : undefined}
           onClose={closeResult}
         />
 
@@ -1620,6 +1717,8 @@ function ResultToolbar({
   setSurface,
   collectionMethod,
   setCollectionMethod,
+  resultOutcome,
+  setResultOutcome,
 }: {
   query: string
   setQuery: (value: string) => void
@@ -1627,6 +1726,8 @@ function ResultToolbar({
   setSurface: (value: string) => void
   collectionMethod: string
   setCollectionMethod: (value: string) => void
+  resultOutcome: ResultOutcome
+  setResultOutcome: (value: ResultOutcome) => void
 }) {
   return (
     <div className={styles.tableToolbar}>
@@ -1644,6 +1745,15 @@ function ResultToolbar({
           <option value="consumer_ui_organic">Consumer UI</option>
           <option value="google_search_result">Google search result</option>
           <option value="consumer_ui_forced_search">Consumer calibration</option>
+        </select>
+      </label>
+      <label className={styles.outcomeFilter}>
+        <span className={styles.srOnly}>Filter by result</span>
+        <select value={resultOutcome} onChange={event => setResultOutcome(event.target.value as ResultOutcome)}>
+          <option value="">All results</option>
+          <option value="mentioned">Mentioned</option>
+          <option value="not_found">Not found</option>
+          <option value="failed">Failed</option>
         </select>
       </label>
       <div className={styles.surfaceFilters} aria-label="Filter by surface">

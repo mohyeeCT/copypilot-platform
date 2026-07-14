@@ -1308,7 +1308,8 @@
   flex: 0 0 auto;
 }
 
-.methodFilter {
+.methodFilter,
+.outcomeFilter {
   position: relative;
   display: flex;
   width: 150px;
@@ -1316,7 +1317,13 @@
   flex: 0 0 150px;
 }
 
-.methodFilter select {
+.outcomeFilter {
+  width: 120px;
+  flex-basis: 120px;
+}
+
+.methodFilter select,
+.outcomeFilter select {
   width: 100%;
   padding: 0 27px 0 9px;
   border: 1px solid var(--p-border);
@@ -1328,7 +1335,8 @@
   font-weight: 600;
 }
 
-.methodFilter select:focus {
+.methodFilter select:focus,
+.outcomeFilter select:focus {
   border-color: var(--p-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--p-accent) 15%, transparent);
 }
@@ -1515,6 +1523,28 @@
   width: 28px;
   height: 28px;
   border-radius: 5px;
+}
+
+.rowActions {
+  display: flex;
+  min-width: 60px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.rowRetryAction {
+  color: var(--p-negative);
+}
+
+.rowRetryAction:hover {
+  background: color-mix(in srgb, var(--p-negative) 7%, transparent);
+  color: var(--p-negative);
+}
+
+.rowAction:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .emptyState {
@@ -2407,17 +2437,6 @@
   cursor: not-allowed;
 }
 
-.retryComplete {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 5px;
-  color: var(--p-positive);
-  font-size: 8px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .domainRow,
 .performanceRow {
   justify-content: space-between;
@@ -3294,7 +3313,8 @@
     flex: 1 1 auto;
   }
 
-  .methodFilter {
+  .methodFilter,
+  .outcomeFilter {
     width: 132px;
     flex-basis: 132px;
   }
