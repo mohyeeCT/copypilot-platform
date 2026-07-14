@@ -157,6 +157,8 @@ export const geopilotApi = {
   listBatches: (token: string, profileId: string) => f(`/api/geopilot/profiles/${profileId}/batches`, token),
   getBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}`, token),
   cancelBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}/cancel`, token, { method: 'POST' }),
+  retryFailedBatch: (token: string, id: string) =>
+    f(`/api/geopilot/batches/${id}/retry-failed`, token, { method: 'POST' }),
   dashboard: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/dashboard?days=${days}`, token),
   costs: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/costs?days=${days}`, token),
   listRuns: (token: string, profileId: string, days: number, surface = '', collectionMethod = '') =>

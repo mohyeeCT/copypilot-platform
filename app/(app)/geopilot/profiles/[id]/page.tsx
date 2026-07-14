@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
+  AlertTriangle,
   ArrowLeft,
   BarChart3,
   Check,
@@ -107,6 +108,7 @@ type Batch = {
   failed_runs?: number
   created_at?: string
   error?: string | null
+  surface_selection?: { retry?: { source_batch_id?: string } }
 }
 type Citation = {
   id?: string
@@ -119,6 +121,7 @@ type Citation = {
 }
 type Run = {
   id: string
+  batch_id?: string
   profile_id?: string
   surface: string
   method: string
@@ -130,6 +133,8 @@ type Run = {
   method_version?: string
   personalization_mode?: string
   status: string
+  attempt_count?: number
+  error?: string | null
   response_text?: string
   raw_response?: unknown
   brand_mentioned?: boolean
@@ -305,12 +310,20 @@ function ResultDrawer({
   loading,
   error,
   ownedDomain,
+  retrying,
+  retried,
+  retryDisabled,
+  onRetry,
   onClose,
 }: {
   run: Run | null
   loading: boolean
   error: string
   ownedDomain?: string
+  retrying: boolean
+  retried: boolean
+  retryDisabled: boolean
+  onRetry?: () => void
   onClose: () => void
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -378,6 +391,12 @@ function ResultDrawer({
               <div className={styles.loadingState} role="status"><RefreshCw size={18} className={styles.spinning} /> Loading result details</div>
             ) : error ? (
               <div className={styles.errorNotice} role="alert">{error}</div>
+            ) : run.status === 'failed' ? (
+              <section className={styles.failureDetails} role="alert">
+                <div><AlertTriangle size={16} /><h3>Measurement failed</h3></div>
+                <p>{run.error || 'The measurement provider did not return a usable result.'}</p>
+                <small>Provider attempts: {run.attempt_count ?? 0}</small>
+              </section>
             ) : (
               <>
                 <section className={styles.sheetSection}>
@@ -410,6 +429,12 @@ function ResultDrawer({
           </div>
 
           <footer className={styles.sheetFooter}>
+            {run.status === 'failed' && onRetry ? (
+              <button type="button" className={styles.secondaryButton} onClick={onRetry} disabled={retryDisabled || retried}>
+                {retried ? <Check size={13} /> : <RefreshCw size={13} className={retrying ? styles.spinning : undefined} />}
+                {retried ? 'Retried' : retrying ? 'Starting' : 'Retry failed batch'}
+              </button>
+            ) : null}
             <Link href={`/geopilot/runs/${run.id}`} className={styles.secondaryButton}>View full result <ExternalLink size={13} /></Link>
             <button type="button" className={styles.primaryButton} onClick={onClose}>Done</button>
           </footer>
@@ -699,6 +724,12 @@ export default function GeoPilotProfilePage() {
     return candidates.find((batch): batch is Batch => Boolean(batch && ACTIVE_BATCH_STATES.has(batch.status))) || null
   }, [batches, profile?.latest_batch])
 
+  const retriedBatchIds = useMemo(() => new Set(
+    batches
+      .map(batch => batch.surface_selection?.retry?.source_batch_id)
+      .filter((batchId): batchId is string => Boolean(batchId)),
+  ), [batches])
+
   useEffect(() => {
     if (!activeBatch) return
     const timer = window.setInterval(() => void load(), 5000)
@@ -822,6 +853,21 @@ export default function GeoPilotProfilePage() {
     setSelectedRun(null)
     setResultLoading(false)
     setResultError('')
+  }
+
+  async function retryFailed(batchId: string) {
+    if (!accessToken) return
+    const actionKey = `retry-${batchId}`
+    setAction(actionKey)
+    setError('')
+    try {
+      await geopilotApi.retryFailedBatch(accessToken, batchId)
+      await load()
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : 'Failed to retry measurements.')
+    } finally {
+      setAction('')
+    }
   }
 
   function updateEditingCollectionSchedule(schedule: 'manual' | 'daily') {
@@ -1244,13 +1290,29 @@ export default function GeoPilotProfilePage() {
                   <div><h2>Run history</h2><p>Recent profile batches and completion status</p></div>
                 </div>
                 <div className={styles.compactList}>
-                  {batches.slice(0, 6).map(batch => (
-                    <div key={batch.id} className={styles.compactRow}>
-                      <span className={clsx(styles.runState, statusClass(batch.status))}>{sentenceCase(batch.status)}</span>
-                      <div><strong>{batch.completed_runs || 0} of {batch.total_runs || 0} measurements</strong><small>{dateLabel(batch.created_at)}</small></div>
-                      {batch.failed_runs ? <span className={styles.stateError}>{batch.failed_runs} failed</span> : <strong>{formatUsd(costByBatch.get(batch.id)?.actual_usd)}</strong>}
-                    </div>
-                  ))}
+                  {batches.slice(0, 6).map(batch => {
+                    const hasBeenRetried = retriedBatchIds.has(batch.id)
+                    return (
+                      <div key={batch.id} className={styles.compactRow}>
+                        <span className={clsx(styles.runState, statusClass(batch.status))}>{sentenceCase(batch.status)}</span>
+                        <div><strong>{batch.completed_runs || 0} of {batch.total_runs || 0} measurements</strong><small>{dateLabel(batch.created_at)}</small></div>
+                        {batch.failed_runs ? hasBeenRetried ? (
+                          <span className={styles.retryComplete}><Check size={12} /> Retried</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.retryButton}
+                            onClick={() => void retryFailed(batch.id)}
+                            disabled={Boolean(activeBatch) || Boolean(action)}
+                            title={activeBatch ? 'Wait for the active run to finish' : `Retry ${batch.failed_runs} failed measurements`}
+                          >
+                            <RefreshCw size={12} className={action === `retry-${batch.id}` ? styles.spinning : undefined} />
+                            {action === `retry-${batch.id}` ? 'Starting' : `Retry failed (${batch.failed_runs})`}
+                          </button>
+                        ) : <strong>{formatUsd(costByBatch.get(batch.id)?.actual_usd)}</strong>}
+                      </div>
+                    )
+                  })}
                   {!batches.length ? <p className={styles.compactEmpty}>No runs yet.</p> : null}
                 </div>
               </section>
@@ -1490,6 +1552,10 @@ export default function GeoPilotProfilePage() {
           loading={resultLoading}
           error={resultError}
           ownedDomain={profile?.primary_domain}
+          retrying={Boolean(selectedRun?.batch_id && action === `retry-${selectedRun.batch_id}`)}
+          retried={Boolean(selectedRun?.batch_id && retriedBatchIds.has(selectedRun.batch_id))}
+          retryDisabled={Boolean(activeBatch) || Boolean(action)}
+          onRetry={selectedRun?.batch_id ? () => void retryFailed(selectedRun.batch_id as string) : undefined}
           onClose={closeResult}
         />
 

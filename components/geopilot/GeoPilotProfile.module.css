@@ -1975,9 +1975,44 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 14px 18px;
   border-top: 1px solid var(--p-border);
+}
+
+.failureDetails {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--p-negative) 35%, var(--p-border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--p-negative) 7%, var(--p-surface));
+}
+
+.failureDetails div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--p-negative);
+}
+
+.failureDetails h3 {
+  color: inherit;
+  font-size: 10px;
+}
+
+.failureDetails p {
+  margin-top: 9px;
+  color: var(--p-text);
+  font-size: 10px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.failureDetails small {
+  display: block;
+  margin-top: 7px;
+  color: var(--p-muted);
+  font-size: 8px;
 }
 
 .commandDialog {
@@ -2343,6 +2378,44 @@
 .compactRow small {
   color: var(--p-muted);
   font-size: 8px;
+}
+
+.retryButton {
+  display: inline-flex;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--p-negative) 30%, var(--p-border));
+  border-radius: 5px;
+  background: var(--p-surface);
+  color: var(--p-negative);
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.retryButton:hover:not(:disabled) {
+  border-color: var(--p-negative);
+  background: color-mix(in srgb, var(--p-negative) 6%, var(--p-surface));
+}
+
+.retryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.retryComplete {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--p-positive);
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .domainRow,
