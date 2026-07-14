@@ -9,6 +9,8 @@ export default function Page() {
   return (
     <JobsListPage tool={{
       label:       'FAQ Copy',
+      variant:     'faq',
+      description:'Generate, review, and export search-informed FAQ copy and JSON-LD schema.',
       newHref:     '/faq/jobs/new',
       jobHref:     (id) => `/faq/jobs/${id}`,
       icon:        HelpCircle,

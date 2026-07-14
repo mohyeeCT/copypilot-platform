@@ -35,7 +35,7 @@ interface ToolConfig {
   deleteJob: (token: string, id: string) => Promise<unknown>
   duplicateJob: (token: string, id: string) => Promise<{job_id?: string}>
   renameJob: (token: string, id: string, name: string) => Promise<unknown>
-  variant?: 'default' | 'meta'
+  variant?: 'default' | 'meta' | 'faq'
   description?: string
 }
 
@@ -91,7 +91,8 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const Icon = tool.icon
-  const isMetaVariant = tool.variant === 'meta'
+  const isWorkflowVariant = tool.variant === 'meta' || tool.variant === 'faq'
+  const workflowLabel = tool.variant === 'faq' ? 'FAQ' : 'Meta'
 
   const load = useCallback(async (quiet = false) => {
     const sb = createClient()
@@ -185,7 +186,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const completedUrls = jobs.reduce((sum, job) => sum + (job.completed_rows || 0), 0)
   const failedUrls = jobs.reduce((sum, job) => sum + (job.failed_rows || 0), 0)
   const visibleJobs = useMemo(() => {
-    if (!isMetaVariant) return jobs
+    if (!isWorkflowVariant) return jobs
     const needle = query.trim().toLowerCase()
     return jobs.filter(job => {
       const matchesQuery = !needle || (job.name || 'Untitled').toLowerCase().includes(needle)
@@ -195,9 +196,9 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
         || (filter === 'attention' && (['failed', 'error', 'cancelled'].includes(job.status) || (job.failed_rows || 0) > 0))
       return matchesQuery && matchesFilter
     })
-  }, [filter, isMetaVariant, jobs, query])
+  }, [filter, isWorkflowVariant, jobs, query])
 
-  const stats = isMetaVariant
+  const stats = isWorkflowVariant
     ? [
         { label: 'Total jobs', value: totalJobs, icon: FileText, accentValue: false },
         { label: 'URLs processed', value: totalUrls, icon: Layers, accentValue: true },
@@ -280,7 +281,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
         ) : (
           /* Jobs list */
           <>
-          <div className={`grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3 ${isMetaVariant ? 'lg:grid-cols-4' : ''}`}>
+          <div className={`grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3 ${isWorkflowVariant ? 'lg:grid-cols-4' : ''}`}>
             {stats.map(stat => {
               const StatIcon = stat.icon
               return (
@@ -319,10 +320,10 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
             })}
           </div>
 
-          {isMetaVariant && (
+          {isWorkflowVariant && (
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="relative block min-w-0 flex-1 sm:max-w-sm">
-                <span className="sr-only">Search Meta jobs</span>
+                <span className="sr-only">Search {workflowLabel} jobs</span>
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <input
                   type="search"
@@ -342,7 +343,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                   </button>
                 )}
               </label>
-              <div className="cp-segmented overflow-x-auto" role="tablist" aria-label="Filter Meta jobs">
+              <div className="cp-segmented overflow-x-auto" role="tablist" aria-label={`Filter ${workflowLabel} jobs`}>
                 {([
                   ['all', 'All'],
                   ['active', 'Running'],
@@ -478,7 +479,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                             {job.total_rows} URL{job.total_rows !== 1 ? 's' : ''}
                           </span>
                         )}
-                        {isMetaVariant && <Badge label={job.status} />}
+                        {isWorkflowVariant && <Badge label={job.status} />}
                       </div>
                     </div>
 
@@ -525,7 +526,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                         <Copy size={13} />
                       </button>
                       <button
-                        onClick={() => isMetaVariant ? setPendingDelete(job) : void handleDelete(job.id)}
+                        onClick={() => isWorkflowVariant ? setPendingDelete(job) : void handleDelete(job.id)}
                         className="p-1.5 rounded-lg transition-colors"
                         style={{ color: 'var(--muted)' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'var(--error)')}
@@ -563,7 +564,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
           <section
             role="dialog"
             aria-modal="true"
-            aria-labelledby="delete-meta-job-title"
+            aria-labelledby="delete-workflow-job-title"
             className="w-full max-w-md rounded-lg border border-border bg-surface-raised p-5 shadow-2xl"
           >
             <div className="flex items-start gap-3">
@@ -571,7 +572,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                 <Trash2 size={18} />
               </span>
               <div className="min-w-0">
-                <h2 id="delete-meta-job-title" className="text-base font-semibold">Delete this Meta job?</h2>
+                <h2 id="delete-workflow-job-title" className="text-base font-semibold">Delete this {workflowLabel} job?</h2>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
                   {pendingDelete.name || 'Untitled'} and its generated results will be removed from job history.
                 </p>
