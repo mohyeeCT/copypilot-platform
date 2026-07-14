@@ -8,6 +8,27 @@ const f = (path: string, token: string, options?: RequestInit) => apiFetch(BASE,
 
 export type GeoPilotSurface = 'google_ai_overview' | 'chatgpt' | 'gemini' | 'claude' | 'chatgpt_calibration'
 export type GeoPilotPrimarySurface = Exclude<GeoPilotSurface, 'chatgpt_calibration'>
+export type GeoPilotCollectionMethod =
+  | 'model_api'
+  | 'consumer_ui_organic'
+  | 'consumer_ui_forced_search'
+  | 'google_search_result'
+export type GeoPilotMeasurementMethods = Partial<Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod[]>>
+
+export type GeoPilotCapabilities = {
+  consumer_ui: {
+    enabled: boolean
+    surfaces: GeoPilotPrimarySurface[]
+    manual_only: boolean
+    delivery_method: 'live'
+    provider_device: 'desktop'
+    personalization_mode: 'anonymous'
+    unit_cost_usd: number
+    pricing_effective_date: string
+  }
+  primary_methods: Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod>
+  supported_methods: Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod[]>
+}
 
 export type GeoPilotCompetitor = {
   id?: string
@@ -72,6 +93,7 @@ export type GeoPilotCostSummary = {
   priced_measurements: number
   unpriced_measurements: number
   by_surface: Partial<Record<GeoPilotSurface, GeoPilotCostSurface>>
+  by_method: Partial<Record<GeoPilotSurface, Partial<Record<GeoPilotCollectionMethod, GeoPilotCostSurface>>>>
   by_collection: GeoPilotCollectionCost[]
   by_batch: Array<{ batch_id: string; actual_usd: number; priced_measurements: number }>
   estimate_basis_days: number
@@ -88,6 +110,7 @@ export type GeoPilotPromptPayload = {
 }
 
 export const geopilotApi = {
+  capabilities: (token: string) => f('/api/geopilot/capabilities', token) as Promise<GeoPilotCapabilities>,
   listProfiles: (token: string) => f('/api/geopilot/profiles', token),
   listBrandProfiles: (token: string) => f('/api/geopilot/brand-profiles', token),
   createProfile: (token: string, payload: GeoPilotProfilePayload) =>
@@ -113,7 +136,12 @@ export const geopilotApi = {
   runProfile: (
     token: string,
     profileId: string,
-    options: { collectionId?: string; surfaces: GeoPilotPrimarySurface[]; includeCalibration: boolean },
+    options: {
+      collectionId?: string
+      surfaces: GeoPilotPrimarySurface[]
+      measurementMethods: GeoPilotMeasurementMethods
+      includeCalibration: boolean
+    },
   ) =>
     f(`/api/geopilot/profiles/${profileId}/runs`, token, {
       method: 'POST',
@@ -121,6 +149,7 @@ export const geopilotApi = {
         scope: options.collectionId ? 'collection' : 'profile',
         collection_id: options.collectionId,
         surfaces: options.surfaces,
+        measurement_methods: options.measurementMethods,
         include_calibration: options.includeCalibration,
       }),
     }),
@@ -129,8 +158,8 @@ export const geopilotApi = {
   cancelBatch: (token: string, id: string) => f(`/api/geopilot/batches/${id}/cancel`, token, { method: 'POST' }),
   dashboard: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/dashboard?days=${days}`, token),
   costs: (token: string, profileId: string, days: number) => f(`/api/geopilot/profiles/${profileId}/costs?days=${days}`, token),
-  listRuns: (token: string, profileId: string, days: number, surface = '') =>
-    f(`/api/geopilot/profiles/${profileId}/runs?days=${days}${surface ? `&surface=${encodeURIComponent(surface)}` : ''}`, token),
+  listRuns: (token: string, profileId: string, days: number, surface = '', collectionMethod = '') =>
+    f(`/api/geopilot/profiles/${profileId}/runs?days=${days}${surface ? `&surface=${encodeURIComponent(surface)}` : ''}${collectionMethod ? `&collection_method=${encodeURIComponent(collectionMethod)}` : ''}`, token),
   getRun: (token: string, id: string) => f(`/api/geopilot/runs/${id}`, token),
   listInsights: (token: string, profileId: string) => f(`/api/geopilot/profiles/${profileId}/insights`, token),
   exportUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export.csv?days=${days}`,

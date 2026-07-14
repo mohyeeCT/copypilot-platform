@@ -32,12 +32,23 @@ import { createClient } from '@/lib/supabase'
 import {
   downloadGeoPilotCsv,
   geopilotApi,
+  type GeoPilotCapabilities,
+  type GeoPilotCollectionMethod,
   type GeoPilotCollectionPayload,
   type GeoPilotCostSummary,
+  type GeoPilotMeasurementMethods,
   type GeoPilotPrimarySurface,
   type GeoPilotPromptPayload,
 } from '@/lib/api/geopilot'
 import { formatUsd } from '@/lib/geopilot-costs'
+import {
+  collectionMethodLabel,
+  deliveryMethodLabel,
+  isPrimaryCollectionMethod,
+  measurementCostKey,
+  PRIMARY_METHOD_BY_SURFACE,
+  surfaceMethodLabel,
+} from '@/lib/geopilot-methods'
 import styles from '@/components/geopilot/GeoPilotProfile.module.css'
 
 type RecordValue = Record<string, unknown>
@@ -104,7 +115,13 @@ type Run = {
   profile_id?: string
   surface: string
   method: string
+  collection_method?: GeoPilotCollectionMethod
   model_name?: string
+  observed_model?: string
+  provider_name?: string
+  provider_product?: string
+  method_version?: string
+  personalization_mode?: string
   status: string
   response_text?: string
   raw_response?: unknown
@@ -134,6 +151,8 @@ type Dashboard = {
   overall_citation_share?: number | null
   measured_surfaces?: GeoPilotPrimarySurface[]
   surfaces?: Record<string, SurfaceMetrics>
+  primary_methods?: Partial<Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod>>
+  method_comparison?: Partial<Record<'chatgpt' | 'gemini', Partial<Record<GeoPilotCollectionMethod, SurfaceMetrics>>>>
   calibration?: SurfaceMetrics
   timeline?: RecordValue[]
   prompt_performance?: Array<RecordValue & {
@@ -242,9 +261,30 @@ const EMPTY_COST_SUMMARY: GeoPilotCostSummary = {
   priced_measurements: 0,
   unpriced_measurements: 0,
   by_surface: {},
+  by_method: {},
   by_collection: [],
   by_batch: [],
   estimate_basis_days: 90,
+}
+
+const EMPTY_CAPABILITIES: GeoPilotCapabilities = {
+  consumer_ui: {
+    enabled: false,
+    surfaces: [],
+    manual_only: true,
+    delivery_method: 'live',
+    provider_device: 'desktop',
+    personalization_mode: 'anonymous',
+    unit_cost_usd: 0.004,
+    pricing_effective_date: '',
+  },
+  primary_methods: { ...PRIMARY_METHOD_BY_SURFACE } as Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod>,
+  supported_methods: {
+    google_ai_overview: ['google_search_result'],
+    chatgpt: ['model_api'],
+    gemini: ['model_api'],
+    claude: ['model_api'],
+  },
 }
 
 function responseExcerpt(value?: string) {
@@ -314,7 +354,7 @@ function ResultDrawer({
             <div className={styles.sheetPrompt}>
               <SurfaceMark surface={run.surface} />
               <p>{run.request_snapshot?.prompt_text || 'Tracked prompt'}</p>
-              <small>{run.method || run.model_name || 'Measurement result'} / {dateLabel(run.created_at)}</small>
+              <small>{collectionMethodLabel(run.collection_method || PRIMARY_METHOD_BY_SURFACE[run.surface as keyof typeof PRIMARY_METHOD_BY_SURFACE])} / {run.observed_model || run.model_name || deliveryMethodLabel(run.method)} / {dateLabel(run.created_at)}</small>
             </div>
 
             <div className={styles.sheetStats}>
@@ -372,7 +412,9 @@ function ResultDrawer({
   )
 }
 
-function VisibilityChart({ points, brandName }: { points: Array<{ date: string; value: number }>; brandName: string }) {
+type TrendPoint = { date: string; value: number }
+
+function VisibilityChart({ points, brandName }: { points: TrendPoint[]; brandName: string }) {
   if (!points.length) {
     return (
       <div className={styles.chartEmpty}>
@@ -418,6 +460,74 @@ function VisibilityChart({ points, brandName }: { points: Array<{ date: string; 
   )
 }
 
+function MiniMethodTrend({ api, consumerUi, label }: { api: TrendPoint[]; consumerUi: TrendPoint[]; label: string }) {
+  const coordinates = (points: TrendPoint[]) => points.slice(-14).map((point, index, values) => {
+    const x = values.length === 1 ? 58 : (index / (values.length - 1)) * 116
+    const y = 4 + ((100 - Math.max(0, Math.min(100, point.value))) / 100) * 28
+    return `${x},${y}`
+  }).join(' ')
+
+  if (!api.length && !consumerUi.length) return <span className={styles.stateMuted}>No trend</span>
+
+  return (
+    <svg className={styles.methodSparkline} viewBox="0 0 116 36" role="img" aria-label={`${label} API and Consumer UI visibility trend`}>
+      <line x1="0" y1="32" x2="116" y2="32" />
+      {api.length ? <polyline className={styles.sparkApi} points={coordinates(api)} /> : null}
+      {consumerUi.length ? <polyline className={styles.sparkConsumerUi} points={coordinates(consumerUi)} /> : null}
+    </svg>
+  )
+}
+
+function MethodComparison({
+  rows,
+}: {
+  rows: Array<{
+    surface: 'chatgpt' | 'gemini'
+    api: SurfaceMetrics
+    consumerUi: SurfaceMetrics
+    apiTrend: TrendPoint[]
+    consumerUiTrend: TrendPoint[]
+  }>
+}) {
+  return (
+    <section className={clsx(styles.panel, styles.methodComparisonPanel)}>
+      <div className={styles.panelHeader}>
+        <div>
+          <h2>API vs Consumer UI</h2>
+          <p>Consumer UI measurements remain separate from the primary API visibility score</p>
+        </div>
+        <div className={styles.methodLegend} aria-label="Trend legend">
+          <span><i className={styles.sparkApiKey} /> API</span>
+          <span><i className={styles.sparkUiKey} /> Consumer UI</span>
+        </div>
+      </div>
+      <div className={styles.methodComparisonWrap}>
+        <table className={styles.methodComparisonTable}>
+          <thead>
+            <tr><th>Engine</th><th>Model API</th><th>Consumer UI</th><th>Difference</th><th>Daily trend</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const apiVisibility = row.api.visibility_score
+              const uiVisibility = row.consumerUi.visibility_score
+              const difference = apiVisibility != null && uiVisibility != null ? uiVisibility - apiVisibility : null
+              return (
+                <tr key={row.surface}>
+                  <td><SurfaceMark surface={row.surface} /></td>
+                  <td><strong>{metric(apiVisibility)}</strong><small>{row.api.successful_runs || 0} samples</small></td>
+                  <td><strong>{metric(uiVisibility)}</strong><small>{row.consumerUi.successful_runs || 0} samples</small></td>
+                  <td><strong>{difference == null ? '-' : `${difference > 0 ? '+' : ''}${difference.toFixed(1)} pp`}</strong></td>
+                  <td><MiniMethodTrend api={row.apiTrend} consumerUi={row.consumerUiTrend} label={SURFACES[row.surface]} /></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function ResultsTable({
   runs,
   total,
@@ -454,10 +564,15 @@ function ResultsTable({
                     <td>
                       <button type="button" className={styles.promptButton} onClick={() => onInspect(run)}>
                         <strong>{run.request_snapshot?.prompt_text || 'Tracked prompt'}</strong>
-                        <small>{run.method || run.model_name || 'Measurement result'}</small>
+                        <small>{run.observed_model || run.model_name || deliveryMethodLabel(run.method)}</small>
                       </button>
                     </td>
-                    <td><SurfaceMark surface={run.surface} /></td>
+                    <td>
+                      <span className={styles.methodCell}>
+                        <SurfaceMark surface={run.surface} />
+                        <small>{collectionMethodLabel(run.collection_method || PRIMARY_METHOD_BY_SURFACE[run.surface as keyof typeof PRIMARY_METHOD_BY_SURFACE])}</small>
+                      </span>
+                    </td>
                     <td>
                       {run.status === 'complete' ? (
                         <span className={run.brand_mentioned ? styles.mentionYes : styles.mentionNo}>
@@ -508,6 +623,7 @@ export default function GeoPilotProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [dashboard, setDashboard] = useState<Dashboard>({})
   const [costs, setCosts] = useState<GeoPilotCostSummary>(EMPTY_COST_SUMMARY)
+  const [capabilities, setCapabilities] = useState<GeoPilotCapabilities>(EMPTY_CAPABILITIES)
   const [costsUnavailable, setCostsUnavailable] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
@@ -515,6 +631,7 @@ export default function GeoPilotProfilePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview')
   const [days, setDays] = useState(30)
   const [surface, setSurface] = useState('')
+  const [collectionMethod, setCollectionMethod] = useState('')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('')
@@ -526,6 +643,7 @@ export default function GeoPilotProfilePage() {
   const [resultLoading, setResultLoading] = useState(false)
   const [resultError, setResultError] = useState('')
   const resultRequestId = useRef(0)
+  const capabilitiesLoaded = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -536,15 +654,20 @@ export default function GeoPilotProfilePage() {
         return
       }
       setAccessToken(session.access_token)
-      const [profileData, dashboardData, costResult, runsData, insightsData, batchesData] = await Promise.all([
+      const capabilityRequest = capabilitiesLoaded.current
+        ? Promise.resolve<GeoPilotCapabilities | null>(null)
+        : geopilotApi.capabilities(session.access_token).catch(() => null)
+      capabilitiesLoaded.current = true
+      const [profileData, dashboardData, costResult, runsData, insightsData, batchesData, capabilityData] = await Promise.all([
         geopilotApi.getProfile(session.access_token, id),
         geopilotApi.dashboard(session.access_token, id, days),
         geopilotApi.costs(session.access_token, id, days)
           .then(data => ({ data, unavailable: false }))
           .catch(() => ({ data: { ...EMPTY_COST_SUMMARY, period_days: days }, unavailable: true })),
-        geopilotApi.listRuns(session.access_token, id, days, surface),
+        geopilotApi.listRuns(session.access_token, id, days, surface, collectionMethod),
         geopilotApi.listInsights(session.access_token, id),
         geopilotApi.listBatches(session.access_token, id),
+        capabilityRequest,
       ])
       setProfile(profileData.profile)
       setDashboard(dashboardData)
@@ -553,13 +676,14 @@ export default function GeoPilotProfilePage() {
       setRuns(runsData.runs || [])
       setInsights(insightsData.insights || [])
       setBatches(batchesData.batches || [])
+      if (capabilityData) setCapabilities(capabilityData)
       setError('')
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load GEOPilot profile.')
     } finally {
       setLoading(false)
     }
-  }, [days, id, router, surface])
+  }, [collectionMethod, days, id, router, surface])
 
   useEffect(() => { void load() }, [load])
 
@@ -578,9 +702,24 @@ export default function GeoPilotProfilePage() {
     const collections = collection ? [collection] : profile?.collections || []
     const prompts = collections.flatMap(item => item.prompts || []).filter(prompt => prompt.active !== false)
     const promptCount = prompts.length || collections.reduce((sum, item) => sum + (item.prompt_count || 0), 0)
-    const averageCosts = Object.fromEntries(
-      Object.entries(costs.by_surface).map(([key, value]) => [key, value?.average_usd ?? null]),
-    )
+    const averageCosts: Record<string, number | null> = {}
+    for (const [surfaceKey, methods] of Object.entries(costs.by_method || {})) {
+      for (const [method, item] of Object.entries(methods || {})) {
+        averageCosts[measurementCostKey(surfaceKey, method)] = item?.average_usd ?? null
+      }
+    }
+    for (const [surfaceKey, item] of Object.entries(costs.by_surface)) {
+      const primaryMethod = PRIMARY_METHOD_BY_SURFACE[surfaceKey as keyof typeof PRIMARY_METHOD_BY_SURFACE]
+      const key = primaryMethod ? measurementCostKey(surfaceKey, primaryMethod) : ''
+      if (key && !(key in averageCosts)) averageCosts[key] = item?.average_usd ?? null
+    }
+    const fixedCosts: Record<string, number> = {}
+    if (capabilities.consumer_ui.pricing_effective_date) {
+      for (const surfaceKey of capabilities.consumer_ui.surfaces) {
+        fixedCosts[measurementCostKey(surfaceKey, 'consumer_ui_organic')] = capabilities.consumer_ui.unit_cost_usd
+      }
+      fixedCosts[measurementCostKey('chatgpt_calibration', 'consumer_ui_forced_search')] = capabilities.consumer_ui.unit_cost_usd
+    }
     const collectionCost = collection
       ? costs.by_collection.find(item => item.collection_id === collection.id)
       : undefined
@@ -592,6 +731,11 @@ export default function GeoPilotProfilePage() {
       calibrationCount: prompts.filter(prompt => prompt.calibration).length,
       surfaces: collection?.surfaces?.length ? [...collection.surfaces] : [...ALL_GEOPILOT_SURFACES],
       averageCosts,
+      fixedCosts,
+      consumerUi: {
+        enabled: capabilities.consumer_ui.enabled,
+        surfaces: capabilities.consumer_ui.surfaces,
+      },
       budget: collectionCost?.monthly_budget_usd != null ? {
         monthlyBudgetUsd: collectionCost.monthly_budget_usd,
         monthActualUsd: collectionCost.month_actual_usd,
@@ -601,7 +745,11 @@ export default function GeoPilotProfilePage() {
     })
   }
 
-  async function runNow(surfaces: GeoPilotPrimarySurface[], includeCalibration: boolean) {
+  async function runNow(
+    surfaces: GeoPilotPrimarySurface[],
+    measurementMethods: GeoPilotMeasurementMethods,
+    includeCalibration: boolean,
+  ) {
     if (!accessToken || !runTarget) return
     setAction(runTarget.collectionId || 'profile')
     setError('')
@@ -609,6 +757,7 @@ export default function GeoPilotProfilePage() {
       await geopilotApi.runProfile(accessToken, id, {
         collectionId: runTarget.collectionId,
         surfaces,
+        measurementMethods,
         includeCalibration,
       })
       setRunTarget(null)
@@ -719,24 +868,59 @@ export default function GeoPilotProfilePage() {
     const activePrompts = collection.prompts?.filter(prompt => prompt.active !== false)
     return sum + (activePrompts?.length || collection.prompt_count || 0)
   }, 0), [collections])
+  const primaryLoadedRuns = useMemo(
+    () => runs.filter(run => (
+      PRIMARY_SURFACES.includes(run.surface as GeoPilotPrimarySurface)
+      && isPrimaryCollectionMethod(run.surface, run.collection_method)
+    )),
+    [runs],
+  )
   const citationDomains = useMemo(() => {
     const counts = new Map<string, number>()
-    runs.flatMap(run => run.citations || []).forEach(citation => {
+    primaryLoadedRuns.flatMap(run => run.citations || []).forEach(citation => {
       if (citation.domain) counts.set(citation.domain, (counts.get(citation.domain) || 0) + 1)
     })
     return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
-  }, [runs])
+  }, [primaryLoadedRuns])
   const dailyTrend = useMemo(() => {
     const grouped = new Map<string, number[]>()
     for (const row of dashboard.timeline || []) {
       const date = String(row.metric_date || '')
+      const rowSurface = String(row.surface || '')
+      const rowMethod = row.collection_method ? String(row.collection_method) : undefined
       const value = Number(row.visibility_score)
-      if (!date || !Number.isFinite(value)) continue
+      if (
+        !date
+        || !Number.isFinite(value)
+        || !PRIMARY_SURFACES.includes(rowSurface as GeoPilotPrimarySurface)
+        || !isPrimaryCollectionMethod(rowSurface, rowMethod)
+      ) continue
       grouped.set(date, [...(grouped.get(date) || []), value])
     }
     return [...grouped]
       .map(([date, values]) => ({ date, value: values.reduce((sum, value) => sum + value, 0) / values.length }))
       .slice(-14)
+  }, [dashboard.timeline])
+  const methodTrends = useMemo(() => {
+    const grouped = new Map<string, Map<string, number[]>>()
+    for (const row of dashboard.timeline || []) {
+      const date = String(row.metric_date || '')
+      const rowSurface = String(row.surface || '')
+      const rowMethod = String(row.collection_method || PRIMARY_METHOD_BY_SURFACE[rowSurface as keyof typeof PRIMARY_METHOD_BY_SURFACE] || '')
+      const value = Number(row.visibility_score)
+      if (!date || !rowSurface || !rowMethod || !Number.isFinite(value)) continue
+      const key = measurementCostKey(rowSurface, rowMethod)
+      const dates = grouped.get(key) || new Map<string, number[]>()
+      dates.set(date, [...(dates.get(date) || []), value])
+      grouped.set(key, dates)
+    }
+    return new Map([...grouped].map(([key, dates]) => [
+      key,
+      [...dates].map(([date, values]) => ({
+        date,
+        value: values.reduce((sum, value) => sum + value, 0) / values.length,
+      })).slice(-14),
+    ]))
   }, [dashboard.timeline])
   const filteredRuns = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -749,13 +933,32 @@ export default function GeoPilotProfilePage() {
   }, [query, runs])
   const totalSuccessfulRuns = Object.values(dashboard.surfaces || {})
     .reduce((sum, item) => sum + (item.successful_runs || 0), 0)
-  const totalCitations = runs.reduce((sum, run) => sum + (run.citations?.length || 0), 0)
-  const ownedCitations = runs.reduce((sum, run) => (
+  const totalCitations = primaryLoadedRuns.reduce((sum, run) => sum + (run.citations?.length || 0), 0)
+  const ownedCitations = primaryLoadedRuns.reduce((sum, run) => (
     sum + (run.citations || []).filter(citation => isOwnedDomain(citation.domain, profile?.primary_domain)).length
   ), 0)
+  const methodComparisonRows = (['chatgpt', 'gemini'] as const).map(surfaceKey => ({
+    surface: surfaceKey,
+    api: dashboard.method_comparison?.[surfaceKey]?.model_api || {},
+    consumerUi: dashboard.method_comparison?.[surfaceKey]?.consumer_ui_organic || {},
+    apiTrend: methodTrends.get(measurementCostKey(surfaceKey, 'model_api')) || [],
+    consumerUiTrend: methodTrends.get(measurementCostKey(surfaceKey, 'consumer_ui_organic')) || [],
+  }))
+  const showMethodComparison = capabilities.consumer_ui.enabled || methodComparisonRows.some(row => (
+    (row.consumerUi.successful_runs || 0) > 0 || row.consumerUiTrend.length > 0
+  ))
   const latestBatch = batches[0] || profile?.latest_batch || null
   const costByBatch = new Map(costs.by_batch.map(item => [item.batch_id, item]))
   const costByCollection = new Map(costs.by_collection.map(item => [item.collection_id, item]))
+  const methodCostRows = Object.entries(costs.by_method || {}).flatMap(([surfaceKey, methods]) => (
+    Object.entries(methods || {}).map(([method, item]) => ({ surface: surfaceKey, method, item }))
+  ))
+  if (!methodCostRows.length) {
+    for (const [surfaceKey, item] of Object.entries(costs.by_surface || {})) {
+      const method = PRIMARY_METHOD_BY_SURFACE[surfaceKey as keyof typeof PRIMARY_METHOD_BY_SURFACE]
+      if (method) methodCostRows.push({ surface: surfaceKey, method, item })
+    }
+  }
   const profileDetails = [
     profile?.primary_domain,
     profile?.country_code,
@@ -912,7 +1115,7 @@ export default function GeoPilotProfilePage() {
                 <div className={styles.panelHeader}>
                   <div>
                     <h2>Visibility trend</h2>
-                    <p>Successful prompts that mention {profile.brand_name || profile.name}</p>
+                    <p>Primary API baseline for prompts that mention {profile.brand_name || profile.name}</p>
                   </div>
                   <div className={styles.rangeControl} aria-label="Chart date range">
                     {[7, 30, 90].map(option => (
@@ -929,7 +1132,7 @@ export default function GeoPilotProfilePage() {
                   </div>
                 </div>
                 <div className={styles.chartLegend}>
-                  <span><i className={styles.legendPrimary} /> {profile.brand_name || profile.name}</span>
+                  <span><i className={styles.legendPrimary} /> Primary measurement methods</span>
                 </div>
                 <VisibilityChart points={dailyTrend} brandName={profile.brand_name || profile.name} />
               </section>
@@ -977,6 +1180,8 @@ export default function GeoPilotProfilePage() {
               </section>
             </div>
 
+            {showMethodComparison ? <MethodComparison rows={methodComparisonRows} /> : null}
+
             <section className={clsx(styles.panel, styles.resultsPanel)}>
               <div className={styles.resultsHeader}>
                 <div>
@@ -987,7 +1192,14 @@ export default function GeoPilotProfilePage() {
                   <span>View all results</span><ChevronRight size={14} />
                 </button>
               </div>
-              <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
+              <ResultToolbar
+                query={query}
+                setQuery={setQuery}
+                surface={surface}
+                setSurface={setSurface}
+                collectionMethod={collectionMethod}
+                setCollectionMethod={setCollectionMethod}
+              />
               <ResultsTable runs={filteredRuns.slice(0, 8)} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
             </section>
 
@@ -1034,13 +1246,13 @@ export default function GeoPilotProfilePage() {
                     <div><span>This month</span><strong>{formatUsd(costs.month_actual_usd)}</strong></div>
                   </div>
                   <div className={styles.compactList}>
-                    {Object.entries(costs.by_surface).map(([key, item]) => (
-                      <div key={key} className={styles.costSurfaceRow}>
-                        <span>{SURFACES[key] || sentenceCase(key)}</span>
+                    {methodCostRows.map(({ surface: surfaceKey, method, item }) => (
+                      <div key={`${surfaceKey}-${method}`} className={styles.costSurfaceRow}>
+                        <span>{surfaceMethodLabel(surfaceKey, method)}</span>
                         <div><strong>{formatUsd(item?.actual_usd)}</strong><small>{item?.priced_measurements || 0} priced</small></div>
                       </div>
                     ))}
-                    {!Object.keys(costs.by_surface).length ? <p className={styles.compactEmpty}>Cost history appears after provider-priced measurements.</p> : null}
+                    {!methodCostRows.length ? <p className={styles.compactEmpty}>Cost history appears after provider-priced measurements.</p> : null}
                     {costs.unpriced_measurements ? <p className={styles.costFootnote}>{costs.unpriced_measurements} measurement{costs.unpriced_measurements === 1 ? '' : 's'} had no provider cost.</p> : null}
                   </div>
                 </>}
@@ -1167,7 +1379,14 @@ export default function GeoPilotProfilePage() {
                 ))}
               </div>
             </div>
-            <ResultToolbar query={query} setQuery={setQuery} surface={surface} setSurface={setSurface} />
+            <ResultToolbar
+              query={query}
+              setQuery={setQuery}
+              surface={surface}
+              setSurface={setSurface}
+              collectionMethod={collectionMethod}
+              setCollectionMethod={setCollectionMethod}
+            />
             <ResultsTable runs={filteredRuns} total={runs.length} ownedDomain={profile.primary_domain} onInspect={run => void inspectRun(run)} />
           </section>
         ) : null}
@@ -1218,7 +1437,7 @@ export default function GeoPilotProfilePage() {
             target={runTarget}
             busy={action === (runTarget.collectionId || 'profile')}
             onClose={() => setRunTarget(null)}
-            onRun={(surfaces, includeCalibration) => void runNow(surfaces, includeCalibration)}
+            onRun={(surfaces, measurementMethods, includeCalibration) => void runNow(surfaces, measurementMethods, includeCalibration)}
           />
         ) : null}
 
@@ -1281,11 +1500,15 @@ function ResultToolbar({
   setQuery,
   surface,
   setSurface,
+  collectionMethod,
+  setCollectionMethod,
 }: {
   query: string
   setQuery: (value: string) => void
   surface: string
   setSurface: (value: string) => void
+  collectionMethod: string
+  setCollectionMethod: (value: string) => void
 }) {
   return (
     <div className={styles.tableToolbar}>
@@ -1294,6 +1517,16 @@ function ResultToolbar({
         <span className={styles.srOnly}>Search measurements</span>
         <input type="search" placeholder="Search prompts" value={query} onChange={event => setQuery(event.target.value)} />
         {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery('')}><X size={14} /></button> : null}
+      </label>
+      <label className={styles.methodFilter}>
+        <span className={styles.srOnly}>Filter by collection method</span>
+        <select value={collectionMethod} onChange={event => setCollectionMethod(event.target.value)}>
+          <option value="">All methods</option>
+          <option value="model_api">Model API</option>
+          <option value="consumer_ui_organic">Consumer UI</option>
+          <option value="google_search_result">Google search result</option>
+          <option value="consumer_ui_forced_search">Consumer calibration</option>
+        </select>
       </label>
       <div className={styles.surfaceFilters} aria-label="Filter by surface">
         <button type="button" className={!surface ? styles.filterActive : undefined} aria-pressed={!surface} onClick={() => setSurface('')}>All</button>

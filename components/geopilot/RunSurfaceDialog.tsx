@@ -2,8 +2,20 @@
 
 import { Play, X } from 'lucide-react'
 import { useState } from 'react'
-import type { GeoPilotPrimarySurface, GeoPilotSurface } from '@/lib/api/geopilot'
-import { estimateRunCost, formatUsd, type GeoPilotCostAverageMap } from '@/lib/geopilot-costs'
+import type { GeoPilotMeasurementMethods, GeoPilotPrimarySurface } from '@/lib/api/geopilot'
+import {
+  estimateRunCost,
+  formatUsd,
+  type GeoPilotCostAverageMap,
+  type GeoPilotFixedCostMap,
+} from '@/lib/geopilot-costs'
+import {
+  buildMeasurementMethods,
+  collectionMethodLabel,
+  measurementCostKey,
+  surfaceLabel,
+  type GeoPilotRunMode,
+} from '@/lib/geopilot-methods'
 import SurfaceSelector from './SurfaceSelector'
 
 export type GeoPilotRunTarget = {
@@ -13,6 +25,11 @@ export type GeoPilotRunTarget = {
   calibrationCount: number
   surfaces: GeoPilotPrimarySurface[]
   averageCosts: GeoPilotCostAverageMap
+  fixedCosts: GeoPilotFixedCostMap
+  consumerUi: {
+    enabled: boolean
+    surfaces: GeoPilotPrimarySurface[]
+  }
   budget?: {
     monthlyBudgetUsd: number
     monthActualUsd: number
@@ -25,24 +42,49 @@ type RunSurfaceDialogProps = {
   target: GeoPilotRunTarget
   busy: boolean
   onClose: () => void
-  onRun: (surfaces: GeoPilotPrimarySurface[], includeCalibration: boolean) => void
+  onRun: (
+    surfaces: GeoPilotPrimarySurface[],
+    measurementMethods: GeoPilotMeasurementMethods,
+    includeCalibration: boolean,
+  ) => void
 }
 
 export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSurfaceDialogProps) {
   const [surfaces, setSurfaces] = useState<GeoPilotPrimarySurface[]>(target.surfaces)
+  const [runModes, setRunModes] = useState<Partial<Record<GeoPilotPrimarySurface, GeoPilotRunMode>>>({
+    chatgpt: 'api',
+    gemini: 'api',
+  })
   const [includeCalibration, setIncludeCalibration] = useState(target.calibrationCount > 0)
+  const measurementMethods = buildMeasurementMethods(surfaces, runModes)
   const calibrationMeasurements = includeCalibration ? target.calibrationCount : 0
-  const measurementCount = target.promptCount * surfaces.length + calibrationMeasurements
+  const methodCount = Object.values(measurementMethods).reduce((sum, methods) => sum + (methods?.length || 0), 0)
+  const measurementCount = target.promptCount * methodCount + calibrationMeasurements
   const estimate = estimateRunCost({
     promptCount: target.promptCount,
     surfaces,
+    measurementMethods,
     calibrationCount: calibrationMeasurements,
     averages: target.averageCosts,
+    fixedCosts: target.fixedCosts,
   })
   const projectedSpend = target.budget ? target.budget.monthActualUsd + estimate.estimatedUsd : null
   const projectedOverBudget = target.budget && projectedSpend != null && projectedSpend >= target.budget.monthlyBudgetUsd
-  const selectedWithNoHistory = (surfaces as GeoPilotSurface[]).filter(surface => target.averageCosts[surface] == null)
-  if (calibrationMeasurements && target.averageCosts.chatgpt_calibration == null) selectedWithNoHistory.push('chatgpt_calibration')
+  const selectedWithNoPrice = surfaces.flatMap(surface => (
+    measurementMethods[surface] || []
+  ).filter(method => {
+    const key = measurementCostKey(surface, method)
+    return target.averageCosts[key] == null && target.fixedCosts[key] == null
+  }).map(method => `${surfaceLabel(surface)} ${collectionMethodLabel(method)}`))
+  const calibrationCostKey = measurementCostKey('chatgpt_calibration', 'consumer_ui_forced_search')
+  if (
+    calibrationMeasurements
+    && target.averageCosts[calibrationCostKey] == null
+    && target.fixedCosts[calibrationCostKey] == null
+  ) selectedWithNoPrice.push('ChatGPT consumer calibration')
+  const consumerUiChoices = surfaces.filter(surface => (
+    target.consumerUi.enabled && target.consumerUi.surfaces.includes(surface)
+  ))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -55,7 +97,7 @@ export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSu
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold text-text">Run {target.label}</h2>
-            <p className="mt-1 text-xs text-muted">Choose the sources to measure in this run.</p>
+            <p className="mt-1 text-xs text-muted">Choose the engines and collection method for this run.</p>
           </div>
           <button type="button" className="btn-ghost px-2" title="Close" onClick={onClose} disabled={busy}>
             <X size={15} />
@@ -63,9 +105,44 @@ export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSu
         </div>
 
         <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold text-muted">Sources</p>
+          <p className="mb-2 text-xs font-semibold text-muted">Engines</p>
           <SurfaceSelector selected={surfaces} onChange={setSurfaces} disabled={busy} />
         </div>
+
+        {consumerUiChoices.length ? (
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="mb-2 text-xs font-semibold text-muted">Collection method</p>
+            <div className="grid gap-2">
+              {consumerUiChoices.map(surface => (
+                <div key={surface} className="flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2">
+                  <span className="text-sm font-medium text-text">{surfaceLabel(surface)}</span>
+                  <div className="inline-flex rounded-md border border-border bg-bg p-0.5" role="group" aria-label={`${surfaceLabel(surface)} collection method`}>
+                    {([
+                      ['api', 'API'],
+                      ['consumer_ui', 'Consumer UI'],
+                      ['both', 'Both'],
+                    ] as Array<[GeoPilotRunMode, string]>).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={(runModes[surface] || 'api') === value}
+                        className={`h-7 rounded px-2.5 text-[11px] font-semibold transition-colors ${
+                          (runModes[surface] || 'api') === value
+                            ? 'bg-surface-raised text-text shadow-sm ring-1 ring-border'
+                            : 'text-muted hover:text-text'
+                        }`}
+                        onClick={() => setRunModes(current => ({ ...current, [surface]: value }))}
+                        disabled={busy}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {target.calibrationCount > 0 && (
           <label className="mt-4 flex items-center gap-2 text-sm text-text">
@@ -82,7 +159,7 @@ export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSu
 
         <div className="mt-5 grid grid-cols-3 gap-3 border-y border-border py-4 text-center">
           <div><p className="text-lg font-semibold text-text">{target.promptCount}</p><p className="text-xs text-muted">Prompts</p></div>
-          <div><p className="text-lg font-semibold text-text">{surfaces.length}</p><p className="text-xs text-muted">Sources</p></div>
+          <div><p className="text-lg font-semibold text-text">{surfaces.length}</p><p className="text-xs text-muted">Engines</p></div>
           <div><p className="text-lg font-semibold text-accent">{measurementCount}</p><p className="text-xs text-muted">Measurements</p></div>
         </div>
 
@@ -90,14 +167,17 @@ export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSu
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-text">Estimated provider cost</p>
-              <p className="mt-1 text-xs text-muted">Based on this profile&apos;s recorded 90-day average for each source.</p>
+              <p className="mt-1 text-xs text-muted">Uses the profile&apos;s 90-day method average, then the published live rate when available.</p>
             </div>
             <strong className="shrink-0 text-sm text-text">
               {estimate.pricedMeasurements ? `${estimate.unpricedMeasurements ? 'At least ' : ''}${formatUsd(estimate.estimatedUsd)}` : 'Not available'}
             </strong>
           </div>
-          {selectedWithNoHistory.length ? (
-            <p className="mt-2 text-xs text-warning">No cost history yet for {selectedWithNoHistory.map(surface => surface.replaceAll('_', ' ')).join(', ')}. The final charge may be higher.</p>
+          {selectedWithNoPrice.length ? (
+            <p className="mt-2 text-xs text-warning">No recorded or published price for {selectedWithNoPrice.join(', ')}. The final charge may be higher.</p>
+          ) : null}
+          {estimate.fallbackMeasurements ? (
+            <p className="mt-2 text-xs text-muted">{estimate.fallbackMeasurements} Consumer UI measurement{estimate.fallbackMeasurements === 1 ? '' : 's'} estimated at the published live rate.</p>
           ) : null}
           {target.budget ? (
             <p className={`mt-2 text-xs ${projectedOverBudget || target.budget.state === 'over' ? 'text-error' : target.budget.state === 'near' ? 'text-warning' : 'text-muted'}`}>
@@ -114,7 +194,7 @@ export default function RunSurfaceDialog({ target, busy, onClose, onRun }: RunSu
           <button
             type="button"
             className="btn-primary gap-2"
-            onClick={() => onRun(surfaces, includeCalibration)}
+            onClick={() => onRun(surfaces, measurementMethods, includeCalibration)}
             disabled={busy || measurementCount === 0}
           >
             <Play size={14} />

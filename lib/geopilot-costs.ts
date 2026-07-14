@@ -1,6 +1,18 @@
-import type { GeoPilotPrimarySurface, GeoPilotSurface } from './api/geopilot'
+import type { GeoPilotMeasurementMethods, GeoPilotPrimarySurface } from './api/geopilot'
 
-export type GeoPilotCostAverageMap = Partial<Record<GeoPilotSurface, number | null>>
+const PRIMARY_COST_METHOD: Record<GeoPilotPrimarySurface, string> = {
+  google_ai_overview: 'google_search_result',
+  chatgpt: 'model_api',
+  gemini: 'model_api',
+  claude: 'model_api',
+}
+
+function costKey(surface: string, method: string) {
+  return `${surface}:${method}`
+}
+
+export type GeoPilotCostAverageMap = Partial<Record<string, number | null>>
+export type GeoPilotFixedCostMap = Partial<Record<string, number>>
 
 export function formatUsd(value?: number | null) {
   if (value == null || !Number.isFinite(Number(value))) return '-'
@@ -17,37 +29,53 @@ export function formatUsd(value?: number | null) {
 export function estimateRunCost({
   promptCount,
   surfaces,
+  measurementMethods,
   calibrationCount,
   averages,
+  fixedCosts = {},
 }: {
   promptCount: number
   surfaces: GeoPilotPrimarySurface[]
+  measurementMethods: GeoPilotMeasurementMethods
   calibrationCount: number
   averages: GeoPilotCostAverageMap
+  fixedCosts?: GeoPilotFixedCostMap
 }) {
   let estimatedUsd = 0
   let pricedMeasurements = 0
   let unpricedMeasurements = 0
+  let fallbackMeasurements = 0
 
   for (const surface of surfaces) {
-    const average = averages[surface]
-    if (average == null) {
-      unpricedMeasurements += promptCount
-    } else {
-      estimatedUsd += Number(average) * promptCount
-      pricedMeasurements += promptCount
+    const methods = measurementMethods[surface] || [PRIMARY_COST_METHOD[surface]]
+    for (const method of methods) {
+      const key = costKey(surface, method)
+      const historicalAverage = averages[key]
+      const fixedCost = fixedCosts[key]
+      const unitCost = historicalAverage ?? fixedCost
+      if (unitCost == null) {
+        unpricedMeasurements += promptCount
+      } else {
+        estimatedUsd += Number(unitCost) * promptCount
+        pricedMeasurements += promptCount
+        if (historicalAverage == null && fixedCost != null) fallbackMeasurements += promptCount
+      }
     }
   }
 
   if (calibrationCount) {
-    const average = averages.chatgpt_calibration
-    if (average == null) {
+    const key = costKey('chatgpt_calibration', 'consumer_ui_forced_search')
+    const historicalAverage = averages[key]
+    const fixedCost = fixedCosts[key]
+    const unitCost = historicalAverage ?? fixedCost
+    if (unitCost == null) {
       unpricedMeasurements += calibrationCount
     } else {
-      estimatedUsd += Number(average) * calibrationCount
+      estimatedUsd += Number(unitCost) * calibrationCount
       pricedMeasurements += calibrationCount
+      if (historicalAverage == null && fixedCost != null) fallbackMeasurements += calibrationCount
     }
   }
 
-  return { estimatedUsd, pricedMeasurements, unpricedMeasurements }
+  return { estimatedUsd, pricedMeasurements, unpricedMeasurements, fallbackMeasurements }
 }

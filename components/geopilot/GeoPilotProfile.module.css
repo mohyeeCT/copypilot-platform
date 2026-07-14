@@ -1308,6 +1308,31 @@
   flex: 0 0 auto;
 }
 
+.methodFilter {
+  position: relative;
+  display: flex;
+  width: 150px;
+  height: 32px;
+  flex: 0 0 150px;
+}
+
+.methodFilter select {
+  width: 100%;
+  padding: 0 27px 0 9px;
+  border: 1px solid var(--p-border);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--p-surface);
+  color: var(--p-text);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.methodFilter select:focus {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--p-accent) 15%, transparent);
+}
+
 .filterButton {
   min-height: 32px;
   padding: 0 10px;
@@ -1412,6 +1437,20 @@
   border: 1px solid var(--p-border);
   background: var(--p-surface-soft);
   color: var(--p-text);
+}
+
+.methodCell {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.methodCell > small {
+  padding-left: 2px;
+  color: var(--p-muted);
+  font-size: 8px;
+  white-space: nowrap;
 }
 
 .surfaceDot {
@@ -2381,6 +2420,123 @@
   font-weight: 500;
 }
 
+.methodComparisonPanel {
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.methodLegend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--p-muted);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.methodLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.methodLegend i {
+  display: block;
+  width: 13px;
+  height: 2px;
+}
+
+.sparkApiKey {
+  background: var(--p-accent);
+}
+
+.sparkUiKey {
+  border-top: 2px dashed var(--p-gemini);
+}
+
+.methodComparisonWrap {
+  overflow-x: auto;
+  padding-top: 13px;
+}
+
+.methodComparisonTable {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.methodComparisonTable th {
+  height: 31px;
+  padding: 0 18px;
+  border-top: 1px solid var(--p-border);
+  border-bottom: 1px solid var(--p-border);
+  background: var(--p-surface-soft);
+  color: var(--p-muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.methodComparisonTable td {
+  height: 58px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--p-border);
+  color: var(--p-text);
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.methodComparisonTable tr:last-child td {
+  border-bottom: 0;
+}
+
+.methodComparisonTable td strong,
+.methodComparisonTable td small {
+  display: block;
+}
+
+.methodComparisonTable td strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+}
+
+.methodComparisonTable td small {
+  margin-top: 2px;
+  color: var(--p-muted);
+  font-size: 8px;
+}
+
+.methodSparkline {
+  display: block;
+  width: 116px;
+  height: 36px;
+  overflow: visible;
+}
+
+.methodSparkline line {
+  stroke: var(--p-border);
+  stroke-width: 1;
+}
+
+.methodSparkline polyline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkApi {
+  stroke: var(--p-accent);
+  stroke-width: 1.8;
+}
+
+.sparkConsumerUi {
+  stroke: var(--p-gemini);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
 .costStats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3063,6 +3219,64 @@
   .tableSearch {
     width: calc(100% - 90px);
     flex: 1 1 auto;
+  }
+
+  .methodFilter {
+    width: 132px;
+    flex-basis: 132px;
+  }
+
+  .methodLegend {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .methodComparisonTable {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .methodComparisonTable th,
+  .methodComparisonTable td {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .methodComparisonTable th:first-child {
+    width: 27%;
+  }
+
+  .methodComparisonTable th:nth-child(2),
+  .methodComparisonTable th:nth-child(3) {
+    width: 23%;
+  }
+
+  .methodComparisonTable th:nth-child(4) {
+    width: 27%;
+  }
+
+  .methodComparisonTable th:nth-child(5),
+  .methodComparisonTable td:nth-child(5) {
+    display: none;
+  }
+
+  .methodComparisonTable .surfaceMark {
+    width: auto;
+    padding: 0 6px;
+  }
+
+  .methodComparisonTable .surfaceLabel {
+    display: inline;
+  }
+
+  .sheetPrompt .surfaceMark {
+    width: auto;
+    padding: 0 7px;
+  }
+
+  .sheetPrompt .surfaceLabel {
+    display: inline;
   }
 
   .resultsTable {
