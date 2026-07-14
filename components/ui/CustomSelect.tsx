@@ -1,14 +1,18 @@
 'use client'
-import { useRef, useState, useEffect, useId, KeyboardEvent } from 'react'
+
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { displayOptionLabel } from '@/lib/option-labels'
 
 type OptionObject = { value: string; label: string; group?: string }
 type Option = string | OptionObject
+export type CustomSelectSize = 'default' | 'compact'
 
-function toObj(o: Option): OptionObject {
-  return typeof o === 'string' ? { value: o, label: displayOptionLabel(o) } : o
+function toObj(option: Option): OptionObject {
+  return typeof option === 'string'
+    ? { value: option, label: displayOptionLabel(option) }
+    : option
 }
 
 interface Props {
@@ -17,18 +21,36 @@ interface Props {
   options: Option[]
   className?: string
   placeholder?: string
+  size?: CustomSelectSize
+  disabled?: boolean
+  ariaLabel?: string
 }
 
-export default function CustomSelect({ value, onChange, options, className = '', placeholder }: Props) {
+export default function CustomSelect({
+  value,
+  onChange,
+  options,
+  className = '',
+  placeholder,
+  size = 'default',
+  disabled = false,
+  ariaLabel,
+}: Props) {
   const [open, setOpen] = useState(false)
-  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const [panelSide, setPanelSide] = useState<'top' | 'bottom'>('bottom')
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({})
   const wrapRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const id = useId()
 
   const opts = options.map(toObj)
-  const selected = opts.find(o => o.value === value)
+  const optionCount = opts.length
+  const groupCount = new Set(opts.map(option => option.group).filter(Boolean)).size
+  const selectedIndex = opts.findIndex(option => option.value === value)
+  const selected = selectedIndex >= 0 ? opts[selectedIndex] : undefined
 
   useEffect(() => {
     if (!open) return
@@ -40,112 +62,151 @@ export default function CustomSelect({ value, onChange, options, className = '',
       const rect = trigger.getBoundingClientRect()
       const gap = 4
       const viewportGap = 8
-      const desiredHeight = Math.min(opts.length * 40, 320)
+      const optionHeight = size === 'compact' ? 32 : 36
+      const desiredHeight = Math.min((optionCount * optionHeight) + (groupCount * 24) + 8, 320)
       const spaceBelow = window.innerHeight - rect.bottom - viewportGap
       const spaceAbove = rect.top - viewportGap
       const openAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow
-      const maxHeight = Math.max(80, Math.min(desiredHeight, openAbove ? spaceAbove - gap : spaceBelow - gap))
+      const availableSpace = openAbove ? spaceAbove : spaceBelow
+      const maxHeight = Math.max(72, Math.min(desiredHeight, availableSpace - gap))
+      const width = Math.min(rect.width, window.innerWidth - (viewportGap * 2))
+      const left = Math.max(viewportGap, Math.min(rect.left, window.innerWidth - width - viewportGap))
 
+      setPanelSide(openAbove ? 'top' : 'bottom')
       setPanelStyle({
         position: 'fixed',
-        top: openAbove ? rect.top - Math.min(desiredHeight, maxHeight) - gap : rect.bottom + gap,
-        left: rect.left,
+        top: openAbove ? rect.top - maxHeight - gap : rect.bottom + gap,
+        left,
         right: 'auto',
-        width: rect.width,
+        width,
         maxHeight,
         overflowY: 'auto',
       })
     }
 
-    function onDown(e: MouseEvent) {
-      const target = e.target as Node
+    function closeFromPointer(event: MouseEvent) {
+      const target = event.target as Node
       if (!wrapRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         setOpen(false)
       }
     }
 
     positionPanel()
-    document.addEventListener('mousedown', onDown)
+    const frame = window.requestAnimationFrame(() => optionRefs.current[activeIndex]?.focus())
+    document.addEventListener('mousedown', closeFromPointer)
     window.addEventListener('resize', positionPanel)
     window.addEventListener('scroll', positionPanel, true)
     return () => {
-      document.removeEventListener('mousedown', onDown)
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('mousedown', closeFromPointer)
       window.removeEventListener('resize', positionPanel)
       window.removeEventListener('scroll', positionPanel, true)
     }
-  }, [open, opts.length])
+  }, [activeIndex, groupCount, open, optionCount, size])
 
-  function handleTriggerKey(e: KeyboardEvent<HTMLButtonElement>) {
-    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      setOpen(true)
-    }
-    if (e.key === 'Escape') setOpen(false)
+  function openMenu(index = selectedIndex >= 0 ? selectedIndex : 0) {
+    if (disabled || !opts.length) return
+    setActiveIndex(Math.max(0, Math.min(opts.length - 1, index)))
+    setOpen(true)
   }
 
-  function handleOptionKey(e: KeyboardEvent<HTMLButtonElement>, optValue: string) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onChange(optValue)
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-    if (e.key === 'Escape') {
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-  }
-
-  function pick(optValue: string) {
-    onChange(optValue)
+  function closeMenu({ restoreFocus = true } = {}) {
     setOpen(false)
-    triggerRef.current?.focus()
+    if (restoreFocus) triggerRef.current?.focus()
+  }
+
+  function focusOption(index: number) {
+    const nextIndex = Math.max(0, Math.min(opts.length - 1, index))
+    setActiveIndex(nextIndex)
+    optionRefs.current[nextIndex]?.focus()
+  }
+
+  function handleTriggerKey(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openMenu()
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      openMenu(selectedIndex >= 0 ? selectedIndex : opts.length - 1)
+    } else if (event.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  function handleOptionKey(event: KeyboardEvent<HTMLButtonElement>, optionValue: string, index: number) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusOption(index + (event.key === 'ArrowDown' ? 1 : -1))
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      focusOption(event.key === 'Home' ? 0 : opts.length - 1)
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      pick(optionValue)
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMenu()
+    } else if (event.key === 'Tab') {
+      closeMenu({ restoreFocus: false })
+    }
+  }
+
+  function pick(optionValue: string) {
+    onChange(optionValue)
+    closeMenu()
   }
 
   return (
-    <div ref={wrapRef} className={`cs-wrap relative ${className}`}>
+    <div ref={wrapRef} className={`cs-wrap ${className}`} data-size={size}>
       <button
         ref={triggerRef}
         type="button"
         className="cs-trigger"
         data-open={open ? 'true' : undefined}
+        data-size={size}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={`${id}-panel`}
-        onClick={() => setOpen(v => !v)}
+        disabled={disabled}
+        onClick={() => open ? closeMenu({ restoreFocus: false }) : openMenu()}
         onKeyDown={handleTriggerKey}
       >
-        <span style={{ color: selected ? 'var(--text)' : 'var(--muted)', opacity: selected ? 1 : 0.7 }}>
-          {selected ? selected.label : (placeholder ?? 'Select…')}
+        <span className={selected ? undefined : 'cs-placeholder'}>
+          {selected ? selected.label : (placeholder ?? 'Select...')}
         </span>
-        <ChevronDown
-          size={14}
-          style={{
-            color: 'var(--muted)',
-            flexShrink: 0,
-            transition: 'transform 0.15s ease-in-out',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-          }}
-        />
+        <ChevronDown size={14} aria-hidden="true" />
       </button>
 
       {open && createPortal(
-        <div ref={panelRef} id={`${id}-panel`} role="listbox" className="cs-panel" style={panelStyle}>
-          {opts.map((opt, index) => (
-            <div key={opt.value}>
-              {opt.group && opt.group !== opts[index - 1]?.group && (
-                <div role="presentation" className="cs-option-group">{opt.group}</div>
-              )}
+        <div
+          ref={panelRef}
+          id={`${id}-panel`}
+          role="listbox"
+          aria-label={ariaLabel}
+          className="cs-panel"
+          data-size={size}
+          data-side={panelSide}
+          style={panelStyle}
+        >
+          {opts.map((option, index) => (
+            <div key={option.value}>
+              {option.group && option.group !== opts[index - 1]?.group ? (
+                <div role="presentation" className="cs-option-group">{option.group}</div>
+              ) : null}
               <button
+                ref={element => { optionRefs.current[index] = element }}
                 type="button"
                 role="option"
-                aria-selected={opt.value === value}
-                className={`cs-option${opt.value === value ? ' cs-option--active' : ''}`}
-                onClick={() => pick(opt.value)}
-                onKeyDown={e => handleOptionKey(e, opt.value)}
+                tabIndex={index === activeIndex ? 0 : -1}
+                aria-selected={option.value === value}
+                className={`cs-option${option.value === value ? ' cs-option--active' : ''}`}
+                onFocus={() => setActiveIndex(index)}
+                onClick={() => pick(option.value)}
+                onKeyDown={event => handleOptionKey(event, option.value, index)}
               >
-                <span>{opt.label}</span>
-                {opt.value === value && <Check size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
+                <span>{option.label}</span>
+                {option.value === value ? <Check size={13} aria-hidden="true" /> : null}
               </button>
             </div>
           ))}

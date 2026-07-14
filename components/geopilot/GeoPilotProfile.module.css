@@ -1518,23 +1518,10 @@
   flex-basis: 120px;
 }
 
-.methodFilter select,
-.outcomeFilter select {
+.methodFilter :global(.cs-wrap),
+.outcomeFilter :global(.cs-wrap) {
   width: 100%;
-  padding: 0 27px 0 9px;
-  border: 1px solid var(--p-border);
-  border-radius: 6px;
-  outline: 0;
-  background: var(--p-surface);
-  color: var(--p-text);
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.methodFilter select:focus,
-.outcomeFilter select:focus {
-  border-color: var(--p-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--p-accent) 15%, transparent);
+  min-width: 0;
 }
 
 .filterButton {

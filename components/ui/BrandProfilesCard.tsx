@@ -434,8 +434,8 @@ function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = f
         </div>
         <div>
           <label className="text-xs text-muted block mb-1">Tone</label>
-          <CustomSelect value={form.tone || ''} onChange={value => setForm(p => ({ ...p, tone: value }))}
-            options={TONES.map(t => ({ value: t, label: t || 'Select tone' }))} className="text-xs w-full" />
+          <CustomSelect size="compact" value={form.tone || ''} onChange={value => setForm(p => ({ ...p, tone: value }))}
+            options={TONES.map(t => ({ value: t, label: t || 'Select tone' }))} className="w-full" />
         </div>
       </div>
       <div>

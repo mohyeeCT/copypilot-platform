@@ -31,19 +31,20 @@ function ExportMenuItem({ action, onSelect }: { action: ExportMenuAction; onSele
   return (
     <button
       type="button"
+      role="menuitem"
       disabled={action.disabled}
       onClick={() => {
         onSelect()
         void action.onClick()
       }}
-      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50"
+      className="cp-menu-item cp-menu-item-rich disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-accent">
         {action.icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold leading-tight text-text">{action.label}</span>
-        <span className="block text-xs leading-tight text-muted">{action.description}</span>
+        <span className="block text-[0.8125rem] font-semibold leading-tight text-text">{action.label}</span>
+        <span className="block text-[0.6875rem] leading-tight text-muted">{action.description}</span>
       </span>
     </button>
   )
@@ -144,20 +145,20 @@ export default function ExportMenu({
       {open && (
         <div
           role="menu"
-          className="dropdown-menu absolute right-0 top-[calc(100%+8px)] z-50 w-72 py-2"
+          className="cp-menu absolute right-0 top-[calc(100%+8px)] z-50 w-72 py-2"
         >
           {downloadActions.length > 0 && (
             <>
-              <p className="px-4 pb-1 pt-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Download</p>
+              <p className="cp-menu-label">Download</p>
               {downloadActions.map(action => (
                 <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
               ))}
             </>
           )}
-          {downloadActions.length > 0 && sendActions.length > 0 && <div className="mx-4 my-2 h-px bg-border" />}
+          {downloadActions.length > 0 && sendActions.length > 0 && <div className="cp-menu-divider" />}
           {sendActions.length > 0 && (
             <>
-              <p className="px-4 pb-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted">Send to</p>
+              <p className="cp-menu-label">Send to</p>
               {sendActions.map(action => (
                 <ExportMenuItem key={action.label} action={action} onSelect={() => setOpen(false)} />
               ))}

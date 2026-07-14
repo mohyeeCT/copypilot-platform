@@ -449,7 +449,7 @@ export default function NewAIOJob() {
                         onChange={e => { const r = [...rows]; r[i] = {...r[i], url: e.target.value}; setRows(r) }} />
                       <input aria-label={`Keyword for row ${i + 1}`} className="input-base sm:col-span-3 text-xs" placeholder="Keyword (optional)" value={row.keyword}
                         onChange={e => { const r = [...rows]; r[i] = {...r[i], keyword: e.target.value}; setRows(r) }} />
-                      <CustomSelect className="sm:col-span-2 text-xs" value={row.page_type}
+                      <CustomSelect size="compact" className="sm:col-span-2" value={row.page_type}
                         onChange={value => { const r = [...rows]; r[i] = {...r[i], page_type: value}; setRows(r) }}
                         options={PAGE_TYPES.map(pt => ({ value: pt, label: PAGE_LABELS[pt] }))} />
                       <div className="sm:col-span-2 flex gap-1">

@@ -505,7 +505,7 @@ export default function NewMetaJobPage() {
                         </label>
                         <div>
                           <span className={styles.fieldCaption}>Page type</span>
-                          <CustomSelect value={row.page_type} onChange={value => updateRow(index, { page_type: value })} options={PAGE_TYPES} />
+                          <CustomSelect size="compact" value={row.page_type} onChange={value => updateRow(index, { page_type: value })} options={PAGE_TYPES} />
                         </div>
                         <label>
                           <span className={styles.fieldCaption}>Existing H1</span>

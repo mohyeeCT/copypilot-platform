@@ -3,10 +3,16 @@
 import { useEffect, useState } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import { JobSection } from '@/components/ui/JobLauncher'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
 import { geopilotApi, type GeoPilotCompetitor, type GeoPilotProfilePayload } from '@/lib/api/geopilot'
 
 type BrandProfile = { id: string; name?: string; data?: Record<string, unknown> }
+
+const DEVICE_OPTIONS = [
+  { value: 'desktop', label: 'Desktop' },
+  { value: 'mobile', label: 'Mobile' },
+]
 
 const EMPTY: GeoPilotProfilePayload = {
   name: '', brand_name: '', primary_domain: '', owned_domains: [], brand_aliases: [], description: '', category: '',
@@ -87,10 +93,16 @@ export default function ProfileForm({
       <JobSection title="Client and brand">
         <div className="grid gap-4 lg:grid-cols-2">
           <label className="text-xs font-semibold text-muted">CopyPilot brand profile
-            <select className="input-base mt-1" value={form.source_brand_profile_id || ''} onChange={event => importProfile(event.target.value)}>
-              <option value="">Start without an import</option>
-              {brandProfiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name || 'Untitled profile'}</option>)}
-            </select>
+            <CustomSelect
+              className="mt-1"
+              ariaLabel="CopyPilot brand profile"
+              value={form.source_brand_profile_id || ''}
+              onChange={importProfile}
+              options={[
+                { value: '', label: 'Start without an import' },
+                ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name || 'Untitled profile' })),
+              ]}
+            />
           </label>
           <label className="text-xs font-semibold text-muted">Client profile name
             <input className="input-base mt-1" value={form.name} onChange={event => update('name', event.target.value)} required />
@@ -121,7 +133,7 @@ export default function ProfileForm({
           <label className="text-xs font-semibold text-muted">Country code<input className="input-base mt-1" value={form.country_code} maxLength={2} onChange={event => update('country_code', event.target.value.toUpperCase())} /></label>
           <label className="text-xs font-semibold text-muted lg:col-span-2">Location<input className="input-base mt-1" value={form.location_name} onChange={event => update('location_name', event.target.value)} /></label>
           <label className="text-xs font-semibold text-muted">Language<input className="input-base mt-1" value={form.language_code} onChange={event => update('language_code', event.target.value)} /></label>
-          <label className="text-xs font-semibold text-muted">Device<select className="input-base mt-1" value={form.device} onChange={event => update('device', event.target.value as 'desktop' | 'mobile')}><option value="desktop">Desktop</option><option value="mobile">Mobile</option></select></label>
+          <label className="text-xs font-semibold text-muted">Device<CustomSelect className="mt-1" ariaLabel="Device" value={form.device} onChange={value => update('device', value as 'desktop' | 'mobile')} options={DEVICE_OPTIONS} /></label>
           <label className="text-xs font-semibold text-muted sm:col-span-2">Timezone<input className="input-base mt-1" value={form.timezone} onChange={event => update('timezone', event.target.value)} placeholder="America/Detroit" /></label>
         </div>
       </JobSection>
@@ -144,4 +156,3 @@ export default function ProfileForm({
     </form>
   )
 }
-

@@ -660,8 +660,8 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted block mb-1">AI Provider</label>
-                  <CustomSelect value={credsForm.provider} onChange={value => setCredsForm(f => ({ ...f, provider: value, api_key: '' }))}
-                    options={AI_PROVIDERS} className="text-xs w-full" />
+                  <CustomSelect size="compact" value={credsForm.provider} onChange={value => setCredsForm(f => ({ ...f, provider: value, api_key: '' }))}
+                    options={AI_PROVIDERS} className="w-full" />
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">API Key</label>

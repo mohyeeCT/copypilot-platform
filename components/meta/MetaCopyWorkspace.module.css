@@ -269,8 +269,7 @@
   font-weight: 700;
 }
 
-.urlRow input,
-.urlRow :global(.cs-trigger) {
+.urlRow input {
   min-height: 34px;
   font-size: 0.74rem;
 }

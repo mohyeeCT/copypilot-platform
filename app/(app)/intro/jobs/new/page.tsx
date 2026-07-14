@@ -321,21 +321,22 @@ export default function NewJobPage() {
                 <ChevronDown size={12} /> Templates
               </button>
               {showTemplates && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-surface border border-border rounded-lg shadow-lg z-10 py-1">
+                <div className="cp-menu absolute right-0 top-full z-10 mt-1 w-52 p-1">
                   {templates.length === 0 && (
-                    <p className="text-xs text-muted px-3 py-2">No saved templates</p>
+                    <p className="cp-menu-empty">No saved templates</p>
                   )}
                   {templates.map(t => (
-                    <div key={t.id} className="flex items-center group px-2 py-1">
+                    <div key={t.id} className="cp-menu-row group">
                       <button onClick={() => applyTemplate(t)}
-                        className="flex-1 text-left text-xs px-1 py-1 hover:text-accent transition-colors truncate">
+                        className="cp-menu-item truncate">
                         {t.name}
                       </button>
                       <button onClick={async () => {
                         const sb = createClient()
                         const { data: { session } } = await sb.auth.getSession()
                         if (session) { await deleteTemplate(session.access_token, t.id); setTemplates(prev => prev.filter(x => x.id !== t.id)) }
-                      }} className="opacity-0 group-hover:opacity-100 text-muted hover:text-error transition-all p-1">
+                      }} className="cp-menu-action opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        aria-label={`Delete ${t.name} template`} title={`Delete ${t.name} template`}>
                         <Trash2 size={10} />
                       </button>
                     </div>
@@ -351,7 +352,7 @@ export default function NewJobPage() {
                 <BookmarkPlus size={12} /> Save template
               </button>
               {showSaveTemplate && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-surface border border-border rounded-lg shadow-lg z-10 p-2 flex items-center gap-2">
+                <div className="cp-menu cp-menu-form absolute right-0 top-full z-10 mt-1 flex w-56 items-center gap-2">
                   <input
                     autoFocus
                     className="input-base text-xs flex-1"
@@ -524,7 +525,7 @@ export default function NewJobPage() {
                         <td className="py-1 pr-2">
                           <CustomSelect value={row.page_type}
                             onChange={value => setRows(rows.map((r, j) => j === i ? {...r, page_type: value} : r))}
-                            options={PAGE_TEMPLATES} className="text-xs w-full" />
+                            options={PAGE_TEMPLATES} size="compact" className="w-full" />
                         </td>
                         <td className="py-1 pr-2">
                           <input value={row.h1} onChange={e => setRows(rows.map((r, j) => j === i ? {...r, h1: e.target.value} : r))}
@@ -565,8 +566,8 @@ export default function NewJobPage() {
             {/* AI Provider */}
             <div className={styles.settingsBody}>
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">AI Provider</h3>
-              <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} className="text-xs" />
-              <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} className="text-xs" />
+              <CustomSelect value={provider} onChange={handleProviderChange} options={PROVIDERS} size="compact" />
+              <CustomSelect value={model} onChange={setModel} options={PROVIDER_MODELS[provider]} size="compact" />
               <p className="text-xs text-muted/70">Saved API credentials are loaded securely from Settings.</p>
             </div>
 
@@ -575,22 +576,23 @@ export default function NewJobPage() {
               <h3 className="text-xs text-muted uppercase tracking-wider font-normal">Copy Settings</h3>
               <div>
                 <label className="text-xs text-muted block mb-1">Business type</label>
-                <CustomSelect value={businessType} onChange={setBusinessType} options={BIZ_TYPES} className="text-xs" />
+                <CustomSelect value={businessType} onChange={setBusinessType} options={BIZ_TYPES} size="compact" />
               </div>
                 <NicheSelect
                   value={niche}
                   onChange={setNiche}
                   businessType={businessType}
+                  size="compact"
                 />
               <div>
                 <label className="text-xs text-muted block mb-1">Default page template</label>
-                <CustomSelect value={pageTemplate} onChange={setPageTemplate} options={PAGE_TEMPLATES} className="text-xs" />
+                <CustomSelect value={pageTemplate} onChange={setPageTemplate} options={PAGE_TEMPLATES} size="compact" />
                 <p className="text-xs text-muted/50 mt-1">Per-row template overrides this</p>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Word count target</label>
                 <CustomSelect value={String(wordCount)} onChange={value => setWordCount(+value)}
-                  options={WORD_COUNT_OPTIONS.map(n => ({ value: String(n), label: `${n} words` }))} className="text-xs" />
+                  options={WORD_COUNT_OPTIONS.map(n => ({ value: String(n), label: `${n} words` }))} size="compact" />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Paragraph count</label>
@@ -598,7 +600,7 @@ export default function NewJobPage() {
                   options={[
                     { value: '1', label: '1 paragraph' },
                     { value: '2', label: '2 paragraphs' },
-                  ]} className="text-xs" />
+                  ]} size="compact" />
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Max supporting keywords</label>
@@ -620,7 +622,8 @@ export default function NewJobPage() {
                         { value: '', label: 'No profile selected' },
                         ...brandProfiles.map(p => ({ value: p.id, label: p.name })),
                       ]}
-                      className="text-xs w-full"
+                      size="compact"
+                      className="w-full"
                     />
                   </div>
                 )}

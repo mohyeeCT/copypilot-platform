@@ -445,7 +445,7 @@ export default function NewFaqJobPage() {
                         <span className={styles.rowIndex}>{String(index + 1).padStart(2, '0')}</span>
                         <label><span className={styles.fieldCaption}>URL</span><input className="input-base" value={row.url} onChange={event => updateRow(index, { url: event.target.value })} placeholder="https://example.com/page" /></label>
                         <label><span className={styles.fieldCaption}>Keyword</span><input className="input-base" value={row.keyword} onChange={event => updateRow(index, { keyword: event.target.value })} placeholder="Optional keyword" /></label>
-                        <div><span className={styles.fieldCaption}>Page type</span><CustomSelect value={row.page_type} onChange={value => updateRow(index, { page_type: value })} options={PAGE_TYPES} /></div>
+                        <div><span className={styles.fieldCaption}>Page type</span><CustomSelect size="compact" value={row.page_type} onChange={value => updateRow(index, { page_type: value })} options={PAGE_TYPES} /></div>
                         <label><span className={styles.fieldCaption}>Existing H1</span><input className="input-base" value={row.h1} onChange={event => updateRow(index, { h1: event.target.value })} placeholder="Optional H1" /></label>
                         <button type="button" className={styles.removeRowButton} aria-label={`Remove row ${index + 1}`} title="Remove row" disabled={rows.length === 1} onClick={() => setRows(current => current.filter((_, rowIndex) => rowIndex !== index))}>
                           <X size={14} />

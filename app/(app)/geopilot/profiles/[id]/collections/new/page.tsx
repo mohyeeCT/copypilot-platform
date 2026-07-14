@@ -7,12 +7,17 @@ import { ArrowLeft, Check, Plus, Search, Trash2 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
 import { geopilotApi, type GeoPilotCollectionPayload, type GeoPilotPrimarySurface, type GeoPilotPromptPayload } from '@/lib/api/geopilot'
 import { buildMeasurementMethods, normalizeCollectionMeasurementMethods } from '@/lib/geopilot-methods'
 
 type DraftPrompt = GeoPilotPromptPayload & { selected: boolean }
+const SCHEDULE_OPTIONS = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'manual', label: 'Manual only' },
+]
 const blankPrompt = (): DraftPrompt => ({ prompt_text: '', google_query: '', category: '', funnel_stage: null, calibration: false, source: 'manual', active: true, selected: true })
 
 export default function NewGeoPilotCollectionPage() {
@@ -101,7 +106,7 @@ export default function NewGeoPilotCollectionPage() {
   return <AppLayout title="New Prompt Collection"><Link href={`/geopilot/profiles/${profileId}`} className="mb-4 inline-flex items-center gap-2 text-sm text-muted hover:text-text"><ArrowLeft size={16} /> Back to Profile</Link><JobLauncherShell compact eyebrow="GEOPilot" title="New Prompt Collection">
     {error && <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>}
     <JobSection title="Collection">
-      <div className="grid gap-4 lg:grid-cols-2"><label className="text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={collection.name} onChange={event => setCollection({ ...collection, name: event.target.value })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Schedule<select className="input-base mt-1" value={collection.schedule} onChange={event => updateSchedule(event.target.value as 'manual' | 'daily')} disabled={Boolean(collectionId)}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label><label className="text-xs font-semibold text-muted">Monthly budget (USD)<input className="input-base mt-1" type="number" min="0.01" step="0.01" placeholder="No budget" value={collection.monthly_budget_usd ?? ''} onChange={event => setCollection({ ...collection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted lg:col-span-2">Research objective<textarea className="input-base mt-1 min-h-20" value={collection.objective} onChange={event => setCollection({ ...collection, objective: event.target.value })} disabled={Boolean(collectionId)} /></label></div>
+      <div className="grid gap-4 lg:grid-cols-2"><label className="text-xs font-semibold text-muted">Name<input className="input-base mt-1" value={collection.name} onChange={event => setCollection({ ...collection, name: event.target.value })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Schedule<CustomSelect className="mt-1" ariaLabel="Collection schedule" value={collection.schedule} onChange={value => updateSchedule(value as 'manual' | 'daily')} options={SCHEDULE_OPTIONS} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted">Monthly budget (USD)<input className="input-base mt-1" type="number" min="0.01" step="0.01" placeholder="No budget" value={collection.monthly_budget_usd ?? ''} onChange={event => setCollection({ ...collection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} disabled={Boolean(collectionId)} /></label><label className="text-xs font-semibold text-muted lg:col-span-2">Research objective<textarea className="input-base mt-1 min-h-20" value={collection.objective} onChange={event => setCollection({ ...collection, objective: event.target.value })} disabled={Boolean(collectionId)} /></label></div>
       <div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted">Tracked sources</p><SurfaceSelector selected={collection.surfaces} onChange={updateSurfaces} disabled={Boolean(collectionId)} /></div>
       <div className="mt-4"><CollectionMethodSelector surfaces={collection.surfaces} measurementMethods={collection.measurement_methods} consumerUiEnabled={consumerUi.enabled} consumerUiSurfaces={consumerUi.surfaces} schedule={collection.schedule} onChange={measurementMethods => setCollection(current => ({ ...current, measurement_methods: measurementMethods }))} disabled={Boolean(collectionId)} /></div>
       {!collectionId ? <button type="button" className="btn-primary mt-4 gap-2" onClick={() => void createCollection()} disabled={busy === 'collection'}><Check size={15} />{busy === 'collection' ? 'Creating...' : 'Create Collection'}</button> : <p className="mt-4 text-xs font-semibold text-success">Collection created. Add the prompts you want to track.</p>}

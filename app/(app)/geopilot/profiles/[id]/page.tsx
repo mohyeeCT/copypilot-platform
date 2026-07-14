@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
+import CustomSelect from '@/components/ui/CustomSelect'
 import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/RunSurfaceDialog'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
@@ -208,6 +209,24 @@ const SURFACES: Record<string, string> = {
 }
 const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
 type ResultOutcome = '' | 'mentioned' | 'not_found' | 'failed'
+
+const COLLECTION_SCHEDULE_OPTIONS = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'manual', label: 'Manual only' },
+]
+const COLLECTION_METHOD_FILTER_OPTIONS = [
+  { value: '', label: 'All methods' },
+  { value: 'model_api', label: 'Model API' },
+  { value: 'consumer_ui_organic', label: 'Consumer UI' },
+  { value: 'google_search_result', label: 'Google search result' },
+  { value: 'consumer_ui_forced_search', label: 'Consumer calibration' },
+]
+const RESULT_OUTCOME_FILTER_OPTIONS = [
+  { value: '', label: 'All results' },
+  { value: 'mentioned', label: 'Mentioned' },
+  { value: 'not_found', label: 'Not found' },
+  { value: 'failed', label: 'Failed' },
+]
 
 const DASHBOARD_METRIC_DEFINITIONS: Record<GeoPilotDashboardMetric, {
   label: string
@@ -2044,7 +2063,7 @@ export default function GeoPilotProfilePage() {
               <div className={styles.modalBody}>
                 <label className={styles.fieldLabel}>Name<input className="input-base" value={editingCollection.name} onChange={event => setEditingCollection({ ...editingCollection, name: event.target.value })} /></label>
                 <label className={styles.fieldLabel}>Objective<textarea className="input-base" rows={3} value={editingCollection.objective || ''} onChange={event => setEditingCollection({ ...editingCollection, objective: event.target.value })} /></label>
-                <label className={styles.fieldLabel}>Schedule<select className="input-base" value={editingCollection.schedule || 'daily'} onChange={event => updateEditingCollectionSchedule(event.target.value as 'daily' | 'manual')}><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
+                <label className={styles.fieldLabel}>Schedule<CustomSelect ariaLabel="Collection schedule" value={editingCollection.schedule || 'daily'} onChange={value => updateEditingCollectionSchedule(value as 'daily' | 'manual')} options={COLLECTION_SCHEDULE_OPTIONS} /></label>
                 <label className={styles.fieldLabel}>Monthly budget (USD)<input className="input-base" type="number" min="0.01" step="0.01" placeholder="No budget" value={editingCollection.monthly_budget_usd ?? ''} onChange={event => setEditingCollection({ ...editingCollection, monthly_budget_usd: event.target.value ? Number(event.target.value) : null })} /></label>
                 <div><p className={styles.fieldLabel}>Tracked sources</p><SurfaceSelector selected={editingCollection.surfaces?.length ? editingCollection.surfaces : ALL_GEOPILOT_SURFACES} onChange={updateEditingCollectionSurfaces} /></div>
                 <CollectionMethodSelector
@@ -2115,25 +2134,24 @@ function ResultToolbar({
         <input type="search" placeholder="Search prompts" value={query} onChange={event => setQuery(event.target.value)} />
         {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery('')}><X size={14} /></button> : null}
       </label>
-      <label className={styles.methodFilter}>
-        <span className={styles.srOnly}>Filter by collection method</span>
-        <select value={collectionMethod} onChange={event => setCollectionMethod(event.target.value)}>
-          <option value="">All methods</option>
-          <option value="model_api">Model API</option>
-          <option value="consumer_ui_organic">Consumer UI</option>
-          <option value="google_search_result">Google search result</option>
-          <option value="consumer_ui_forced_search">Consumer calibration</option>
-        </select>
-      </label>
-      <label className={styles.outcomeFilter}>
-        <span className={styles.srOnly}>Filter by result</span>
-        <select value={resultOutcome} onChange={event => setResultOutcome(event.target.value as ResultOutcome)}>
-          <option value="">All results</option>
-          <option value="mentioned">Mentioned</option>
-          <option value="not_found">Not found</option>
-          <option value="failed">Failed</option>
-        </select>
-      </label>
+      <div className={styles.methodFilter}>
+        <CustomSelect
+          size="compact"
+          ariaLabel="Filter by collection method"
+          value={collectionMethod}
+          onChange={setCollectionMethod}
+          options={COLLECTION_METHOD_FILTER_OPTIONS}
+        />
+      </div>
+      <div className={styles.outcomeFilter}>
+        <CustomSelect
+          size="compact"
+          ariaLabel="Filter by result"
+          value={resultOutcome}
+          onChange={value => setResultOutcome(value as ResultOutcome)}
+          options={RESULT_OUTCOME_FILTER_OPTIONS}
+        />
+      </div>
       <div className={styles.surfaceFilters} aria-label="Filter by surface">
         <button type="button" className={!surface ? styles.filterActive : undefined} aria-pressed={!surface} onClick={() => setSurface('')}>All</button>
         {Object.entries(SURFACES).map(([value, label]) => (

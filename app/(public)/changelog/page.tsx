@@ -106,6 +106,7 @@ export default function ChangelogPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>App</span>
             <CustomSelect
+              size="compact"
               className={`changelog-filter ${toolFilter !== 'All' ? 'active' : ''}`}
               value={toolFilter}
               onChange={setToolFilter}
@@ -116,6 +117,7 @@ export default function ChangelogPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Type</span>
             <CustomSelect
+              size="compact"
               className={`changelog-filter ${typeFilter !== 'All' ? 'active' : ''}`}
               value={typeFilter}
               onChange={value => setTypeFilter(value as ChangeType | 'All')}

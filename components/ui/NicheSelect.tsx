@@ -1,5 +1,5 @@
 'use client'
-import CustomSelect from './CustomSelect'
+import CustomSelect, { type CustomSelectSize } from './CustomSelect'
 
 interface Niche {
   key: string
@@ -42,9 +42,10 @@ interface NicheSelectProps {
   onChange: (value: string) => void
   businessType?: string
   label?: string
+  size?: CustomSelectSize
 }
 
-export default function NicheSelect({ value, onChange, businessType = '', label = 'Niche' }: NicheSelectProps) {
+export default function NicheSelect({ value, onChange, businessType = '', label = 'Niche', size = 'default' }: NicheSelectProps) {
   const filtered = NICHES.filter(n =>
     !businessType || n.key === 'none' || n.business_types.includes(businessType)
   )
@@ -53,7 +54,8 @@ export default function NicheSelect({ value, onChange, businessType = '', label 
     <div>
       <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">{label}</label>
       <CustomSelect value={value} onChange={onChange}
-        options={filtered.map(n => ({ value: n.key, label: n.label, group: n.group }))} />
+        options={filtered.map(n => ({ value: n.key, label: n.label, group: n.group }))}
+        size={size} />
       {value && value !== 'none' && (
         <p className="text-xs text-muted mt-1">
           Industry-specific context will be injected into every prompt for this job.
