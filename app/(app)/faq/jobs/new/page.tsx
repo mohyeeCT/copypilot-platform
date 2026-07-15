@@ -152,6 +152,8 @@ export default function NewFaqJobPage() {
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
   const [scrapePages, setScrapePages] = useState(true)
+  const [firecrawlFallback, setFirecrawlFallback] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [batchSize, setBatchSize] = useState(1)
   const [forbiddenPhrases, setForbiddenPhrases] = useState('')
   const [brandedTermsInput, setBrandedTermsInput] = useState('')
@@ -186,6 +188,7 @@ export default function NewFaqJobPage() {
         if (metadata?.dfs_login) setDfsLogin(metadata.dfs_login)
         if (metadata?.site_url) setSiteUrl(metadata.site_url)
         if (metadata?.brand_name) setBrandName(metadata.brand_name)
+        setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
         if (Array.isArray(savedTemplates)) setTemplates(savedTemplates)
         if (Array.isArray(profiles)) setBrandProfiles(profiles)
       } catch (loadError) {
@@ -238,6 +241,9 @@ export default function NewFaqJobPage() {
     if (settings.batch_size !== undefined) setBatchSize(clampIntegerSetting(settings.batch_size, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1))
     if (typeof settings.use_gsc === 'boolean') setUseGsc(settings.use_gsc)
     if (typeof settings.scrape_pages === 'boolean') setScrapePages(settings.scrape_pages)
+    if (typeof settings.firecrawl_fallback === 'boolean') {
+      setFirecrawlFallback(settings.firecrawl_fallback && firecrawlKeyConfigured)
+    }
     if (typeof settings.site_url === 'string') setSiteUrl(settings.site_url)
   }
 
@@ -268,6 +274,7 @@ export default function NewFaqJobPage() {
         batch_size: effectiveBatchSize,
         use_gsc: useGsc,
         scrape_pages: scrapePages,
+        firecrawl_fallback: scrapePages && firecrawlFallback && firecrawlKeyConfigured,
         site_url: siteUrl,
       }, 'faq')
       if (template?.id) setTemplates(current => [template, ...current])
@@ -320,6 +327,7 @@ export default function NewFaqJobPage() {
           location_code: locationCode,
           min_volume: minVolume,
           scrape_pages: scrapePages,
+          firecrawl_fallback: scrapePages && firecrawlFallback && firecrawlKeyConfigured,
           use_gsc: useGsc,
           restricted_industry: restrictedIndustry,
           site_url: siteUrl,
@@ -368,6 +376,7 @@ export default function NewFaqJobPage() {
                   label: 'Context',
                   value: <JobSummaryPills items={[
                     { label: scrapePages ? 'Page context' : 'No page context', tone: scrapePages ? 'success' : 'muted' },
+                    ...(scrapePages && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                     ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : []),
                   ]} />,
                 },
@@ -552,7 +561,14 @@ export default function NewFaqJobPage() {
 
                 {settingsTab === 'data' && (
                   <div className={styles.settingsBody}>
-                    <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Scrape pages for context</strong><small>Read current page content before generation.</small></span><Switch ariaLabel="Scrape pages for context" checked={scrapePages} onChange={setScrapePages} /></div>
+                    <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Scrape pages for context</strong><small>Read current page content before generation.</small></span><Switch ariaLabel="Scrape pages for context" checked={scrapePages} onChange={checked => { setScrapePages(checked); if (!checked) setFirecrawlFallback(false) }} /></div>
+                    <div className={styles.toggleRow}>
+                      <span className={styles.toggleCopy}>
+                        <strong>Allow Firecrawl fallback</strong>
+                        <small>{firecrawlKeyConfigured ? 'Use advanced extraction only when Jina fails.' : <>Add a Firecrawl key in <Link href="/settings" className="text-accent">Settings</Link> to enable.</>}</small>
+                      </span>
+                      <Switch ariaLabel="Allow Firecrawl fallback" checked={firecrawlFallback} onChange={setFirecrawlFallback} disabled={!scrapePages || !firecrawlKeyConfigured} />
+                    </div>
                     <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Use Search Console</strong><small>Add query and engagement context.</small></span><Switch ariaLabel="Use Google Search Console" checked={useGsc} onChange={setUseGsc} /></div>
                     {useGsc && <label className={styles.settingsField}><span>GSC property URL</span><input className="input-base" value={siteUrl} onChange={event => setSiteUrl(event.target.value)} placeholder="https://example.com/" /></label>}
                     <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Load AI Overview context</strong><small>Include asynchronously loaded Google AI Overview data.</small></span><Switch ariaLabel="Load AI Overview context" checked={loadAsyncAiOverview} onChange={setLoadAsyncAiOverview} /></div>

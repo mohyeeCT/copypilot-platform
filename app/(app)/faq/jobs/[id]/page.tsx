@@ -28,6 +28,7 @@ import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { faqApi } from '@/lib/api/faq'
+import { getProviderMetadata } from '@/lib/api/shared'
 import { buildFaqExportRows } from '@/lib/faq-export'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import { createClient } from '@/lib/supabase'
@@ -144,6 +145,9 @@ export default function FaqJobPage() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [rerunningMulti, setRerunningMulti] = useState(false)
   const [rerunning, setRerunning] = useState<number | null>(null)
+  const [rerunMethod, setRerunMethod] = useState<'default' | 'firecrawl' | null>(null)
+  const [rerunError, setRerunError] = useState('')
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
   const [activeIndex, setActiveIndex] = useState(0)
   const [resultQuery, setResultQuery] = useState('')
@@ -159,7 +163,7 @@ export default function FaqJobPage() {
   const detailBodyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false) }
+    const resetRateLimitedAction = () => { setRerunning(null); setRerunningMulti(false); setRerunMethod(null) }
     window.addEventListener('api-rate-limit', resetRateLimitedAction)
     return () => window.removeEventListener('api-rate-limit', resetRateLimitedAction)
   }, [])
@@ -180,6 +184,21 @@ export default function FaqJobPage() {
   }, [id, router])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    async function loadFirecrawlStatus() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      try {
+        const metadata = await getProviderMetadata(session.access_token)
+        setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
+      } catch (metadataError) {
+        console.error('Failed to load Firecrawl status:', metadataError)
+      }
+    }
+    void loadFirecrawlStatus()
+  }, [])
 
   useEffect(() => {
     if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
@@ -287,34 +306,41 @@ export default function FaqJobPage() {
     }
   }
 
-  async function startRowRerun(index: number, keywordOverride?: string) {
+  async function startRowRerun(index: number, keywordOverride?: string, scraperOverride?: 'firecrawl') {
     if (!job || rerunning !== null) return
     setRerunning(index)
+    setRerunMethod(scraperOverride || 'default')
+    setRerunError('')
     try {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setRerunning(null)
+        setRerunMethod(null)
         return
       }
-      await faqApi.rerunRow(session.access_token, job.id, index, keywordOverride)
+      await faqApi.rerunRow(session.access_token, job.id, index, keywordOverride, scraperOverride)
       const poll = window.setInterval(async () => {
         try {
           const updated = await faqApi.getJob(session.access_token, job.id)
           if (updated.status !== 'running') {
             window.clearInterval(poll)
             setRerunning(null)
+            setRerunMethod(null)
             markUpdated([index], updated.results || [])
             setJob(updated)
           }
         } catch (pollError) {
           window.clearInterval(poll)
           setRerunning(null)
+          setRerunMethod(null)
           console.error('FAQ rerun polling failed:', pollError)
         }
       }, 2000)
     } catch (rerunError) {
       setRerunning(null)
+      setRerunMethod(null)
+      setRerunError(rerunError instanceof Error ? rerunError.message : 'Could not start the row rerun.')
       console.error('FAQ rerun request failed:', rerunError)
     }
   }
@@ -353,6 +379,7 @@ export default function FaqJobPage() {
   const selectedResult = results[selectedIndex]
   const selectedState = selectedResult ? resultState(selectedResult) : 'ready'
   const selectedFaqs = selectedResult?.faqs || []
+  const selectedScrapeFailed = selectedResult?.scrape_status?.toLowerCase().startsWith('failed:') ?? false
   const readyCount = results.filter(row => resultState(row) === 'ready').length
   const reviewCount = results.filter(row => resultState(row) === 'review').length
   const errorCount = results.filter(row => resultState(row) === 'error').length
@@ -404,6 +431,7 @@ export default function FaqJobPage() {
         )}
 
         {job.error && <div className={styles.errorNotice}>{gscErrorMessage(job.error)}</div>}
+        {rerunError && <div className={styles.errorNotice}>{rerunError}</div>}
 
         {results.length > 0 && (
           <>
@@ -723,8 +751,14 @@ export default function FaqJobPage() {
                     <span>Row {selectedIndex + 1} of {results.length}</span>
                     <div>
                       <button type="button" className="btn-ghost text-xs" onClick={() => { setDetailTab('sources'); setEditingKeyword(selectedIndex) }}><Pencil size={13} /> Edit keyword</button>
+                      {selectedScrapeFailed && firecrawlKeyConfigured && (
+                        <button type="button" className="btn-ghost text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, selectedResult.selected_keyword || selectedResult.keyword, 'firecrawl')}>
+                          <RefreshCw size={13} className={rerunning === selectedIndex && rerunMethod === 'firecrawl' ? 'animate-spin' : ''} /> {rerunning === selectedIndex && rerunMethod === 'firecrawl' ? 'Using Firecrawl...' : 'Rerun with Firecrawl'}
+                        </button>
+                      )}
+                      {selectedScrapeFailed && !firecrawlKeyConfigured && <Link href="/settings" className="btn-ghost text-xs"><Database size={13} /> Add Firecrawl key</Link>}
                       <button type="button" className="btn-primary text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex)}>
-                        <RefreshCw size={13} className={rerunning === selectedIndex ? 'animate-spin' : ''} /> {rerunning === selectedIndex ? 'Rerunning...' : 'Rerun row'}
+                        <RefreshCw size={13} className={rerunning === selectedIndex && rerunMethod === 'default' ? 'animate-spin' : ''} /> {rerunning === selectedIndex && rerunMethod === 'default' ? 'Rerunning...' : 'Rerun row'}
                       </button>
                     </div>
                   </footer>

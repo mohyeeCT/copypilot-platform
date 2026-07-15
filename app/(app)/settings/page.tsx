@@ -45,13 +45,15 @@ export default function SettingsPage() {
   const [credsProvider, setCredsProvider] = useState('')
   const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({})
   const [dfsConfigured, setDfsConfigured] = useState(false)
+  const [jinaKeyConfigured, setJinaKeyConfigured] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [parallelKeyConfigured, setParallelKeyConfigured] = useState(false)
   const [credsSaving, setCredsSaving] = useState(false)
   const [credsDeleting, setCredsDeleting] = useState(false)
   const [credsSaved, setCredsSaved] = useState(false)
   const [credsError, setCredsError] = useState('')
   const [showCredsForm, setShowCredsForm] = useState(false)
-  const [credsForm, setCredsForm] = useState({ provider: 'Claude', api_key: '', dfs_login: '', dfs_password: '', jina_api_key: '', parallel_api_key: '', site_url: '' })
+  const [credsForm, setCredsForm] = useState({ provider: 'Claude', api_key: '', dfs_login: '', dfs_password: '', jina_api_key: '', firecrawl_api_key: '', parallel_api_key: '', site_url: '' })
 
 
 
@@ -124,10 +126,14 @@ export default function SettingsPage() {
           const status = data.provider_settings.api_key_status || {}
           setProviderKeyStatus(status)
           const hasDfsCredentials = Boolean(data.provider_settings.dfs_login && data.provider_settings.has_dfs_password)
+          const hasJinaKey = Boolean(data.provider_settings.has_jina_key)
+          const hasFirecrawlKey = Boolean(data.provider_settings.has_firecrawl_key)
           const hasParallelKey = Boolean(data.provider_settings.has_parallel_key)
           setDfsConfigured(hasDfsCredentials)
+          setJinaKeyConfigured(hasJinaKey)
+          setFirecrawlKeyConfigured(hasFirecrawlKey)
           setParallelKeyConfigured(hasParallelKey)
-          setCredsConfigured(Boolean(data.provider_settings.has_api_key || Object.values(status).some(Boolean) || hasDfsCredentials || hasParallelKey))
+          setCredsConfigured(Boolean(data.provider_settings.has_api_key || Object.values(status).some(Boolean) || hasDfsCredentials || hasJinaKey || hasFirecrawlKey || hasParallelKey))
           setCredsProvider(data.provider_settings.provider || '')
         }
       } catch (e) {
@@ -332,6 +338,8 @@ export default function SettingsPage() {
       setCredsProvider('')
       setProviderKeyStatus({})
       setDfsConfigured(false)
+      setJinaKeyConfigured(false)
+      setFirecrawlKeyConfigured(false)
       setParallelKeyConfigured(false)
       setShowCredsForm(false)
     } catch (e) {
@@ -345,8 +353,10 @@ export default function SettingsPage() {
   async function handleSaveCreds() {
     const selectedProviderHasKey = Boolean(providerKeyStatus[credsForm.provider])
     const isAddingDfsCredentials = Boolean(credsForm.dfs_login.trim() && credsForm.dfs_password)
-    if (!selectedProviderHasKey && !credsForm.api_key.trim() && !credsForm.parallel_api_key.trim() && !dfsConfigured && !isAddingDfsCredentials) {
-      setCredsError('Add an AI, Parallel, or DataForSEO credential')
+    const isAddingJinaKey = Boolean(credsForm.jina_api_key.trim())
+    const isAddingFirecrawlKey = Boolean(credsForm.firecrawl_api_key.trim())
+    if (!selectedProviderHasKey && !credsForm.api_key.trim() && !credsForm.parallel_api_key.trim() && !jinaKeyConfigured && !isAddingJinaKey && !firecrawlKeyConfigured && !isAddingFirecrawlKey && !dfsConfigured && !isAddingDfsCredentials) {
+      setCredsError('Add an AI, scraping, Parallel, or DataForSEO credential')
       return
     }
     const sb = createClient()
@@ -360,13 +370,17 @@ export default function SettingsPage() {
         ? { ...providerKeyStatus, [credsForm.provider]: true }
         : providerKeyStatus
       const hasDfsCredentials = dfsConfigured || isAddingDfsCredentials
+      const hasJinaKey = jinaKeyConfigured || isAddingJinaKey
+      const hasFirecrawlKey = firecrawlKeyConfigured || isAddingFirecrawlKey
       const hasParallelKey = parallelKeyConfigured || Boolean(credsForm.parallel_api_key.trim())
       setProviderKeyStatus(nextStatus)
       setDfsConfigured(hasDfsCredentials)
+      setJinaKeyConfigured(hasJinaKey)
+      setFirecrawlKeyConfigured(hasFirecrawlKey)
       setParallelKeyConfigured(hasParallelKey)
-      setCredsConfigured(Object.values(nextStatus).some(Boolean) || hasDfsCredentials || hasParallelKey)
+      setCredsConfigured(Object.values(nextStatus).some(Boolean) || hasDfsCredentials || hasJinaKey || hasFirecrawlKey || hasParallelKey)
       setCredsProvider(credsForm.provider)
-      setCredsForm(f => ({ ...f, api_key: '', dfs_password: '', jina_api_key: '', parallel_api_key: '' }))
+      setCredsForm(f => ({ ...f, api_key: '', dfs_password: '', jina_api_key: '', firecrawl_api_key: '', parallel_api_key: '' }))
       setShowCredsForm(false)
       setCredsSaved(true)
       setTimeout(() => setCredsSaved(false), 2000)
@@ -382,6 +396,8 @@ export default function SettingsPage() {
         ? `${credsProvider} API key`
         : '',
     parallelKeyConfigured ? 'Parallel API key' : '',
+    jinaKeyConfigured ? 'Jina API key' : '',
+    firecrawlKeyConfigured ? 'Firecrawl API key' : '',
     dfsConfigured ? 'DataForSEO' : '',
   ].filter(Boolean).join(' + ')
 
@@ -399,7 +415,7 @@ export default function SettingsPage() {
               summaryItems={[
                 {
                   label: 'AI keys',
-                  value: savedAiProviders.length || (credsConfigured && !parallelKeyConfigured && !dfsConfigured ? 1 : 0),
+                  value: savedAiProviders.length || (credsConfigured && !parallelKeyConfigured && !dfsConfigured && !jinaKeyConfigured && !firecrawlKeyConfigured ? 1 : 0),
                 },
                 {
                   label: 'Parallel',
@@ -423,6 +439,8 @@ export default function SettingsPage() {
               items={[
                 { label: credsConfigured ? 'Credentials saved' : 'Credentials needed', tone: credsConfigured ? 'success' : 'muted' },
                 { label: dfsConfigured ? 'DataForSEO ready' : 'DataForSEO not configured', tone: dfsConfigured ? 'success' : 'neutral' },
+                { label: jinaKeyConfigured ? 'Jina ready' : 'Jina not configured', tone: jinaKeyConfigured ? 'success' : 'neutral' },
+                { label: firecrawlKeyConfigured ? 'Firecrawl ready' : 'Firecrawl optional', tone: firecrawlKeyConfigured ? 'success' : 'neutral' },
                 { label: parallelKeyConfigured ? 'Parallel ready' : 'Parallel not configured', tone: parallelKeyConfigured ? 'success' : 'neutral' },
                 { label: gscSettings?.google_oauth.configured ? 'Google connected' : 'Google not connected', tone: gscSettings?.google_oauth.configured ? 'success' : 'muted' },
                 { label: gscSettings?.service_account.configured ? 'Service account ready' : 'Service account optional', tone: gscSettings?.service_account.configured ? 'success' : 'neutral' },
@@ -641,8 +659,10 @@ export default function SettingsPage() {
                       if (creds) {
                         setProviderKeyStatus(creds.api_key_status || {})
                         setDfsConfigured(Boolean(creds.dfs_login && creds.has_dfs_password))
+                        setJinaKeyConfigured(Boolean(creds.has_jina_key))
+                        setFirecrawlKeyConfigured(Boolean(creds.has_firecrawl_key))
                         setParallelKeyConfigured(Boolean(creds.has_parallel_key))
-                        setCredsForm({ provider: creds.provider || 'Claude', api_key: '', dfs_login: creds.dfs_login || '', dfs_password: '', jina_api_key: '', parallel_api_key: '', site_url: creds.site_url || '' })
+                        setCredsForm({ provider: creds.provider || 'Claude', api_key: '', dfs_login: creds.dfs_login || '', dfs_password: '', jina_api_key: '', firecrawl_api_key: '', parallel_api_key: '', site_url: creds.site_url || '' })
                       }
                     } catch (e) {
                       console.error('Failed to pre-fill credentials form:', e)
@@ -687,7 +707,12 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Jina API Key <span className="text-muted/50">(optional)</span></label>
-                <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={credsConfigured ? 'Leave blank to keep saved key' : ''} />
+                <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={jinaKeyConfigured ? 'Leave blank to keep saved Jina key' : 'Add your Jina API key'} />
+              </div>
+              <div>
+                <label className="text-xs text-muted block mb-1">Firecrawl API Key <span className="text-muted/50">(FAQ fallback)</span></label>
+                <input type="password" value={credsForm.firecrawl_api_key} onChange={e => setCredsForm(f => ({ ...f, firecrawl_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={firecrawlKeyConfigured ? 'Leave blank to keep saved Firecrawl key' : 'Add your Firecrawl API key'} />
+                <p className="text-xs text-muted/70 mt-1">Optional advanced page scraping when Jina cannot extract the page.</p>
               </div>
               <div>
                 <label className="text-xs text-muted block mb-1">Parallel API Key <span className="text-muted/50">(GEOPilot)</span></label>
