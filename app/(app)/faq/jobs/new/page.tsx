@@ -49,6 +49,7 @@ export const dynamic = 'force-dynamic'
 
 type Row = { url: string; keyword: string; page_type: string; h1: string }
 type SettingsTab = 'generation' | 'brand' | 'data'
+type ScrapeProvider = 'jina' | 'firecrawl'
 type Template = { id: string; name: string; settings: Record<string, unknown> }
 type BrandProfile = { id: string; name: string; data: Record<string, string> }
 
@@ -59,6 +60,10 @@ const FAQS_PER_PAGE_MIN = 1
 const FAQS_PER_PAGE_MAX = 7
 const PROCESSING_CHUNK_SIZE_MIN = 1
 const PROCESSING_CHUNK_SIZE_MAX = 5
+const SCRAPE_PROVIDERS: { value: ScrapeProvider; label: string }[] = [
+  { value: 'jina', label: 'Jina' },
+  { value: 'firecrawl', label: 'Firecrawl' },
+]
 
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   Claude: [
@@ -152,6 +157,7 @@ export default function NewFaqJobPage() {
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
   const [scrapePages, setScrapePages] = useState(true)
+  const [scrapeProvider, setScrapeProvider] = useState<ScrapeProvider>('jina')
   const [firecrawlFallback, setFirecrawlFallback] = useState(false)
   const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [batchSize, setBatchSize] = useState(1)
@@ -241,6 +247,7 @@ export default function NewFaqJobPage() {
     if (settings.batch_size !== undefined) setBatchSize(clampIntegerSetting(settings.batch_size, PROCESSING_CHUNK_SIZE_MIN, PROCESSING_CHUNK_SIZE_MAX, 1))
     if (typeof settings.use_gsc === 'boolean') setUseGsc(settings.use_gsc)
     if (typeof settings.scrape_pages === 'boolean') setScrapePages(settings.scrape_pages)
+    setScrapeProvider(settings.scrape_provider === 'firecrawl' ? 'firecrawl' : 'jina')
     if (typeof settings.firecrawl_fallback === 'boolean') {
       setFirecrawlFallback(settings.firecrawl_fallback && firecrawlKeyConfigured)
     }
@@ -274,7 +281,8 @@ export default function NewFaqJobPage() {
         batch_size: effectiveBatchSize,
         use_gsc: useGsc,
         scrape_pages: scrapePages,
-        firecrawl_fallback: scrapePages && firecrawlFallback && firecrawlKeyConfigured,
+        scrape_provider: scrapeProvider,
+        firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
         site_url: siteUrl,
       }, 'faq')
       if (template?.id) setTemplates(current => [template, ...current])
@@ -298,6 +306,11 @@ export default function NewFaqJobPage() {
     }
     if (useGsc && !siteUrl.trim()) {
       setError('GSC is enabled but no site URL is provided. Enter the site URL or disable GSC.')
+      setSettingsTab('data')
+      return
+    }
+    if (scrapePages && scrapeProvider === 'firecrawl' && !firecrawlKeyConfigured) {
+      setError('Add a Firecrawl API key in Settings before using Firecrawl as the primary scraper.')
       setSettingsTab('data')
       return
     }
@@ -327,7 +340,8 @@ export default function NewFaqJobPage() {
           location_code: locationCode,
           min_volume: minVolume,
           scrape_pages: scrapePages,
-          firecrawl_fallback: scrapePages && firecrawlFallback && firecrawlKeyConfigured,
+          scrape_provider: scrapeProvider,
+          firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
           use_gsc: useGsc,
           restricted_industry: restrictedIndustry,
           site_url: siteUrl,
@@ -375,8 +389,8 @@ export default function NewFaqJobPage() {
                 {
                   label: 'Context',
                   value: <JobSummaryPills items={[
-                    { label: scrapePages ? 'Page context' : 'No page context', tone: scrapePages ? 'success' : 'muted' },
-                    ...(scrapePages && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
+                    { label: scrapePages ? (scrapeProvider === 'firecrawl' ? 'Firecrawl' : 'Jina') : 'No page context', tone: scrapePages ? 'success' : 'muted' },
+                    ...(scrapePages && scrapeProvider === 'jina' && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                     ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : []),
                   ]} />,
                 },
@@ -562,13 +576,26 @@ export default function NewFaqJobPage() {
                 {settingsTab === 'data' && (
                   <div className={styles.settingsBody}>
                     <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Scrape pages for context</strong><small>Read current page content before generation.</small></span><Switch ariaLabel="Scrape pages for context" checked={scrapePages} onChange={checked => { setScrapePages(checked); if (!checked) setFirecrawlFallback(false) }} /></div>
-                    <div className={styles.toggleRow}>
-                      <span className={styles.toggleCopy}>
-                        <strong>Allow Firecrawl fallback</strong>
-                        <small>{firecrawlKeyConfigured ? 'Use advanced extraction only when Jina fails.' : <>Add a Firecrawl key in <Link href="/settings" className="text-accent">Settings</Link> to enable.</>}</small>
-                      </span>
-                      <Switch ariaLabel="Allow Firecrawl fallback" checked={firecrawlFallback} onChange={setFirecrawlFallback} disabled={!scrapePages || !firecrawlKeyConfigured} />
-                    </div>
+                    {scrapePages && (
+                      <div className={styles.settingsField}>
+                        <span>Primary scraper</span>
+                        <SegmentedControl value={scrapeProvider} onChange={setScrapeProvider} options={SCRAPE_PROVIDERS} ariaLabel="Primary page scraper" />
+                        <small className="text-xs text-muted">
+                          {scrapeProvider === 'firecrawl'
+                            ? (firecrawlKeyConfigured ? 'Use Firecrawl immediately for every URL in this job.' : <>Add a Firecrawl key in <Link href="/settings" className="text-accent">Settings</Link> before running.</>)
+                            : 'Use Jina first for every URL in this job.'}
+                        </small>
+                      </div>
+                    )}
+                    {scrapePages && scrapeProvider === 'jina' && (
+                      <div className={styles.toggleRow}>
+                        <span className={styles.toggleCopy}>
+                          <strong>Allow Firecrawl fallback</strong>
+                          <small>{firecrawlKeyConfigured ? 'Use Firecrawl only when Jina fails.' : <>Add a Firecrawl key in <Link href="/settings" className="text-accent">Settings</Link> to enable.</>}</small>
+                        </span>
+                        <Switch ariaLabel="Allow Firecrawl fallback" checked={firecrawlFallback} onChange={setFirecrawlFallback} disabled={!firecrawlKeyConfigured} />
+                      </div>
+                    )}
                     <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Use Search Console</strong><small>Add query and engagement context.</small></span><Switch ariaLabel="Use Google Search Console" checked={useGsc} onChange={setUseGsc} /></div>
                     {useGsc && <label className={styles.settingsField}><span>GSC property URL</span><input className="input-base" value={siteUrl} onChange={event => setSiteUrl(event.target.value)} placeholder="https://example.com/" /></label>}
                     <div className={styles.toggleRow}><span className={styles.toggleCopy}><strong>Load AI Overview context</strong><small>Include asynchronously loaded Google AI Overview data.</small></span><Switch ariaLabel="Load AI Overview context" checked={loadAsyncAiOverview} onChange={setLoadAsyncAiOverview} /></div>

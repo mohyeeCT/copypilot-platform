@@ -74,6 +74,7 @@ type Job = {
   current_step?: string
   logs?: { ts: string; msg: string }[]
   results?: RowResult[]
+  settings?: { scrape_provider?: 'jina' | 'firecrawl' }
   created_at?: string
   error?: string | null
 }
@@ -380,6 +381,7 @@ export default function FaqJobPage() {
   const selectedState = selectedResult ? resultState(selectedResult) : 'ready'
   const selectedFaqs = selectedResult?.faqs || []
   const selectedScrapeFailed = selectedResult?.scrape_status?.toLowerCase().startsWith('failed:') ?? false
+  const jobStartedWithFirecrawl = job?.settings?.scrape_provider === 'firecrawl'
   const readyCount = results.filter(row => resultState(row) === 'ready').length
   const reviewCount = results.filter(row => resultState(row) === 'review').length
   const errorCount = results.filter(row => resultState(row) === 'error').length
@@ -751,7 +753,7 @@ export default function FaqJobPage() {
                     <span>Row {selectedIndex + 1} of {results.length}</span>
                     <div>
                       <button type="button" className="btn-ghost text-xs" onClick={() => { setDetailTab('sources'); setEditingKeyword(selectedIndex) }}><Pencil size={13} /> Edit keyword</button>
-                      {selectedScrapeFailed && firecrawlKeyConfigured && (
+                      {selectedScrapeFailed && !jobStartedWithFirecrawl && firecrawlKeyConfigured && (
                         <button type="button" className="btn-ghost text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, selectedResult.selected_keyword || selectedResult.keyword, 'firecrawl')}>
                           <RefreshCw size={13} className={rerunning === selectedIndex && rerunMethod === 'firecrawl' ? 'animate-spin' : ''} /> {rerunning === selectedIndex && rerunMethod === 'firecrawl' ? 'Using Firecrawl...' : 'Rerun with Firecrawl'}
                         </button>
