@@ -87,6 +87,10 @@
   top: 0;
 }
 
+.aioSettingsRail {
+  position: static;
+}
+
 .jobNameRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

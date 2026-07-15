@@ -63,8 +63,12 @@ interface PageCopyResult {
     provider?: string
     model?: string
     input_signal_counts?: {
+      serp_organic?: number
       paa_questions?: number
       ai_overview_sections?: number
+      competitor_candidates?: number
+      competitor_scrape_successes?: number
+      competitor_rejected?: number
       competitors_scraped?: number
       scraped_page_chars?: number
     }
@@ -732,7 +736,7 @@ export default function AllInOneJobPage() {
                       <div className={aioStyles.diagnosticsGrid}>
                         <div className={aioStyles.diagnostic}><span>Owned page</span><strong>{selectedResult.run_diagnostics?.scrape?.page_context_success ? 'Available' : 'Unavailable'}</strong><small>{selectedResult.run_diagnostics?.input_signal_counts?.scraped_page_chars || 0} characters</small></div>
                         <div className={aioStyles.diagnostic}><span>Search context</span><strong>{selectedResult.run_diagnostics?.input_signal_counts?.paa_questions || 0} PAA</strong><small>{selectedResult.run_diagnostics?.input_signal_counts?.ai_overview_sections || 0} AI Overview sections</small></div>
-                        <div className={aioStyles.diagnostic}><span>Competitors</span><strong>{selectedResult.run_diagnostics?.input_signal_counts?.competitors_scraped || 0}</strong><small>Pages successfully scraped</small></div>
+                        <div className={aioStyles.diagnostic}><span>Competitors</span><strong>{selectedResult.run_diagnostics?.input_signal_counts?.competitors_scraped || 0} retained</strong><small>{selectedResult.run_diagnostics?.input_signal_counts?.serp_organic || 0} organic results, {selectedResult.run_diagnostics?.input_signal_counts?.competitor_scrape_successes || 0} pages fetched</small></div>
                       </div>
                     </div>
                   )}

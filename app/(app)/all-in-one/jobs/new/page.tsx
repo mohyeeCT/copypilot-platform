@@ -79,6 +79,15 @@ function createAioRowImportSchema(defaultPageType: string) {
 
 interface Row { url: string; keyword: string; page_type: string; h1: string; gen_page_copy: boolean; gen_meta: boolean; gen_faqs: boolean }
 
+type BrandProfile = {
+  id: string
+  name: string
+  data?: {
+    brand_name?: string
+    full_brand_name?: string
+  }
+}
+
 export default function NewAIOJob() {
   const router = useRouter()
 
@@ -120,7 +129,7 @@ export default function NewAIOJob() {
   const [inputMode, setInputMode]     = useState<'manual' | 'csv'>('manual')
 
   const [templates, setTemplates]     = useState<Record<string, {key: string; name: string}[]>>({})
-  const [brandProfiles, setBrandProfiles] = useState<{id: string; name: string}[]>([])
+  const [brandProfiles, setBrandProfiles] = useState<BrandProfile[]>([])
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [running, setRunning]         = useState(false)
   const [error, setError]             = useState('')
@@ -201,6 +210,18 @@ export default function NewAIOJob() {
   function handleProviderChange(value: string) {
     setProvider(value)
     setModel(PROVIDER_MODELS[value]?.[0]?.value || '')
+  }
+
+  function applyBrandProfile(value: string) {
+    setBrandProfileId(value)
+    const profile = brandProfiles.find(item => item.id === value)
+    if (!profile) return
+
+    const profileBrandName = profile.data?.brand_name?.trim() || profile.name.trim()
+    if (profileBrandName) setBrandName(profileBrandName)
+
+    const profileFullBrandName = profile.data?.full_brand_name?.trim()
+    if (profileFullBrandName) setFullBrand(profileFullBrandName)
   }
 
   function parseCsv() {
@@ -514,7 +535,7 @@ export default function NewAIOJob() {
           </JobSection>
             </div>
 
-            <div className={`col-span-2 space-y-4 ${styles.settingsRail}`}>
+            <div className={`col-span-2 space-y-4 ${styles.settingsRail} ${styles.aioSettingsRail}`}>
 
           <JobSection title="Run readiness" description="Input coverage before research and generation begin." className="space-y-2">
             {readinessItems.map(item => (
@@ -559,7 +580,7 @@ export default function NewAIOJob() {
               </div>
               <div>
                 <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Profile</label>
-                <CustomSelect value={brandProfileId} onChange={setBrandProfileId}
+                <CustomSelect value={brandProfileId} onChange={applyBrandProfile}
                   options={[
                     { value: '', label: 'No brand profile' },
                     ...brandProfiles.map(bp => ({ value: bp.id, label: bp.name })),
