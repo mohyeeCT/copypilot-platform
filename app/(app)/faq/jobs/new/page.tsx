@@ -73,7 +73,8 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },
   ],
   'Gemini (free)': [
-    { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+    { label: 'Gemini 3.5 Flash (default)', value: 'gemini-3.5-flash' },
+    { label: 'Gemini 3.1 Flash-Lite', value: 'gemini-3.1-flash-lite' },
   ],
   'Mistral (free tier)': [
     { label: 'Mistral Small (default)', value: 'mistral-small-latest' },
@@ -84,6 +85,12 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'Llama 3.1 8B', value: 'llama-3.1-8b-instant' },
     { label: 'Llama 3.3 70B', value: 'llama-3.3-70b-versatile' },
   ],
+}
+
+function resolveProviderModel(provider: string, requestedModel?: string) {
+  const options = PROVIDER_MODELS[provider] || []
+  if (requestedModel && options.some(option => option.value === requestedModel)) return requestedModel
+  return options[0]?.value || ''
 }
 
 const emptyRow = (): Row => ({ url: '', keyword: '', page_type: 'general', h1: '' })
@@ -158,7 +165,7 @@ export default function NewFaqJobPage() {
 
   function handleProviderChange(nextProvider: string) {
     setProvider(nextProvider)
-    setModel(PROVIDER_MODELS[nextProvider]?.[0]?.value || '')
+    setModel(resolveProviderModel(nextProvider))
   }
 
   useEffect(() => {
@@ -216,7 +223,10 @@ export default function NewFaqJobPage() {
   function applyTemplate(settings: Record<string, unknown>) {
     if (typeof settings.provider === 'string' && PROVIDER_MODELS[settings.provider]) {
       setProvider(settings.provider)
-      setModel(typeof settings.model === 'string' ? settings.model : PROVIDER_MODELS[settings.provider][0].value)
+      setModel(resolveProviderModel(
+        settings.provider,
+        typeof settings.model === 'string' ? settings.model : undefined,
+      ))
     }
     if (typeof settings.business_type === 'string') setBusinessType(settings.business_type)
     if (typeof settings.brand_name === 'string') setBrandName(settings.brand_name)
