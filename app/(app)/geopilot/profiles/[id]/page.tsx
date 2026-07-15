@@ -15,6 +15,7 @@ import {
   CircleDollarSign,
   Download,
   ExternalLink,
+  FileSpreadsheet,
   Link2,
   Pencil,
   Play,
@@ -30,12 +31,14 @@ import {
 import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
 import CustomSelect from '@/components/ui/CustomSelect'
+import ExportMenu from '@/components/ui/ExportMenu'
 import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/RunSurfaceDialog'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { createClient } from '@/lib/supabase'
 import {
   downloadGeoPilotExport,
+  fetchGeoPilotExportBundle,
   geopilotApi,
   type GeoPilotCapabilities,
   type GeoPilotCollectionMethod,
@@ -46,6 +49,12 @@ import {
   type GeoPilotPrimarySurface,
   type GeoPilotPromptPayload,
 } from '@/lib/api/geopilot'
+import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
+import {
+  downloadGeoPilotWorkbook,
+  GEOPILOT_EXPORT_DATASETS,
+  loadGeoPilotExportTables,
+} from '@/lib/geopilot-exports'
 import { formatUsd } from '@/lib/geopilot-costs'
 import {
   availableSurfaceMethods,
@@ -256,16 +265,6 @@ const EMPTY_CITATION_INTELLIGENCE: CitationIntelligence = {
   top_domains: [],
   gaps: [],
 }
-const EXPORT_OPTIONS: Array<{ value: GeoPilotExportDataset; label: string; group: string }> = [
-  { value: 'all', label: 'All data (.zip)', group: 'Complete export' },
-  { value: 'prompt_history', label: 'Prompt-level history', group: 'CSV datasets' },
-  { value: 'trends', label: 'Daily trends', group: 'CSV datasets' },
-  { value: 'method_comparison', label: 'Method comparisons', group: 'CSV datasets' },
-  { value: 'citations', label: 'Citation history', group: 'CSV datasets' },
-  { value: 'citation_gaps', label: 'Verified citation gaps', group: 'CSV datasets' },
-  { value: 'costs', label: 'Provider costs', group: 'CSV datasets' },
-]
-
 const COLLECTION_SCHEDULE_OPTIONS = [
   { value: 'daily', label: 'Daily' },
   { value: 'manual', label: 'Manual only' },
@@ -1262,6 +1261,48 @@ export default function GeoPilotProfilePage() {
     }
   }
 
+  async function prepareExportTables() {
+    if (!accessToken) return []
+    const bundle = await fetchGeoPilotExportBundle(accessToken, id, days)
+    return loadGeoPilotExportTables(async dataset => bundle[dataset] || '')
+  }
+
+  async function exportXlsx() {
+    if (!accessToken || !profile) return
+    setAction('export-xlsx')
+    setError('')
+    try {
+      const safeName = profile.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'profile'
+      const tables = await prepareExportTables()
+      await downloadGeoPilotWorkbook(tables, `geopilot-${safeName}-all-data-${days}d.xlsx`)
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Failed to export the GEOPilot workbook.')
+    } finally {
+      setAction('')
+    }
+  }
+
+  async function exportGoogleSheets() {
+    if (!accessToken || !profile) return
+    setAction('export-google-sheets')
+    setError('')
+    try {
+      const tables = await prepareExportTables()
+      await exportRowsToGoogleSheets({
+        title: `${profile.name} - GEOPilot (${days} days)`,
+        sheets: tables.map(table => ({
+          name: table.sheetName,
+          headers: table.headers,
+          rows: table.rows,
+        })),
+      })
+    } catch (exportError) {
+      setError(googleSheetsExportError(exportError))
+    } finally {
+      setAction('')
+    }
+  }
+
   async function sendGapToAio(gap: CitationGap) {
     if (!accessToken || !gap.run_id) return
     const actionKey = `aio-${gap.run_id}`
@@ -1624,17 +1665,34 @@ export default function GeoPilotProfilePage() {
               <RefreshCw size={15} className={loading ? styles.spinning : undefined} /> Refresh
             </button>
             {accessToken && profile ? (
-              <div className={styles.exportControl}>
-                <Download size={15} aria-hidden="true" />
-                <CustomSelect
-                  ariaLabel="Export GEOPilot data"
-                  value=""
-                  onChange={value => void exportData(value as GeoPilotExportDataset)}
-                  options={EXPORT_OPTIONS}
-                  placeholder={action.startsWith('export-') ? 'Preparing export' : 'Export data'}
-                  disabled={action.startsWith('export-')}
-                />
-              </div>
+              <ExportMenu
+                downloadActions={[
+                  {
+                    label: action === 'export-xlsx' ? 'Preparing workbook...' : 'Excel workbook (.xlsx)',
+                    description: 'All report datasets in separate tabs',
+                    icon: <FileSpreadsheet size={15} />,
+                    onClick: exportXlsx,
+                    disabled: action.startsWith('export-'),
+                  },
+                  {
+                    label: 'All data (.zip)',
+                    description: 'Complete package of the six CSV datasets',
+                    icon: <Download size={15} />,
+                    onClick: () => exportData('all'),
+                    disabled: action.startsWith('export-'),
+                  },
+                  ...GEOPILOT_EXPORT_DATASETS.map(dataset => ({
+                    label: `${dataset.label} (.csv)`,
+                    description: dataset.description,
+                    icon: <Download size={15} />,
+                    onClick: () => exportData(dataset.value),
+                    disabled: action.startsWith('export-'),
+                  })),
+                ]}
+                onGoogleSheets={exportGoogleSheets}
+                sheetsLabel="Google Sheets workbook"
+                sheetsLoading={action === 'export-google-sheets'}
+              />
             ) : null}
             {profile ? (
               <Link className={styles.secondaryButton} href={`/geopilot/profiles/${id}/edit`}>

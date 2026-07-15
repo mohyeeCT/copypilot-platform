@@ -24,6 +24,7 @@ type ExportMenuProps = {
   onDocx?: () => void
   onGoogleSheets?: () => void | Promise<void>
   onGoogleDocs?: () => void | Promise<void>
+  downloadActions?: ExportMenuAction[]
   className?: string
 }
 
@@ -63,6 +64,7 @@ export default function ExportMenu({
   onDocx,
   onGoogleSheets,
   onGoogleDocs,
+  downloadActions: customDownloadActions = [],
   className = '',
 }: ExportMenuProps) {
   const [open, setOpen] = useState(false)
@@ -109,6 +111,7 @@ export default function ExportMenu({
       onClick: onXlsx,
     })
   }
+  downloadActions.push(...customDownloadActions)
   const sendActions: ExportMenuAction[] = []
   if (onGoogleSheets) {
     sendActions.push({
@@ -145,7 +148,7 @@ export default function ExportMenu({
       {open && (
         <div
           role="menu"
-          className="cp-menu absolute right-0 top-[calc(100%+8px)] z-50 w-72 py-2"
+          className="cp-menu absolute right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-72 overflow-y-auto py-2"
         >
           {downloadActions.length > 0 && (
             <>

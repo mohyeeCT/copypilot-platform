@@ -115,11 +115,24 @@ export type GscSettings = {
   oauth_available: boolean
 }
 
+export type GoogleSheetExportPayload = {
+  name: string
+  headers: string[]
+  rows: Record<string, unknown>[]
+}
+
 export type GoogleSheetsExportPayload = {
   title: string
   sheet_name?: string
   headers: string[]
   rows: Record<string, unknown>[]
+  sheets?: never
+} | {
+  title: string
+  sheets: GoogleSheetExportPayload[]
+  sheet_name?: never
+  headers?: never
+  rows?: never
 }
 
 export type GoogleSheetsExportResult = {

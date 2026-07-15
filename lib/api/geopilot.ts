@@ -185,6 +185,7 @@ export const geopilotApi = {
     }),
   getAioRecommendation: (token: string, id: string) => f(`/api/geopilot/aio-recommendations/${id}`, token),
   exportUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export.csv?days=${days}`,
+  exportBundleUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export-bundle.json?days=${days}`,
   expandedExportUrl: (profileId: string, days: number, dataset: GeoPilotExportDataset) => dataset === 'all'
     ? `${BASE}/api/geopilot/profiles/${profileId}/export.zip?days=${days}`
     : `${BASE}/api/geopilot/profiles/${profileId}/exports/${dataset}.csv?days=${days}`,
@@ -210,6 +211,21 @@ export async function downloadGeoPilotExport(
   dataset: GeoPilotExportDataset,
   filename: string,
 ) {
+  const response = await fetchGeoPilotExport(token, profileId, days, dataset)
+  const objectUrl = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
+async function fetchGeoPilotExport(
+  token: string,
+  profileId: string,
+  days: number,
+  dataset: GeoPilotExportDataset,
+) {
   const response = await fetch(geopilotApi.expandedExportUrl(profileId, days, dataset), {
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -217,10 +233,24 @@ export async function downloadGeoPilotExport(
     const error = await response.json().catch(() => ({ detail: 'Export failed' }))
     throw new Error(error.detail || 'Export failed')
   }
-  const objectUrl = URL.createObjectURL(await response.blob())
-  const link = document.createElement('a')
-  link.href = objectUrl
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(objectUrl)
+  return response
+}
+
+export async function fetchGeoPilotExportBundle(
+  token: string,
+  profileId: string,
+  days: number,
+): Promise<Record<Exclude<GeoPilotExportDataset, 'all'>, string>> {
+  const response = await fetch(geopilotApi.exportBundleUrl(profileId, days), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Export failed' }))
+    throw new Error(error.detail || 'Export failed')
+  }
+  const payload = await response.json()
+  if (!payload?.datasets || typeof payload.datasets !== 'object') {
+    throw new Error('GEOPilot report data is unavailable.')
+  }
+  return payload.datasets
 }
