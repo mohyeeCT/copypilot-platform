@@ -16,6 +16,7 @@ import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type R
 import { toDisplayOptions } from '@/lib/option-labels'
 import { createClient } from '@/lib/supabase'
 import { aioApi } from '@/lib/api/all-in-one'
+import { geopilotApi } from '@/lib/api/geopilot'
 import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
@@ -123,6 +124,7 @@ export default function NewAIOJob() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [running, setRunning]         = useState(false)
   const [error, setError]             = useState('')
+  const [handoffNotice, setHandoffNotice] = useState('')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   const load = useCallback(async () => {
@@ -130,10 +132,17 @@ export default function NewAIOJob() {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) { router.push('/login'); return }
     try {
-      const [s, bp, tmpl] = await Promise.all([
+      const recommendationId = new URLSearchParams(window.location.search).get('geopilot_recommendation') || ''
+      const recommendationRequest = recommendationId
+        ? geopilotApi.getAioRecommendation(session.access_token, recommendationId)
+            .then(data => ({ data, error: '' }))
+            .catch(loadError => ({ data: null, error: loadError instanceof Error ? loadError.message : 'Recommendation unavailable' }))
+        : Promise.resolve({ data: null, error: '' })
+      const [s, bp, tmpl, recommendationResult] = await Promise.all([
         getSettings(session.access_token),
         listBrandProfiles(session.access_token),
         aioApi.getTemplates(session.access_token),
+        recommendationRequest,
       ])
       if (s) {
         const savedProvider = s.provider || 'Claude'
@@ -153,6 +162,21 @@ export default function NewAIOJob() {
       }
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
+      const draft = recommendationResult.data?.recommendation?.draft
+      if (draft) {
+        const recommendedPageType = PAGE_TYPES.includes(draft.page_type) ? draft.page_type : 'blog'
+        setJobName(String(draft.job_name || 'GEOPilot content opportunity'))
+        setBrandName(String(draft.brand_name || ''))
+        setClientBrief(String(draft.client_brief || ''))
+        setPageType(recommendedPageType)
+        setRows(current => current.map(row => ({ ...row, page_type: recommendedPageType })))
+        if (draft.brand_profile_id && Array.isArray(bp) && bp.some(item => item.id === draft.brand_profile_id)) {
+          setBrandProfileId(draft.brand_profile_id)
+        }
+        setHandoffNotice('GEOPilot prepared this draft from a verified competitor-citation gap. Confirm the destination URL and keyword before running it.')
+      } else if (recommendationResult.error) {
+        setError(`GEOPilot recommendation could not be loaded: ${recommendationResult.error}`)
+      }
     } catch (e) {
       console.error('Failed to load settings on mount:', e)
     }
@@ -290,6 +314,12 @@ export default function NewAIOJob() {
         <Link href="/all-in-one/jobs" className={styles.backLink}>
           <ArrowLeft size={16} /> Back to All in One jobs
         </Link>
+        {handoffNotice ? (
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-accent/25 bg-accent/5 px-4 py-3 text-sm text-foreground">
+            <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-accent" />
+            <div><strong className="block text-xs">GEOPilot recommendation</strong><span className="text-xs text-muted">{handoffNotice}</span></div>
+          </div>
+        ) : null}
         <JobLauncherShell
           eyebrow="All in One"
           title="New All in One Job"

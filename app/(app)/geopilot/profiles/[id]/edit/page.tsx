@@ -99,7 +99,7 @@ export default function EditGeoPilotProfilePage() {
             <JobSection
               className="mt-6 border-error/30"
               title="Delete profile"
-              description="Permanently remove this client profile and all of its collections, prompts, results, metrics, citations, and insights."
+              description="Permanently remove this client profile and all of its collections, prompts, results, metrics, citations, and insights, including AIO recommendations and profile alerts."
               kicker="Danger zone"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">

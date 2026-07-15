@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
   BarChart3,
@@ -34,12 +35,13 @@ import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { createClient } from '@/lib/supabase'
 import {
-  downloadGeoPilotCsv,
+  downloadGeoPilotExport,
   geopilotApi,
   type GeoPilotCapabilities,
   type GeoPilotCollectionMethod,
   type GeoPilotCollectionPayload,
   type GeoPilotCostSummary,
+  type GeoPilotExportDataset,
   type GeoPilotMeasurementMethods,
   type GeoPilotPrimarySurface,
   type GeoPilotPromptPayload,
@@ -125,6 +127,7 @@ type Citation = {
   title?: string
   excerpt?: string
   classification?: string
+  page_type?: string
   position?: number
 }
 type Run = {
@@ -197,6 +200,44 @@ type Insight = {
   evidence_urls?: string[]
   generated_at?: string
 }
+type CitationGap = {
+  run_id: string
+  prompt?: string
+  surface?: string
+  collection_method?: GeoPilotCollectionMethod
+  observed_at?: string
+  competitors?: string[]
+  citations?: Citation[]
+  recommended_page_type?: string
+}
+type CitationIntelligence = {
+  period_days?: number
+  summary: {
+    total_citations: number
+    owned: number
+    competitor: number
+    third_party: number
+    verified_gaps: number
+  }
+  page_types: Array<{ page_type: string; citation_count: number }>
+  top_domains: Array<{
+    domain: string
+    citation_count: number
+    classification: 'owned' | 'competitor' | 'third_party'
+    page_types: string[]
+  }>
+  gaps: CitationGap[]
+}
+type ProviderAlert = {
+  id: string
+  alert_type: 'parser_drift' | 'model_catalog_change' | 'citation_anomaly'
+  severity: 'info' | 'warning' | 'critical'
+  title: string
+  message: string
+  surface?: string
+  occurrence_count?: number
+  last_seen_at?: string
+}
 
 const ACTIVE_BATCH_STATES = new Set(['queued', 'submitting', 'collecting', 'classifying', 'enriching'])
 const PRIMARY_SURFACES: GeoPilotPrimarySurface[] = ['google_ai_overview', 'chatgpt', 'gemini', 'claude']
@@ -209,6 +250,21 @@ const SURFACES: Record<string, string> = {
 }
 const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
 type ResultOutcome = '' | 'mentioned' | 'not_found' | 'failed'
+const EMPTY_CITATION_INTELLIGENCE: CitationIntelligence = {
+  summary: { total_citations: 0, owned: 0, competitor: 0, third_party: 0, verified_gaps: 0 },
+  page_types: [],
+  top_domains: [],
+  gaps: [],
+}
+const EXPORT_OPTIONS: Array<{ value: GeoPilotExportDataset; label: string; group: string }> = [
+  { value: 'all', label: 'All data (.zip)', group: 'Complete export' },
+  { value: 'prompt_history', label: 'Prompt-level history', group: 'CSV datasets' },
+  { value: 'trends', label: 'Daily trends', group: 'CSV datasets' },
+  { value: 'method_comparison', label: 'Method comparisons', group: 'CSV datasets' },
+  { value: 'citations', label: 'Citation history', group: 'CSV datasets' },
+  { value: 'citation_gaps', label: 'Verified citation gaps', group: 'CSV datasets' },
+  { value: 'costs', label: 'Provider costs', group: 'CSV datasets' },
+]
 
 const COLLECTION_SCHEDULE_OPTIONS = [
   { value: 'daily', label: 'Daily' },
@@ -938,6 +994,8 @@ export default function GeoPilotProfilePage() {
   const [runs, setRuns] = useState<Run[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
+  const [citationIntelligence, setCitationIntelligence] = useState<CitationIntelligence>(EMPTY_CITATION_INTELLIGENCE)
+  const [providerAlerts, setProviderAlerts] = useState<ProviderAlert[]>([])
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview')
   const [days, setDays] = useState(30)
   const [surface, setSurface] = useState('')
@@ -971,7 +1029,17 @@ export default function GeoPilotProfilePage() {
         ? Promise.resolve<GeoPilotCapabilities | null>(null)
         : geopilotApi.capabilities(session.access_token).catch(() => null)
       capabilitiesLoaded.current = true
-      const [profileData, dashboardData, costResult, runsData, insightsData, batchesData, capabilityData] = await Promise.all([
+      const [
+        profileData,
+        dashboardData,
+        costResult,
+        runsData,
+        insightsData,
+        batchesData,
+        citationData,
+        alertsData,
+        capabilityData,
+      ] = await Promise.all([
         geopilotApi.getProfile(session.access_token, id),
         geopilotApi.dashboard(session.access_token, id, days),
         geopilotApi.costs(session.access_token, id, days)
@@ -980,6 +1048,8 @@ export default function GeoPilotProfilePage() {
         geopilotApi.listRuns(session.access_token, id, days),
         geopilotApi.listInsights(session.access_token, id),
         geopilotApi.listBatches(session.access_token, id),
+        geopilotApi.citationIntelligence(session.access_token, id, days).catch(() => EMPTY_CITATION_INTELLIGENCE),
+        geopilotApi.providerAlerts(session.access_token, id, days).catch(() => ({ alerts: [] })),
         capabilityRequest,
       ])
       setProfile(profileData.profile)
@@ -989,6 +1059,8 @@ export default function GeoPilotProfilePage() {
       setRuns(runsData.runs || [])
       setInsights(insightsData.insights || [])
       setBatches(batchesData.batches || [])
+      setCitationIntelligence(citationData)
+      setProviderAlerts(alertsData.alerts || [])
       if (capabilityData) setCapabilities(capabilityData)
       setError('')
     } catch (loadError) {
@@ -1167,6 +1239,44 @@ export default function GeoPilotProfilePage() {
     }
   }
 
+  async function exportData(dataset: GeoPilotExportDataset) {
+    if (!accessToken || !profile) return
+    const actionKey = `export-${dataset}`
+    setAction(actionKey)
+    setError('')
+    try {
+      const safeName = profile.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'profile'
+      const extension = dataset === 'all' ? 'zip' : 'csv'
+      const suffix = dataset === 'all' ? 'all-data' : dataset.replaceAll('_', '-')
+      await downloadGeoPilotExport(
+        accessToken,
+        id,
+        days,
+        dataset,
+        `geopilot-${safeName}-${suffix}-${days}d.${extension}`,
+      )
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Failed to export GEOPilot data.')
+    } finally {
+      setAction('')
+    }
+  }
+
+  async function sendGapToAio(gap: CitationGap) {
+    if (!accessToken || !gap.run_id) return
+    const actionKey = `aio-${gap.run_id}`
+    setAction(actionKey)
+    setError('')
+    try {
+      const data = await geopilotApi.createAioRecommendation(accessToken, id, gap.run_id)
+      router.push(`/all-in-one/jobs/new?geopilot_recommendation=${encodeURIComponent(data.recommendation.id)}`)
+    } catch (handoffError) {
+      setError(handoffError instanceof Error ? handoffError.message : 'Failed to create the AIO recommendation.')
+    } finally {
+      setAction('')
+    }
+  }
+
   function updateEditingCollectionSchedule(schedule: 'manual' | 'daily') {
     setEditingCollection(current => {
       if (!current) return current
@@ -1272,6 +1382,14 @@ export default function GeoPilotProfilePage() {
     })
     return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [displayLoadedRuns])
+  const intelligenceDomains = citationIntelligence.top_domains.length
+    ? citationIntelligence.top_domains.slice(0, 6)
+    : citationDomains.slice(0, 6).map(([domain, count]) => ({
+        domain,
+        citation_count: count,
+        classification: 'third_party' as const,
+        page_types: [] as string[],
+      }))
   const analysisSurface = PRIMARY_SURFACES.includes(surface as GeoPilotPrimarySurface)
     ? surface as GeoPilotPrimarySurface
     : undefined
@@ -1506,13 +1624,17 @@ export default function GeoPilotProfilePage() {
               <RefreshCw size={15} className={loading ? styles.spinning : undefined} /> Refresh
             </button>
             {accessToken && profile ? (
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => void downloadGeoPilotCsv(accessToken, id, days, `geopilot-${profile.name}-${days}d.csv`)}
-              >
-                <Download size={15} /> Export CSV
-              </button>
+              <div className={styles.exportControl}>
+                <Download size={15} aria-hidden="true" />
+                <CustomSelect
+                  ariaLabel="Export GEOPilot data"
+                  value=""
+                  onChange={value => void exportData(value as GeoPilotExportDataset)}
+                  options={EXPORT_OPTIONS}
+                  placeholder={action.startsWith('export-') ? 'Preparing export' : 'Export data'}
+                  disabled={action.startsWith('export-')}
+                />
+              </div>
             ) : null}
             {profile ? (
               <Link className={styles.secondaryButton} href={`/geopilot/profiles/${id}/edit`}>
@@ -1804,16 +1926,29 @@ export default function GeoPilotProfilePage() {
 
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
-                  <div><h2>Top citation domains</h2><p>Most frequently cited sources in this period</p></div>
+                  <div><h2>Citation intelligence</h2><p>Source ownership and page types in the current measurement snapshot</p></div>
+                </div>
+                <div className={styles.sourceMix}>
+                  <div><span>Owned</span><strong>{citationIntelligence.summary.owned}</strong></div>
+                  <div><span>Competitor</span><strong>{citationIntelligence.summary.competitor}</strong></div>
+                  <div><span>Third-party</span><strong>{citationIntelligence.summary.third_party}</strong></div>
                 </div>
                 <div className={styles.compactList}>
-                  {citationDomains.map(([domain, count]) => (
-                    <div key={domain} className={styles.domainRow}>
-                      <span><Link2 size={13} /> {domain}</span>
-                      <strong>{count}</strong>
+                  {intelligenceDomains.map(item => (
+                    <div key={item.domain} className={styles.intelligenceDomainRow}>
+                      <span><Link2 size={13} /> {item.domain}</span>
+                      <div>
+                        <small>{sentenceCase(item.classification)}{item.page_types[0] ? ` / ${sentenceCase(item.page_types[0])}` : ''}</small>
+                        <strong>{item.citation_count}</strong>
+                      </div>
                     </div>
                   ))}
-                  {!citationDomains.length ? <p className={styles.compactEmpty}>No citations collected in this period.</p> : null}
+                  {!intelligenceDomains.length ? <p className={styles.compactEmpty}>No citations collected in this period.</p> : null}
+                  {citationIntelligence.page_types.length ? (
+                    <p className={styles.costFootnote}>
+                      Common formats: {citationIntelligence.page_types.slice(0, 3).map(item => `${sentenceCase(item.page_type)} (${item.citation_count})`).join(', ')}
+                    </p>
+                  ) : null}
                 </div>
               </section>
 
@@ -1838,6 +1973,27 @@ export default function GeoPilotProfilePage() {
                     {costs.unpriced_measurements ? <p className={styles.costFootnote}>{costs.unpriced_measurements} measurement{costs.unpriced_measurements === 1 ? '' : 's'} had no provider cost.</p> : null}
                   </div>
                 </>}
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div><h2>Provider health</h2><p>Parser, model-catalog, and citation-change monitoring</p></div>
+                  <Activity size={16} className={providerAlerts.length ? styles.stateWarning : styles.stateGood} />
+                </div>
+                <div className={styles.compactList}>
+                  {providerAlerts.slice(0, 4).map(alert => (
+                    <div key={alert.id} className={styles.providerAlertRow} data-severity={alert.severity}>
+                      <div>
+                        <strong>{alert.title}</strong>
+                        <small>{alert.message}</small>
+                      </div>
+                      <time>{dateLabel(alert.last_seen_at)}</time>
+                    </div>
+                  ))}
+                  {!providerAlerts.length ? (
+                    <p className={styles.compactEmpty}>No provider-format or citation-change alerts in this period.</p>
+                  ) : null}
+                </div>
               </section>
 
               <section className={styles.panel}>
@@ -1995,6 +2151,54 @@ export default function GeoPilotProfilePage() {
         {profile && tab === 'Opportunities' ? (
           <section className={styles.tabSection}>
             <div className={styles.sectionHeading}>
+              <div><h2>Verified citation gaps</h2><p>Competitors were cited while the client was absent and no owned source appeared.</p></div>
+              <span className={styles.opportunityCount}>{citationIntelligence.summary.verified_gaps}</span>
+            </div>
+            <div className={styles.opportunityList}>
+              {citationIntelligence.gaps.map(gap => (
+                <article key={gap.run_id} className={styles.opportunityItem}>
+                  <header>
+                    <span className={clsx(styles.runState, styles.stateReview)}>Deterministic gap</span>
+                    <time>{dateLabel(gap.observed_at)}</time>
+                  </header>
+                  <div>
+                    <h3>{gap.prompt || 'Tracked prompt'}</h3>
+                    <p>
+                      {gap.competitors?.length ? `${gap.competitors.join(', ')} cited` : 'A configured competitor was cited'} on {SURFACES[gap.surface || ''] || sentenceCase(gap.surface || 'unknown surface')}.
+                    </p>
+                    <strong>Suggested AIO format: {sentenceCase(gap.recommended_page_type || 'blog')}</strong>
+                    {gap.citations?.length ? (
+                      <div className={styles.evidenceLinks}>
+                        {gap.citations.slice(0, 5).map(citation => {
+                          const href = safeExternalUrl(citation.url || '')
+                          if (!href) return null
+                          return <a key={href} href={href} target="_blank" rel="noreferrer">{hostname(href)} <ExternalLink size={11} /></a>
+                        })}
+                      </div>
+                    ) : null}
+                    <div className={styles.opportunityActions}>
+                      <button
+                        type="button"
+                        className={styles.primaryButton}
+                        onClick={() => void sendGapToAio(gap)}
+                        disabled={Boolean(action)}
+                      >
+                        <Sparkles size={13} /> {action === `aio-${gap.run_id}` ? 'Preparing AIO draft' : 'Create AIO recommendation'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {!citationIntelligence.gaps.length ? (
+                <div className={styles.sectionEmpty}>
+                  <Target size={22} />
+                  <strong>No verified competitor-citation gaps</strong>
+                  <p>A gap appears only when the client and owned sources are absent from a result that cites a configured competitor.</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className={clsx(styles.sectionHeading, styles.opportunitySubheading)}>
               <div><h2>Weekly citation opportunities</h2><p>Evidence-linked Parallel research, separate from visibility scoring.</p></div>
             </div>
             <div className={styles.opportunityList}>

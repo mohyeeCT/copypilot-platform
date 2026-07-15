@@ -725,6 +725,36 @@
   gap: 8px;
 }
 
+.exportControl {
+  position: relative;
+  width: 164px;
+}
+
+.exportControl > svg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 12px;
+  color: var(--p-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.exportControl :global(.cs-wrap) {
+  width: 100%;
+}
+
+.exportControl :global(.cs-trigger) {
+  min-height: 36px;
+  padding-left: 35px;
+  border-color: var(--p-border);
+  border-radius: 6px;
+  background: var(--p-surface);
+  color: var(--p-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .primaryButton,
 .secondaryButton,
 .filterButton,
@@ -2548,6 +2578,11 @@
   color: var(--p-blue) !important;
 }
 
+.stateReview {
+  background: color-mix(in srgb, var(--p-warning) 10%, var(--p-surface));
+  color: var(--p-warning) !important;
+}
+
 .supportGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2557,6 +2592,104 @@
 
 .compactList {
   padding: 10px 18px 16px;
+}
+
+.sourceMix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 14px 18px 0;
+  overflow: hidden;
+  border: 1px solid var(--p-border);
+  border-radius: 6px;
+  background: var(--p-border);
+}
+
+.sourceMix > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  background: var(--p-surface-soft);
+}
+
+.sourceMix span {
+  overflow: hidden;
+  color: var(--p-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceMix strong {
+  color: var(--p-text);
+  font-size: 13px;
+}
+
+.intelligenceDomainRow,
+.providerAlertRow {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--p-border);
+  color: var(--p-text);
+  font-size: 10px;
+}
+
+.intelligenceDomainRow > span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intelligenceDomainRow > div {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.intelligenceDomainRow small,
+.providerAlertRow small {
+  color: var(--p-muted);
+  font-size: 8px;
+}
+
+.providerAlertRow {
+  align-items: flex-start;
+  padding: 9px 0;
+}
+
+.providerAlertRow > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.providerAlertRow > div strong {
+  font-size: 9px;
+}
+
+.providerAlertRow time {
+  flex: 0 0 auto;
+  color: var(--p-muted);
+  font-size: 8px;
+}
+
+.providerAlertRow[data-severity='critical'] > div strong {
+  color: var(--p-negative);
+}
+
+.providerAlertRow[data-severity='warning'] > div strong {
+  color: var(--p-warning);
 }
 
 .compactRow,
@@ -2901,6 +3034,37 @@
 .opportunityList {
   display: grid;
   gap: 12px;
+}
+
+.opportunityCount {
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--p-border);
+  border-radius: 5px;
+  background: var(--p-surface);
+  color: var(--p-text);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.opportunitySubheading {
+  margin-top: 28px;
+}
+
+.opportunityActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--p-border);
+}
+
+.opportunityActions .primaryButton {
+  min-height: 32px;
+  font-size: 9px;
 }
 
 .collectionCard,

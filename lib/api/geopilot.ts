@@ -14,6 +14,14 @@ export type GeoPilotCollectionMethod =
   | 'consumer_ui_forced_search'
   | 'google_search_result'
 export type GeoPilotMeasurementMethods = Partial<Record<GeoPilotPrimarySurface, GeoPilotCollectionMethod[]>>
+export type GeoPilotExportDataset =
+  | 'all'
+  | 'prompt_history'
+  | 'trends'
+  | 'method_comparison'
+  | 'citations'
+  | 'costs'
+  | 'citation_gaps'
 
 export type GeoPilotCapabilities = {
   consumer_ui: {
@@ -167,7 +175,19 @@ export const geopilotApi = {
     f(`/api/geopilot/profiles/${profileId}/runs?days=${days}${surface ? `&surface=${encodeURIComponent(surface)}` : ''}${collectionMethod ? `&collection_method=${encodeURIComponent(collectionMethod)}` : ''}`, token),
   getRun: (token: string, id: string) => f(`/api/geopilot/runs/${id}`, token),
   listInsights: (token: string, profileId: string) => f(`/api/geopilot/profiles/${profileId}/insights`, token),
+  citationIntelligence: (token: string, profileId: string, days: number) =>
+    f(`/api/geopilot/profiles/${profileId}/citation-intelligence?days=${days}`, token),
+  providerAlerts: (token: string, profileId: string, days: number) =>
+    f(`/api/geopilot/profiles/${profileId}/provider-alerts?days=${days}`, token),
+  createAioRecommendation: (token: string, profileId: string, runId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/aio-recommendations`, token, {
+      method: 'POST', body: JSON.stringify({ run_id: runId }),
+    }),
+  getAioRecommendation: (token: string, id: string) => f(`/api/geopilot/aio-recommendations/${id}`, token),
   exportUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export.csv?days=${days}`,
+  expandedExportUrl: (profileId: string, days: number, dataset: GeoPilotExportDataset) => dataset === 'all'
+    ? `${BASE}/api/geopilot/profiles/${profileId}/export.zip?days=${days}`
+    : `${BASE}/api/geopilot/profiles/${profileId}/exports/${dataset}.csv?days=${days}`,
 }
 
 export async function downloadGeoPilotCsv(token: string, profileId: string, days: number, filename: string) {
@@ -181,4 +201,26 @@ export async function downloadGeoPilotCsv(token: string, profileId: string, days
   link.download = filename
   link.click()
   URL.revokeObjectURL(link.href)
+}
+
+export async function downloadGeoPilotExport(
+  token: string,
+  profileId: string,
+  days: number,
+  dataset: GeoPilotExportDataset,
+  filename: string,
+) {
+  const response = await fetch(geopilotApi.expandedExportUrl(profileId, days, dataset), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Export failed' }))
+    throw new Error(error.detail || 'Export failed')
+  }
+  const objectUrl = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(objectUrl)
 }
