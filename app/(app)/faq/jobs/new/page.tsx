@@ -196,7 +196,15 @@ export default function NewFaqJobPage() {
         if (metadata?.brand_name) setBrandName(metadata.brand_name)
         setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
         if (Array.isArray(savedTemplates)) setTemplates(savedTemplates)
-        if (Array.isArray(profiles)) setBrandProfiles(profiles)
+        if (Array.isArray(profiles)) {
+          setBrandProfiles(profiles)
+          const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
+          const requestedProfile = profiles.find(profile => profile.id === requestedProfileId)
+          if (requestedProfile) {
+            setSelectedBrandProfileId(requestedProfileId)
+            setBrandName(requestedProfile.data?.brand_name || requestedProfile.name)
+          }
+        }
       } catch (loadError) {
         console.error('Failed to load FAQ settings:', loadError)
       }
@@ -548,15 +556,15 @@ export default function NewFaqJobPage() {
                   <div className={styles.settingsBody}>
                     <div className={styles.settingsGridSingle}>
                       <div className={styles.settingsField}>
-                        <span>Brand profile</span>
+                        <span>Client profile</span>
                         <CustomSelect
                           value={selectedBrandProfileId}
                           onChange={value => {
                             setSelectedBrandProfileId(value)
                             const profile = brandProfiles.find(p => p.id === value)
-                            if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+                            if (profile) setBrandName(profile.data?.brand_name || profile.name)
                           }}
-                          options={[{ value: '', label: 'No brand profile' }, ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name }))]}
+                          options={[{ value: '', label: 'Unassigned' }, ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name }))]}
                         />
                       </div>
                       <label className={styles.settingsField}><span>Brand name</span><input className="input-base" value={brandName} onChange={event => setBrandName(event.target.value)} placeholder="Acme Inc." /></label>
@@ -611,7 +619,7 @@ export default function NewFaqJobPage() {
                 <div className={styles.readinessList}>
                   <div><CheckCircle2 size={13} /><span>{validUrlCount} valid URL{validUrlCount === 1 ? '' : 's'}</span></div>
                   <div><CheckCircle2 size={13} /><span>{cleanProviderLabel(provider)} model selected</span></div>
-                  <div><CheckCircle2 size={13} /><span>{selectedProfile?.name || brandName || 'No brand profile selected'}</span></div>
+                  <div><CheckCircle2 size={13} /><span>{selectedProfile?.name || brandName || 'No client selected'}</span></div>
                   <div><CheckCircle2 size={13} /><span>{useGsc ? (siteUrl ? 'GSC property selected' : 'GSC needs a property') : 'GSC disabled'}</span></div>
                 </div>
               </JobSection>

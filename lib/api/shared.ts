@@ -12,11 +12,12 @@ function delay(ms: number) {
 
 export async function apiFetch(baseUrl: string, path: string, token: string, options: RequestInit = {}) {
   const url = `${baseUrl.replace(/\/+$/, '')}${path}`
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
   for (let attempt = 0; attempt <= API_RETRY_DELAYS_MS.length; attempt += 1) {
     const res = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
         Authorization: `Bearer ${token}`,
         ...options.headers,
       },
@@ -53,6 +54,14 @@ function sf(path: string, token: string, options?: RequestInit) {
   return apiFetch(SETTINGS_BASE, path, token, options)
 }
 
+export type ClientJobFilter = string | null | undefined
+
+export function clientScopedJobsPath(filter: ClientJobFilter) {
+  if (filter === null) return '/api/jobs?unassigned=true'
+  if (filter) return `/api/jobs?client_profile_id=${encodeURIComponent(filter)}`
+  return '/api/jobs'
+}
+
 export async function getSettings(token: string) {
   return sf('/api/settings', token)
 }
@@ -71,8 +80,8 @@ export async function saveProviderCredentials(token: string, payload: object) {
 export async function deleteCredentials(token: string) {
   return sf('/api/settings/credentials', token, { method: 'DELETE' })
 }
-export async function listBrandProfiles(token: string) {
-  return sf('/api/settings/brand-profiles', token)
+export async function listBrandProfiles(token: string, includeArchived = false) {
+  return sf(`/api/settings/brand-profiles${includeArchived ? '?include_archived=true' : ''}`, token)
 }
 export async function createBrandProfile(token: string, name: string, data: object) {
   return sf('/api/settings/brand-profiles', token, { method: 'POST', body: JSON.stringify({ name, data }) })
@@ -82,6 +91,34 @@ export async function updateBrandProfile(token: string, id: string, name: string
 }
 export async function deleteBrandProfile(token: string, id: string) {
   return sf(`/api/settings/brand-profiles/${id}`, token, { method: 'DELETE' })
+}
+
+export type ProfileDraftField = {
+  value: string
+  evidence: string
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export type ProfileDraftResponse = {
+  fields: Record<string, ProfileDraftField>
+  source_name: string
+  extracted_chars: number
+  truncated: boolean
+}
+
+export async function draftBrandProfileFromContent(
+  token: string,
+  input: { provider: string; model?: string; file?: File; content?: string },
+): Promise<ProfileDraftResponse> {
+  const form = new FormData()
+  form.set('provider', input.provider)
+  if (input.model) form.set('model', input.model)
+  if (input.file) form.set('source_file', input.file)
+  else form.set('content', input.content || '')
+  return sf('/api/settings/brand-profiles/draft-from-content', token, {
+    method: 'POST',
+    body: form,
+  })
 }
 export async function listTemplates(token: string, tool: string) {
   return sf(`/api/settings/templates?tool=${tool}`, token)

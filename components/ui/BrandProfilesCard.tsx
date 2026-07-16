@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { BadgeCheck, CheckCircle, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Upload, X } from 'lucide-react'
+import { BadgeCheck, CheckCircle, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Upload, X, Sparkles, FileUp, Quote } from 'lucide-react'
 import Papa from 'papaparse'
 import CustomSelect from '@/components/ui/CustomSelect'
+import type { ProfileDraftField, ProfileDraftResponse } from '@/lib/api/shared'
 
 type BrandProfile = {
   id: string
@@ -159,9 +160,21 @@ type Props = {
   createBrandProfile: (token: string, name: string, data: object) => Promise<BrandProfile>
   updateBrandProfile: (token: string, id: string, name: string, data: object) => Promise<unknown>
   deleteBrandProfile: (token: string, id: string) => Promise<unknown>
+  getProviderMetadata: (token: string) => Promise<{ provider?: string; api_key_status?: Record<string, boolean> }>
+  draftBrandProfileFromContent: (
+    token: string,
+    input: { provider: string; model?: string; file?: File; content?: string },
+  ) => Promise<ProfileDraftResponse>
 }
 
-export default function BrandProfilesCard({ listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile }: Props) {
+export default function BrandProfilesCard({
+  listBrandProfiles,
+  createBrandProfile,
+  updateBrandProfile,
+  deleteBrandProfile,
+  getProviderMetadata,
+  draftBrandProfileFromContent,
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [profiles, setProfiles] = useState<BrandProfile[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)  // null = closed, 'new' = creating, uuid = editing
@@ -172,6 +185,14 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
   const [savedId, setSavedId] = useState<string | null>(null)
   const [profilesVisible, setProfilesVisible] = useState(true)
   const [importMessage, setImportMessage] = useState('')
+  const [draftEvidence, setDraftEvidence] = useState<Record<string, ProfileDraftField>>({})
+  const [aiImportOpen, setAiImportOpen] = useState(false)
+  const [aiProvider, setAiProvider] = useState('')
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([])
+  const [aiFile, setAiFile] = useState<File | null>(null)
+  const [aiContent, setAiContent] = useState('')
+  const [aiImporting, setAiImporting] = useState(false)
+  const [aiError, setAiError] = useState('')
 
   async function getToken() {
     const sb = createClient()
@@ -197,6 +218,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
     setExpandedId(null)
     setProfilesVisible(true)
     setImportMessage('')
+    setDraftEvidence({})
   }
 
   function openEdit(p: BrandProfile) {
@@ -205,6 +227,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
     setExpandedId(p.id)
     setProfilesVisible(true)
     setImportMessage('')
+    setDraftEvidence({})
   }
 
   function cancel() {
@@ -212,6 +235,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
     setError('')
     setImportMessage('')
     setForm({ name: '', ...EMPTY_DATA })
+    setDraftEvidence({})
   }
 
   async function save() {
@@ -234,6 +258,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
       }
       setEditingId(null)
       setImportMessage('')
+      setDraftEvidence({})
     } catch { setError('Failed to save') }
     setSaving(false)
   }
@@ -255,8 +280,75 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
       setExpandedId(null)
       setProfilesVisible(true)
       setImportMessage('Imported into a new profile. Review the fields, then save.')
+      setDraftEvidence({})
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not import this profile file.')
+    }
+  }
+
+  async function openAiImport() {
+    setAiImportOpen(true)
+    setAiError('')
+    setAiFile(null)
+    setAiContent('')
+    setConfiguredProviders([])
+    setAiProvider('')
+    try {
+      const token = await getToken()
+      const metadata = await getProviderMetadata(token)
+      const available = Object.entries(metadata.api_key_status || {})
+        .filter(([, configured]) => configured)
+        .map(([provider]) => provider)
+      setConfiguredProviders(available)
+      setAiProvider(
+        metadata.provider && available.includes(metadata.provider)
+          ? metadata.provider
+          : available[0] || '',
+      )
+      if (available.length === 0) {
+        setAiError('Add an AI provider key in Settings before analysing content.')
+      }
+    } catch {
+      setAiError('Could not load configured AI providers.')
+    }
+  }
+
+  async function analyseContent() {
+    if (!aiProvider) {
+      setAiError('Add an AI provider key before analysing content.')
+      return
+    }
+    if (!aiFile && !aiContent.trim()) {
+      setAiError('Choose a file or paste source content.')
+      return
+    }
+
+    setAiImporting(true)
+    setAiError('')
+    try {
+      const token = await getToken()
+      const draft = await draftBrandProfileFromContent(token, {
+        provider: aiProvider,
+        file: aiFile || undefined,
+        content: aiFile ? undefined : aiContent,
+      })
+      const imported: Record<string, string> = {}
+      for (const [field, detail] of Object.entries(draft.fields)) {
+        if (detail.value) imported[field] = detail.value
+      }
+      setForm({ name: '', ...EMPTY_DATA, ...imported })
+      setDraftEvidence(draft.fields)
+      setEditingId('new')
+      setExpandedId(null)
+      setProfilesVisible(true)
+      setImportMessage(
+        `Drafted from ${draft.source_name}${draft.truncated ? ' using the supported text limit' : ''}. Review every field before saving.`,
+      )
+      setAiImportOpen(false)
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Could not build a profile draft.')
+    } finally {
+      setAiImporting(false)
     }
   }
 
@@ -286,6 +378,7 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
   )
 
   return (
+    <>
     <div className="job-section">
       <div className="job-section-header">
         <div className="flex items-start gap-4">
@@ -294,11 +387,11 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
           </div>
           <div>
             <p className="job-section-kicker">Brand context</p>
-            <h2 className="job-section-title">Brand profiles</h2>
+            <h2 className="job-section-title">Client profiles</h2>
             <p className="job-section-description">One profile per client or brand. Select which to use when running a job.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -314,10 +407,16 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
             {profilesVisible ? 'Hide profiles' : 'Show profiles'}
           </button>
           <button
+            onClick={() => void openAiImport()}
+            className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors"
+          >
+            <Sparkles size={12} /> Create from content
+          </button>
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors"
           >
-            <Upload size={12} /> Import profile
+            <Upload size={12} /> Import structured file
           </button>
           {editingId !== 'new' && (
             <button onClick={openNew} className="flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors">
@@ -340,13 +439,13 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
           {editingId === 'new' && (
             <ProfileForm
               form={form} setForm={setForm} saving={saving} error={error}
-              onSave={save} onCancel={cancel} isNew
+              onSave={save} onCancel={cancel} isNew draftEvidence={draftEvidence}
             />
           )}
 
           {/* Existing profiles */}
           {profiles.length === 0 && editingId !== 'new' && (
-            <p className="text-xs text-muted text-center py-4">No brand profiles yet. Create one to get started.</p>
+            <p className="text-xs text-muted text-center py-4">No client profiles yet. Create one to get started.</p>
           )}
 
           <div className="space-y-2 mt-2">
@@ -402,22 +501,144 @@ export default function BrandProfilesCard({ listBrandProfiles, createBrandProfil
         </>
       )}
     </div>
+
+    {aiImportOpen && (
+      <div
+        className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-4"
+        role="presentation"
+        onMouseDown={event => {
+          if (event.target === event.currentTarget && !aiImporting) setAiImportOpen(false)
+        }}
+      >
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="profile-content-import-title"
+          className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-surface-raised p-5 shadow-2xl"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-accent/20 bg-accent/5 text-accent">
+                <FileUp size={17} />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted">Client profile</p>
+                <h2 id="profile-content-import-title" className="text-base font-semibold">Create from content</h2>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Close content import"
+              disabled={aiImporting}
+              onClick={() => setAiImportOpen(false)}
+              className="rounded-md p-1.5 text-muted hover:text-text disabled:opacity-40"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase text-muted">AI provider</label>
+              <CustomSelect
+                ariaLabel="AI provider for profile draft"
+                value={aiProvider}
+                onChange={setAiProvider}
+                options={configuredProviders.map(provider => ({ value: provider, label: provider }))}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase text-muted">Source file</label>
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt,.md"
+                disabled={Boolean(aiContent.trim()) || aiImporting}
+                onChange={event => {
+                  setAiFile(event.target.files?.[0] || null)
+                  setAiError('')
+                }}
+                className="input-base w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-accent/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-accent"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-border" />
+              <span>or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase text-muted">Paste content</label>
+              <textarea
+                rows={8}
+                maxLength={200000}
+                value={aiContent}
+                disabled={Boolean(aiFile) || aiImporting}
+                onChange={event => {
+                  setAiContent(event.target.value)
+                  setAiError('')
+                }}
+                className="input-base w-full resize-y text-sm"
+                placeholder="Paste website, brief, positioning, audience, product, or service content..."
+              />
+            </div>
+
+            {aiError && <p className="rounded-md border border-error/20 bg-error/5 px-3 py-2 text-xs text-error">{aiError}</p>}
+          </div>
+
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" disabled={aiImporting} className="btn-ghost" onClick={() => setAiImportOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={aiImporting || !aiProvider || (!aiFile && !aiContent.trim())}
+              className="btn-primary"
+              onClick={() => void analyseContent()}
+            >
+              <Sparkles size={14} /> {aiImporting ? 'Analysing...' : 'Create draft'}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
+    </>
   )
 }
 
-function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = false }: {
+function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = false, draftEvidence = {} }: {
   form: Record<string, string>
   setForm: React.Dispatch<React.SetStateAction<Record<string, string>>>
   saving: boolean; error: string
   onSave: () => void; onCancel: () => void; isNew?: boolean
+  draftEvidence?: Record<string, ProfileDraftField>
 }) {
+  const evidence = (key: string) => {
+    const detail = draftEvidence[key]
+    if (!detail?.evidence) return null
+    return (
+      <p className="mt-1 flex min-w-0 items-start gap-1.5 text-[0.68rem] leading-relaxed text-muted">
+        <Quote size={10} className="mt-0.5 shrink-0 text-accent" />
+        <span className="min-w-0 flex-1">{detail.evidence}</span>
+        <span className="shrink-0 font-semibold uppercase text-accent">{detail.confidence}</span>
+      </p>
+    )
+  }
   const field = (key: string, placeholder = '') => (
-    <input value={form[key] || ''} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-      className="input-base text-xs w-full" placeholder={placeholder} />
+    <>
+      <input value={form[key] || ''} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        className="input-base text-xs w-full" placeholder={placeholder} />
+      {evidence(key)}
+    </>
   )
   const area = (key: string, rows = 2, placeholder = '') => (
-    <textarea rows={rows} value={form[key] || ''} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-      className="input-base text-xs w-full resize-none" placeholder={placeholder} />
+    <>
+      <textarea rows={rows} value={form[key] || ''} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        className="input-base text-xs w-full resize-none" placeholder={placeholder} />
+      {evidence(key)}
+    </>
   )
 
   return (
@@ -426,6 +647,7 @@ function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = f
         <label className="text-xs text-muted block mb-1">Profile Name <span className="text-error">*</span></label>
         <input value={form.name || ''} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
           className="input-base text-xs w-full" placeholder="e.g. Ceylan Machine, Client B..." autoFocus={isNew} />
+        {evidence('name')}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -436,6 +658,7 @@ function ProfileForm({ form, setForm, saving, error, onSave, onCancel, isNew = f
           <label className="text-xs text-muted block mb-1">Tone</label>
           <CustomSelect size="compact" value={form.tone || ''} onChange={value => setForm(p => ({ ...p, tone: value }))}
             options={TONES.map(t => ({ value: t, label: t || 'Select tone' }))} className="w-full" />
+          {evidence('tone')}
         </div>
       </div>
       <div>

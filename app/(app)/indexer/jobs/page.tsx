@@ -7,9 +7,10 @@ import clsx from 'clsx'
 import AppLayout from '@/components/layout/AppLayout'
 import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import { JobLauncherShell, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
-import { getSettings, type GscSettings } from '@/lib/api/shared'
+import { getSettings, listBrandProfiles, type ClientJobFilter, type GscSettings } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ type Job = {
   queued_urls: number
   current_step: string
   created_at: string
+  client_profile_id?: string | null
 }
 
 type Quota = {
@@ -60,16 +62,25 @@ export default function IndexerJobsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [clientProfiles, setClientProfiles] = useState<{ id: string; name: string; archived_at?: string | null }[]>([])
+  const [selectedClient, setSelectedClient] = useState('all')
 
   const load = useCallback(async () => {
     try {
       const token = await getToken()
-      const [jobsData, quotaData] = await Promise.all([
-        indexerApi.listJobs(token),
+      const clientFilter: ClientJobFilter = selectedClient === 'all'
+        ? undefined
+        : selectedClient === 'unassigned'
+          ? null
+          : selectedClient
+      const [jobsData, quotaData, profiles] = await Promise.all([
+        indexerApi.listJobs(token, clientFilter),
         indexerApi.getQuota(token),
+        listBrandProfiles(token, true).catch(() => []),
       ])
       setJobs(jobsData)
       setQuota(quotaData)
+      setClientProfiles(Array.isArray(profiles) ? profiles : [])
       const settings = await getSettings(token).catch(() => null)
       if (settings?.gsc) setGscSettings(settings.gsc as GscSettings)
       setLoadError('')
@@ -78,7 +89,7 @@ export default function IndexerJobsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [selectedClient])
 
   useEffect(() => { void load() }, [load])
 
@@ -107,6 +118,14 @@ export default function IndexerJobsPage() {
     gscSettings.google_oauth.configured &&
     gscSettings.google_oauth.has_indexing_scope === false
   )
+  const selectedProfile = clientProfiles.find(profile => profile.id === selectedClient)
+  const newJobHref = selectedProfile && !selectedProfile.archived_at
+    ? `/indexer/jobs/new?client_profile_id=${encodeURIComponent(selectedProfile.id)}`
+    : '/indexer/jobs/new'
+  const profileName = (profileId?: string | null) => {
+    if (!profileId) return 'Unassigned'
+    return clientProfiles.find(profile => profile.id === profileId)?.name || 'Archived client'
+  }
 
   return (
     <AppLayout title="Indexer">
@@ -130,12 +149,26 @@ export default function IndexerJobsPage() {
             />
           }
           actions={
-            <Link href="/indexer/jobs/new" className="btn-primary gap-2">
+            <Link href={newJobHref} className="btn-primary gap-2">
               <PlusCircle size={15} />
               Run Job
             </Link>
           }
         >
+          <div className="w-full max-w-xs">
+            <label className="mb-1.5 block text-xs font-semibold uppercase text-muted">Client</label>
+            <CustomSelect
+              ariaLabel="Filter Indexer jobs by client"
+              value={selectedClient}
+              onChange={setSelectedClient}
+              options={[
+                { value: 'all', label: 'All clients' },
+                ...clientProfiles.map(profile => ({ value: profile.id, label: `${profile.name}${profile.archived_at ? ' (archived)' : ''}` })),
+                { value: 'unassigned', label: 'Unassigned' },
+              ]}
+            />
+          </div>
+
           {quota && (
             <div className="rounded-lg border border-border bg-surface-raised p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
@@ -169,7 +202,7 @@ export default function IndexerJobsPage() {
           ) : jobs.length === 0 ? (
             <div className="card py-16 text-center">
               <p className="mb-4 text-sm text-muted">No Indexer jobs yet.</p>
-              <Link href="/indexer/jobs/new" className="btn-primary gap-2">
+              <Link href={newJobHref} className="btn-primary gap-2">
                 <PlusCircle size={15} />
                 Run Job
               </Link>
@@ -195,6 +228,7 @@ export default function IndexerJobsPage() {
                       <tr key={job.id} className="border-b border-border transition-colors last:border-0 hover:bg-bg/50">
                         <td className="px-6 py-3">
                           <div className="font-medium text-text">{job.name}</div>
+                          <div className="mt-0.5 text-xs text-muted">{profileName(job.client_profile_id)}</div>
                           {job.status === 'running' && job.current_step && (
                             <div className="mt-0.5 text-xs text-muted">{job.current_step}</div>
                           )}

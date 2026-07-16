@@ -182,7 +182,15 @@ export default function NewJobPage() {
 
         // Load brand profiles
         const bp = await listBrandProfiles(session.access_token)
-        if (Array.isArray(bp)) setBrandProfiles(bp)
+        if (Array.isArray(bp)) {
+          setBrandProfiles(bp)
+          const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
+          const requestedProfile = bp.find(profile => profile.id === requestedProfileId)
+          if (requestedProfile) {
+            setSelectedBrandProfileId(requestedProfileId)
+            setBrandName(requestedProfile.data?.brand_name || requestedProfile.name)
+          }
+        }
       } catch (e) {
         console.error('Failed to load credentials/templates on mount:', e)
       }
@@ -628,16 +636,16 @@ export default function NewJobPage() {
               <div>
                 {brandProfiles.length > 0 && (
                   <div className="mb-3">
-                    <label className="text-xs text-muted block mb-1">Brand profile</label>
+                    <label className="text-xs text-muted block mb-1">Client profile</label>
                     <CustomSelect
                       value={selectedBrandProfileId}
                       onChange={value => {
                         setSelectedBrandProfileId(value)
                         const profile = brandProfiles.find(p => p.id === value)
-                        if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+                        if (profile) setBrandName(profile.data?.brand_name || profile.name)
                       }}
                       options={[
-                        { value: '', label: 'No profile selected' },
+                        { value: '', label: 'Unassigned' },
                         ...brandProfiles.map(p => ({ value: p.id, label: p.name })),
                       ]}
                       size="compact"

@@ -4,13 +4,15 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Trash2, ExternalLink, Plus, Pencil, Check, X, Copy,
-  FileText, Layers, Clock, Search, AlertTriangle
+  FileText, Layers, Clock, Search, AlertTriangle, Building2
 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import Badge from '@/components/ui/Badge'
 import { SkeletonJobList } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase'
+import CustomSelect from '@/components/ui/CustomSelect'
+import { listBrandProfiles, type ClientJobFilter } from '@/lib/api/shared'
 
 interface Job {
   id: string
@@ -21,6 +23,13 @@ interface Job {
   failed_rows?: number
   created_at: string
   error: string | null
+  client_profile_id?: string | null
+}
+
+interface ClientProfile {
+  id: string
+  name: string
+  archived_at?: string | null
 }
 
 interface ToolConfig {
@@ -31,7 +40,8 @@ interface ToolConfig {
   accent: string
   emptyTitle: string
   emptyDesc: string
-  listJobs: (token: string) => Promise<Job[]>
+  supportsClientProfiles?: boolean
+  listJobs: (token: string, clientProfileId?: ClientJobFilter) => Promise<Job[]>
   deleteJob: (token: string, id: string) => Promise<unknown>
   duplicateJob: (token: string, id: string) => Promise<{job_id?: string}>
   renameJob: (token: string, id: string, name: string) => Promise<unknown>
@@ -88,9 +98,12 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
   const [filter, setFilter] = useState<JobFilter>('all')
   const [pendingDelete, setPendingDelete] = useState<Job | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [clientProfiles, setClientProfiles] = useState<ClientProfile[]>([])
+  const [selectedClient, setSelectedClient] = useState('all')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const Icon = tool.icon
+  const supportsClientProfiles = Boolean(tool.supportsClientProfiles)
   const workflowLabels = {
     meta: 'Meta',
     faq: 'FAQ',
@@ -108,16 +121,37 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
     const { data: { session } } = await sb.auth.getSession()
     if (!session) return
     try {
-      const data = await tool.listJobs(session.access_token)
+      const clientFilter: ClientJobFilter = !supportsClientProfiles || selectedClient === 'all'
+        ? undefined
+        : selectedClient === 'unassigned'
+          ? null
+          : selectedClient
+      const data = await tool.listJobs(session.access_token, clientFilter)
       setJobs(data)
       setLastRefreshed(new Date())
       if (!quiet) setLoading(false)
     } catch {
       if (!quiet) setLoading(false)
     }
-  }, [tool])
+  }, [selectedClient, supportsClientProfiles, tool])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    async function loadClientProfiles() {
+      if (!supportsClientProfiles) return
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      try {
+        const profiles = await listBrandProfiles(session.access_token, true)
+        setClientProfiles(Array.isArray(profiles) ? profiles : [])
+      } catch {
+        setClientProfiles([])
+      }
+    }
+    void loadClientProfiles()
+  }, [supportsClientProfiles])
 
   // Smart auto-refresh: poll while any job is running, else every 30s
   useEffect(() => {
@@ -220,6 +254,23 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
         { label: 'Completed URLs', value: completedUrls, icon: Check, accentValue: false },
       ]
 
+  const selectedProfile = clientProfiles.find(profile => profile.id === selectedClient)
+  const newJobHref = supportsClientProfiles && selectedProfile && !selectedProfile.archived_at
+    ? `${tool.newHref}?client_profile_id=${encodeURIComponent(selectedProfile.id)}`
+    : tool.newHref
+  const profileName = (profileId?: string | null) => {
+    if (!profileId) return 'Unassigned'
+    return clientProfiles.find(profile => profile.id === profileId)?.name || 'Archived client'
+  }
+  const clientOptions = [
+    { value: 'all', label: 'All clients' },
+    ...clientProfiles.map(profile => ({
+      value: profile.id,
+      label: `${profile.name}${profile.archived_at ? ' (archived)' : ''}`,
+    })),
+    { value: 'unassigned', label: 'Unassigned' },
+  ]
+
   return (
     <AppLayout title={tool.label}>
       <div className="max-w-6xl mx-auto">
@@ -252,10 +303,25 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               )}
             </div>
           </div>
-          <Link href={tool.newHref} className="btn-primary flex shrink-0 items-center gap-2 self-start sm:self-auto">
+          <Link href={newJobHref} className="btn-primary flex shrink-0 items-center gap-2 self-start sm:self-auto">
             <Plus size={14} /> New Job
           </Link>
         </div>
+
+        {supportsClientProfiles && (
+          <div className="mb-4 w-full max-w-xs">
+            <label className="mb-1.5 block text-xs font-semibold uppercase text-muted">Client</label>
+            <CustomSelect
+              ariaLabel="Filter jobs by client"
+              value={selectedClient}
+              onChange={value => {
+                setLoading(true)
+                setSelectedClient(value)
+              }}
+              options={clientOptions}
+            />
+          </div>
+        )}
 
         {/* Loading */}
         {loading ? (
@@ -279,7 +345,7 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
               {tool.emptyDesc}
             </p>
             <div className="flex items-center justify-center gap-3">
-              <Link href={tool.newHref} className="btn-primary flex items-center gap-2">
+              <Link href={newJobHref} className="btn-primary flex items-center gap-2">
                 <Plus size={14} /> Run your first job
               </Link>
               <Link href="/settings" className="btn-ghost flex items-center gap-2 text-sm">
@@ -467,6 +533,13 @@ export default function JobsListPage({ tool }: { tool: ToolConfig }) {
                             <Pencil size={11} />
                           </button>
                         </div>
+                      )}
+
+                      {supportsClientProfiles && (
+                        <span className="mt-1 hidden items-center gap-1 text-[0.68rem] text-muted sm:flex">
+                          <Building2 size={10} />
+                          {profileName(job.client_profile_id)}
+                        </span>
                       )}
 
                       {/* Subtitle: rows summary */}

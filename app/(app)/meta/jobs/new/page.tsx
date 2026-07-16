@@ -201,6 +201,15 @@ export default function NewMetaJobPage() {
         setFirecrawlKeyConfigured(Boolean(credentials.has_firecrawl_key))
       }
       setBrandProfiles(Array.isArray(profiles) ? profiles : [])
+      const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
+      const requestedProfile = Array.isArray(profiles)
+        ? profiles.find(profile => profile.id === requestedProfileId)
+        : null
+      if (requestedProfile) {
+        setBrandProfileId(requestedProfileId)
+        setBrandName(requestedProfile.data?.brand_name || requestedProfile.name)
+        if (requestedProfile.data?.full_brand_name) setFullBrandName(requestedProfile.data.full_brand_name)
+      }
       setTemplates(Array.isArray(savedTemplates) ? savedTemplates : [])
     } catch (loadError) {
       console.error('Failed to load settings/credentials on mount:', loadError)
@@ -242,6 +251,7 @@ export default function NewMetaJobPage() {
     setBrandProfileId(value)
     const profile = brandProfiles.find(p => p.id === value)
     if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+    else if (profile) setBrandName(profile.name)
     if (profile?.data?.full_brand_name) setFullBrandName(profile.data.full_brand_name)
   }
 
@@ -251,6 +261,7 @@ export default function NewMetaJobPage() {
     if (!next || brandName.trim()) return
     const profile = brandProfiles.find(p => p.id === brandProfileId)
     if (profile?.data?.brand_name) setBrandName(profile.data.brand_name)
+    else if (profile) setBrandName(profile.name)
     if (profile?.data?.full_brand_name) setFullBrandName(profile.data.full_brand_name)
   }
 
@@ -641,11 +652,11 @@ export default function NewMetaJobPage() {
                   <div className={styles.settingsBody}>
                     <div className={styles.settingsGridSingle}>
                       <div className={styles.settingsField}>
-                        <span>Brand profile</span>
+                        <span>Client profile</span>
                         <CustomSelect
                           value={brandProfileId} onChange={applyBrandProfile}
                           options={[
-                            { value: '', label: 'No brand profile' },
+                            { value: '', label: 'Unassigned' },
                             ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name })),
                           ]}
                         />
@@ -726,7 +737,7 @@ export default function NewMetaJobPage() {
                 <div className={styles.readinessList}>
                   <div><CheckCircle2 size={13} /><span>{validUrlCount} valid URL{validUrlCount === 1 ? '' : 's'}</span></div>
                   <div><CheckCircle2 size={13} /><span>{cleanProviderLabel(provider)} model selected</span></div>
-                  <div><CheckCircle2 size={13} /><span>{selectedProfile?.name || brandName || 'No brand profile selected'}</span></div>
+                  <div><CheckCircle2 size={13} /><span>{selectedProfile?.name || brandName || 'No client selected'}</span></div>
                   <div><CheckCircle2 size={13} /><span>{useGsc ? (siteUrl ? 'GSC property selected' : 'GSC enabled') : 'GSC disabled'}</span></div>
                 </div>
               </JobSection>

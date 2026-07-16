@@ -1,4 +1,4 @@
-import { apiFetch } from './shared'
+import { apiFetch, clientScopedJobsPath, type ClientJobFilter } from './shared'
 
 const BASE = (
   process.env.NEXT_PUBLIC_AIO_API_URL || 'https://all-in-one-saas-backend-production.up.railway.app'
@@ -8,7 +8,7 @@ const f = (path: string, token: string, opts?: RequestInit) => apiFetch(BASE, pa
 
 export const aioApi = {
   runJob:       (token: string, payload: object) => f('/api/all-in-one/run', token, { method: 'POST', body: JSON.stringify(payload) }),
-  listJobs:     (token: string)                  => f('/api/jobs', token),
+  listJobs:     (token: string, clientProfileId?: ClientJobFilter) => f(clientScopedJobsPath(clientProfileId), token),
   getJob:       (token: string, id: string)      => f(`/api/jobs/${id}`, token),
   deleteJob:    (token: string, id: string)      => f(`/api/jobs/${id}`, token, { method: 'DELETE' }),
   getTemplates: (token: string)                  => f('/api/all-in-one/templates', token),

@@ -147,6 +147,7 @@ export default function NewAIOJob() {
     if (!session) { router.push('/login'); return }
     try {
       const recommendationId = new URLSearchParams(window.location.search).get('geopilot_recommendation') || ''
+      const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
       const recommendationRequest = recommendationId
         ? geopilotApi.getAioRecommendation(session.access_token, recommendationId)
             .then(data => ({ data, error: '' }))
@@ -180,6 +181,14 @@ export default function NewAIOJob() {
       }
       setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
       setBrandProfiles(Array.isArray(bp) ? bp : [])
+      const requestedProfile = Array.isArray(bp) ? bp.find(item => item.id === requestedProfileId) : null
+      if (requestedProfile) {
+        setBrandProfileId(requestedProfileId)
+        const profileBrandName = requestedProfile.data?.brand_name?.trim() || requestedProfile.name.trim()
+        if (profileBrandName) setBrandName(profileBrandName)
+        const profileFullBrandName = requestedProfile.data?.full_brand_name?.trim()
+        if (profileFullBrandName) setFullBrand(profileFullBrandName)
+      }
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
       const draft = recommendationResult.data?.recommendation?.draft
       if (draft) {
@@ -599,10 +608,10 @@ export default function NewAIOJob() {
                 <input className="input-base" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="Acme Inc." />
               </div>
               <div>
-                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Brand Profile</label>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Client profile</label>
                 <CustomSelect value={brandProfileId} onChange={applyBrandProfile}
                   options={[
-                    { value: '', label: 'No brand profile' },
+                    { value: '', label: 'Unassigned' },
                     ...brandProfiles.map(bp => ({ value: bp.id, label: bp.name })),
                   ]} />
               </div>

@@ -9,9 +9,10 @@ import AppLayout from '@/components/layout/AppLayout'
 import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import SegmentedControl from '@/components/ui/SegmentedControl'
+import CustomSelect from '@/components/ui/CustomSelect'
 import { createClient } from '@/lib/supabase'
 import { indexerApi } from '@/lib/api/indexer'
-import { getSettings, type GscSettings } from '@/lib/api/shared'
+import { getSettings, listBrandProfiles, type GscSettings } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,8 @@ export default function NewIndexerJobPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [gscSettings, setGscSettings] = useState<GscSettings | null>(null)
+  const [brandProfiles, setBrandProfiles] = useState<{ id: string; name: string }[]>([])
+  const [brandProfileId, setBrandProfileId] = useState('')
 
   const pastedUrls = parseUrlsFromText(pasteText)
   const activeUrlCount = tab === 'sitemap'
@@ -81,9 +84,22 @@ export default function NewIndexerJobPage() {
 
   useEffect(() => {
     void getToken()
-      .then(token => getSettings(token))
-      .then(settings => {
+      .then(async token => {
+        const [settings, profiles] = await Promise.all([
+          getSettings(token),
+          listBrandProfiles(token).catch(() => []),
+        ])
+        return { settings, profiles }
+      })
+      .then(({ settings, profiles }) => {
         if (settings?.gsc) setGscSettings(settings.gsc as GscSettings)
+        if (Array.isArray(profiles)) {
+          setBrandProfiles(profiles)
+          const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
+          if (requestedProfileId && profiles.some(profile => profile.id === requestedProfileId)) {
+            setBrandProfileId(requestedProfileId)
+          }
+        }
       })
       .catch(() => undefined)
   }, [])
@@ -159,7 +175,7 @@ export default function NewIndexerJobPage() {
       let jobId: string
 
       if (tab === 'sitemap') {
-        const res = await indexerApi.submitSitemap(token, sitemapUrl, jobName || undefined)
+        const res = await indexerApi.submitSitemap(token, sitemapUrl, jobName || undefined, brandProfileId || undefined)
         jobId = res.job_id
       } else {
         const urls = getActiveUrls()
@@ -168,7 +184,7 @@ export default function NewIndexerJobPage() {
           setSubmitting(false)
           return
         }
-        const res = await indexerApi.submitUrls(token, urls, jobName || undefined)
+        const res = await indexerApi.submitUrls(token, urls, jobName || undefined, brandProfileId || undefined)
         jobId = res.job_id
       }
 
@@ -221,6 +237,17 @@ export default function NewIndexerJobPage() {
             <div className={`col-span-5 space-y-4 ${workspaceStyles.composerMain}`}>
               <JobSection title="Inputs" description="Name the run and add the URLs that should be submitted.">
                 <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs text-muted">Client profile</label>
+                    <CustomSelect
+                      value={brandProfileId}
+                      onChange={setBrandProfileId}
+                      options={[
+                        { value: '', label: 'Unassigned' },
+                        ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name })),
+                      ]}
+                    />
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs text-muted">Job name (optional)</label>
                     <input

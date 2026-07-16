@@ -11,7 +11,7 @@ import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperCon
 import Switch from '@/components/ui/Switch'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
-import { getProviderMetadata } from '@/lib/api/shared'
+import { getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +62,8 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
 export default function NewSchemaJobPage() {
   const router = useRouter()
   const [jobName, setJobName] = useState('')
+  const [brandProfiles, setBrandProfiles] = useState<{ id: string; name: string }[]>([])
+  const [brandProfileId, setBrandProfileId] = useState('')
   const [url, setUrl] = useState('')
   const [provider, setProvider] = useState('Claude')
   const [model, setModel] = useState(PROVIDER_MODELS.Claude[0].value)
@@ -85,10 +87,20 @@ export default function NewSchemaJobPage() {
       const { data: { session } } = await sb.auth.getSession()
       if (!session) { router.push('/login'); return }
       try {
-        const creds = await getProviderMetadata(session.access_token).catch(() => null)
+        const [creds, profiles] = await Promise.all([
+          getProviderMetadata(session.access_token).catch(() => null),
+          listBrandProfiles(session.access_token).catch(() => []),
+        ])
         if (creds?.provider === 'Claude') setProvider('Claude')
         if (creds?.dfs_login) setDfsLogin(creds.dfs_login)
         setFirecrawlKeyConfigured(Boolean(creds?.has_firecrawl_key))
+        if (Array.isArray(profiles)) {
+          setBrandProfiles(profiles)
+          const requestedProfileId = new URLSearchParams(window.location.search).get('client_profile_id') || ''
+          if (requestedProfileId && profiles.some(profile => profile.id === requestedProfileId)) {
+            setBrandProfileId(requestedProfileId)
+          }
+        }
       } finally {
         setSettingsLoaded(true)
       }
@@ -131,6 +143,7 @@ export default function NewSchemaJobPage() {
           firecrawl_fallback: scrapingEnabled && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
           serp_check: serpCheck,
           include_script_tag: includeScriptTag,
+          brand_profile_id: brandProfileId,
         },
       })
       router.push(`/schema/jobs/${data.job_id}`)
@@ -210,6 +223,17 @@ export default function NewSchemaJobPage() {
             <div className={`col-span-2 space-y-4 ${workspaceStyles.settingsRail}`}>
               <JobSection title="Configuration" description="Schema type and AI settings for this generated JSON-LD.">
                 <div className={workspaceStyles.settingsBody}>
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Client profile</label>
+                    <CustomSelect
+                      value={brandProfileId}
+                      onChange={setBrandProfileId}
+                      options={[
+                        { value: '', label: 'Unassigned' },
+                        ...brandProfiles.map(profile => ({ value: profile.id, label: profile.name })),
+                      ]}
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Schema type</label>
                     <CustomSelect value={schemaType} onChange={setSchemaType} options={SCHEMA_TYPES} />

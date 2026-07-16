@@ -37,6 +37,7 @@ type Job = {
   error: string | null
   results: Result[]
   created_at: string
+  client_profile_id?: string | null
 }
 
 const STATUS_CONFIG = {
@@ -152,7 +153,12 @@ export default function IndexerJobResultPage() {
     setResubmitting(true)
     try {
       const token = await getToken()
-      const res = await indexerApi.resubmitUrls(token, Array.from(selected), `Resubmit from ${job.name}`)
+      const res = await indexerApi.resubmitUrls(
+        token,
+        Array.from(selected),
+        `Resubmit from ${job.name}`,
+        job.client_profile_id || undefined,
+      )
       setSelected(new Set())
       router.push(`/indexer/jobs/${res.job_id}`)
     } catch (err) {

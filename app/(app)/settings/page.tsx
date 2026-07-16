@@ -6,7 +6,7 @@ import settingsStyles from '@/components/settings/SettingsWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import { createClient } from '@/lib/supabase'
-import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile, startGscOAuth, listGscProperties, disconnectGscOAuth, setGscAuthMethod, type GscAuthMethod, type GscProperty, type GscSettings } from '@/lib/api/shared'
+import { getSettings, saveSettings, deleteGscAccount, getProviderMetadata, saveProviderCredentials, deleteCredentials, listBrandProfiles, createBrandProfile, updateBrandProfile, deleteBrandProfile, draftBrandProfileFromContent, startGscOAuth, listGscProperties, disconnectGscOAuth, setGscAuthMethod, type GscAuthMethod, type GscProperty, type GscSettings } from '@/lib/api/shared'
 import BrandProfilesCard from '@/components/ui/BrandProfilesCard'
 
 export const dynamic = 'force-dynamic'
@@ -792,6 +792,8 @@ export default function SettingsPage() {
               createBrandProfile={createBrandProfile}
               updateBrandProfile={updateBrandProfile}
               deleteBrandProfile={deleteBrandProfile}
+              getProviderMetadata={getProviderMetadata}
+              draftBrandProfileFromContent={draftBrandProfileFromContent}
             />
           </div>
         </div>
