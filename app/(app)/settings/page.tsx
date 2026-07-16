@@ -713,7 +713,7 @@ export default function SettingsPage() {
                 <input type="password" value={credsForm.jina_api_key} onChange={e => setCredsForm(f => ({ ...f, jina_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={jinaKeyConfigured ? 'Leave blank to keep saved Jina key' : 'Add your Jina API key'} />
               </div>
               <div>
-                <label className="text-xs text-muted block mb-1">Firecrawl API Key <span className="text-muted/50">(FAQ fallback)</span></label>
+                <label className="text-xs text-muted block mb-1">Firecrawl API Key <span className="text-muted/50">(advanced page scraping)</span></label>
                 <input type="password" value={credsForm.firecrawl_api_key} onChange={e => setCredsForm(f => ({ ...f, firecrawl_api_key: e.target.value }))} className="input-base text-xs w-full" placeholder={firecrawlKeyConfigured ? 'Leave blank to keep saved Firecrawl key' : 'Add your Firecrawl API key'} />
                 <p className="text-xs text-muted/70 mt-1">Optional advanced page scraping when Jina cannot extract the page.</p>
               </div>

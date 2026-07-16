@@ -9,6 +9,7 @@ import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
+import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperControls'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import Switch from '@/components/ui/Switch'
@@ -120,6 +121,10 @@ export default function NewAIOJob() {
   // GSC
   const [useGsc, setUseGsc]           = useState(false)
   const [siteUrl, setSiteUrl]         = useState('')
+  const [scrapePages, setScrapePages] = useState(true)
+  const [scrapeProvider, setScrapeProvider] = useState<ScrapeProvider>('jina')
+  const [firecrawlFallback, setFirecrawlFallback] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
 
   // Rows
   const [rows, setRows]               = useState<Row[]>([{ url: '', keyword: '', page_type: 'service', h1: '', gen_page_copy: true, gen_meta: true, gen_faqs: true }])
@@ -147,8 +152,9 @@ export default function NewAIOJob() {
             .then(data => ({ data, error: '' }))
             .catch(loadError => ({ data: null, error: loadError instanceof Error ? loadError.message : 'Recommendation unavailable' }))
         : Promise.resolve({ data: null, error: '' })
-      const [s, bp, tmpl, recommendationResult] = await Promise.all([
+      const [s, metadata, bp, tmpl, recommendationResult] = await Promise.all([
         getSettings(session.access_token),
+        getProviderMetadata(session.access_token).catch(() => null),
         listBrandProfiles(session.access_token),
         aioApi.getTemplates(session.access_token),
         recommendationRequest,
@@ -167,8 +173,12 @@ export default function NewAIOJob() {
         setMinVolume(s.min_volume ?? 10)
         setUseGsc(s.use_gsc ?? false)
         setSiteUrl(s.site_url || '')
+        setScrapePages(s.scrape_pages ?? true)
+        setScrapeProvider(s.scrape_provider === 'firecrawl' ? 'firecrawl' : 'jina')
+        setFirecrawlFallback(Boolean(s.firecrawl_fallback) && Boolean(metadata?.has_firecrawl_key))
         if (s.niche) setNiche(s.niche)
       }
+      setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
       setBrandProfiles(Array.isArray(bp) ? bp : [])
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
       const draft = recommendationResult.data?.recommendation?.draft
@@ -246,7 +256,6 @@ export default function NewAIOJob() {
     if (!validRows.length) { setError('Add at least one valid URL'); return }
     if (!genPageCopy && !genMeta && !genFaqs) { setError('Enable at least one output type'); return }
     setError('')
-    setRunning(true)
 
     const sb = createClient()
     const { data: { session } } = await sb.auth.getSession()
@@ -256,12 +265,20 @@ export default function NewAIOJob() {
     try {
       const creds = await getProviderMetadata(session.access_token)
       dfsLogin = creds?.dfs_login || ''
+      const hasFirecrawlKey = Boolean(creds?.has_firecrawl_key)
+      setFirecrawlKeyConfigured(hasFirecrawlKey)
+      if (scrapePages && scrapeProvider === 'firecrawl' && !hasFirecrawlKey) {
+        setError('Add a Firecrawl API key in Settings before using Firecrawl as the primary scraper.')
+        return
+      }
     } catch (e) {
       console.error('Failed to fetch credentials at submit time:', e)
       setError('Failed to load credentials. Please try again.')
       setRunning(false)
       return
     }
+
+    setRunning(true)
 
     const payload = {
       name: jobName.trim() || `All in One — ${validRows.length} URLs`,
@@ -275,6 +292,8 @@ export default function NewAIOJob() {
         template_key: templateMode === 'predefined' ? templateKey : '',
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
+        scrape_pages: scrapePages, scrape_provider: scrapeProvider,
+        firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
         gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs, num_faqs: numFaqs,
       },
     }
@@ -355,7 +374,8 @@ export default function NewAIOJob() {
                   { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
                 ]} /> },
                 { label: 'Data', value: <JobSummaryPills items={[
-                  { label: 'Scrape', tone: 'success' },
+                  { label: scrapePages ? (scrapeProvider === 'firecrawl' ? 'Firecrawl' : 'Jina') : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  ...(scrapePages && scrapeProvider === 'jina' && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                   ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : [{ label: 'No GSC', tone: 'muted' as const }]),
                 ]} /> },
               ]}
@@ -601,6 +621,16 @@ export default function NewAIOJob() {
 
           {/* GSC */}
           <JobSection title="Data & context" description="Optional Search Console context remains explicit." className="space-y-4">
+            <ScraperControls
+              enabled={scrapePages}
+              onEnabledChange={setScrapePages}
+              provider={scrapeProvider}
+              onProviderChange={setScrapeProvider}
+              firecrawlFallback={firecrawlFallback}
+              onFirecrawlFallbackChange={setFirecrawlFallback}
+              firecrawlKeyConfigured={firecrawlKeyConfigured}
+            />
+            <div className="border-t border-border" />
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-sm">GSC (optional)</h2>
               <label className="flex items-center gap-2 cursor-pointer">

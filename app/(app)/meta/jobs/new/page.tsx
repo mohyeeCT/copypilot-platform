@@ -28,6 +28,7 @@ import {
   JobSummaryPills,
 } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
+import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperControls'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Switch from '@/components/ui/Switch'
 import { metaApi } from '@/lib/api/meta'
@@ -139,6 +140,9 @@ export default function NewMetaJobPage() {
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
   const [scrapePages, setScrapePages] = useState(true)
+  const [scrapeProvider, setScrapeProvider] = useState<ScrapeProvider>('jina')
+  const [firecrawlFallback, setFirecrawlFallback] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [jobName, setJobName] = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
   const [niche, setNiche] = useState('none')
@@ -189,8 +193,13 @@ export default function NewMetaJobPage() {
         setUseGsc(settings.use_gsc ?? true)
         setSiteUrl(settings.site_url || '')
         setScrapePages(settings.scrape_pages ?? true)
+        setScrapeProvider(settings.scrape_provider === 'firecrawl' ? 'firecrawl' : 'jina')
+        setFirecrawlFallback(Boolean(settings.firecrawl_fallback) && Boolean(credentials?.has_firecrawl_key))
       }
-      if (credentials) setDfsLogin(credentials.dfs_login || '')
+      if (credentials) {
+        setDfsLogin(credentials.dfs_login || '')
+        setFirecrawlKeyConfigured(Boolean(credentials.has_firecrawl_key))
+      }
       setBrandProfiles(Array.isArray(profiles) ? profiles : [])
       setTemplates(Array.isArray(savedTemplates) ? savedTemplates : [])
     } catch (loadError) {
@@ -216,6 +225,10 @@ export default function NewMetaJobPage() {
     if (template.use_gsc != null) setUseGsc(Boolean(template.use_gsc))
     if (template.site_url) setSiteUrl(template.site_url as string)
     if (template.scrape_pages != null) setScrapePages(Boolean(template.scrape_pages))
+    setScrapeProvider(template.scrape_provider === 'firecrawl' ? 'firecrawl' : 'jina')
+    if (template.firecrawl_fallback != null) {
+      setFirecrawlFallback(Boolean(template.firecrawl_fallback) && firecrawlKeyConfigured)
+    }
     if (template.brand_profile_id) setBrandProfileId(template.brand_profile_id as string)
     if (template.restricted_industry != null) setRestrictedIndustry(Boolean(template.restricted_industry))
   }
@@ -276,6 +289,11 @@ export default function NewMetaJobPage() {
       setError('Add at least one valid URL starting with http.')
       return
     }
+    if (scrapePages && scrapeProvider === 'firecrawl' && !firecrawlKeyConfigured) {
+      setError('Add a Firecrawl API key in Settings before using Firecrawl as the primary scraper.')
+      setSettingsTab('data')
+      return
+    }
     setError('')
     setRunning(true)
 
@@ -304,6 +322,8 @@ export default function NewMetaJobPage() {
         use_gsc: useGsc,
         site_url: siteUrl,
         scrape_pages: scrapePages,
+        scrape_provider: scrapeProvider,
+        firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
         brand_profile_id: brandProfileId,
         niche,
         restricted_industry: restrictedIndustry,
@@ -339,6 +359,8 @@ export default function NewMetaJobPage() {
         use_gsc: useGsc,
         site_url: siteUrl,
         scrape_pages: scrapePages,
+        scrape_provider: scrapeProvider,
+        firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
         brand_profile_id: brandProfileId,
         niche,
         restricted_industry: restrictedIndustry,
@@ -390,7 +412,8 @@ export default function NewMetaJobPage() {
                 {
                   label: 'Context',
                   value: <JobSummaryPills items={[
-                    { label: scrapePages ? 'Page context' : 'No page context', tone: scrapePages ? 'success' : 'muted' },
+                    { label: scrapePages ? (scrapeProvider === 'firecrawl' ? 'Firecrawl' : 'Jina') : 'No page context', tone: scrapePages ? 'success' : 'muted' },
+                    ...(scrapePages && scrapeProvider === 'jina' && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                     ...(useGsc ? [{ label: 'GSC', tone: 'accent' as const }] : []),
                   ]} />,
                 },
@@ -670,10 +693,15 @@ export default function NewMetaJobPage() {
                         <input className="input-base" value={siteUrl} onChange={event => setSiteUrl(event.target.value)} placeholder="https://example.com/" />
                       </label>
                     )}
-                    <div className={styles.toggleRow}>
-                      <span className={styles.toggleCopy}><strong>Scrape pages for context</strong><small>Read current page content before generation.</small></span>
-                      <Switch ariaLabel="Scrape pages for context" checked={scrapePages} onChange={setScrapePages} />
-                    </div>
+                    <ScraperControls
+                      enabled={scrapePages}
+                      onEnabledChange={setScrapePages}
+                      provider={scrapeProvider}
+                      onProviderChange={setScrapeProvider}
+                      firecrawlFallback={firecrawlFallback}
+                      onFirecrawlFallbackChange={setFirecrawlFallback}
+                      firecrawlKeyConfigured={firecrawlKeyConfigured}
+                    />
                     <div className={styles.settingsGrid}>
                       <label className={styles.settingsField}>
                         <span>DataForSEO login</span>

@@ -12,8 +12,11 @@ export const aioApi = {
   getJob:       (token: string, id: string)      => f(`/api/jobs/${id}`, token),
   deleteJob:    (token: string, id: string)      => f(`/api/jobs/${id}`, token, { method: 'DELETE' }),
   getTemplates: (token: string)                  => f('/api/all-in-one/templates', token),
-  rerunRow:     (token: string, id: string, index: number) =>
-    f(`/api/jobs/${id}/rerun-row/${index}`, token, { method: 'POST', body: JSON.stringify({}) }),
+  rerunRow:     (token: string, id: string, index: number, scraperOverride?: 'firecrawl') =>
+    f(`/api/jobs/${id}/rerun-row/${index}`, token, {
+      method: 'POST',
+      body: JSON.stringify({ scraper_override: scraperOverride || '' }),
+    }),
   rerunRows:    (token: string, id: string, indices: number[]) =>
     f(`/api/jobs/${id}/rerun-rows`, token, { method: 'POST', body: JSON.stringify({ row_indices: indices }) }),
   rerunSection: (token: string, id: string, rowIndex: number, sectionName: string, reviewerInstruction = '') =>

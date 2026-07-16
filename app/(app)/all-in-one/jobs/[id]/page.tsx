@@ -27,6 +27,7 @@ import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { aioApi } from '@/lib/api/all-in-one'
+import { getProviderMetadata } from '@/lib/api/shared'
 import { exportRowsToGoogleDocs, googleDocsExportError } from '@/lib/export/googleDocs'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import { createClient } from '@/lib/supabase'
@@ -72,7 +73,11 @@ interface PageCopyResult {
       competitors_scraped?: number
       scraped_page_chars?: number
     }
-    scrape?: { page_context_success?: boolean }
+    scrape?: {
+      page_context_success?: boolean
+      page_context_source?: string
+      page_context_error?: string
+    }
   }
   generated_title?: string
   generated_description?: string
@@ -241,6 +246,7 @@ export default function AllInOneJobPage() {
   const [resultQuery, setResultQuery] = useState('')
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [detailTab, setDetailTab] = useState<DetailTab>('overview')
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const jobStatus = job?.status
 
   useEffect(() => {
@@ -267,6 +273,21 @@ export default function AllInOneJobPage() {
   }, [id, router])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    async function loadFirecrawlStatus() {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      try {
+        const metadata = await getProviderMetadata(session.access_token)
+        setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
+      } catch {
+        setFirecrawlKeyConfigured(false)
+      }
+    }
+    void loadFirecrawlStatus()
+  }, [])
 
   useEffect(() => {
     if (jobStatus !== 'running' && jobStatus !== 'cancelling') return
@@ -421,7 +442,7 @@ export default function AllInOneJobPage() {
     }
   }
 
-  async function startRowRerun(index: number) {
+  async function startRowRerun(index: number, scraperOverride?: 'firecrawl') {
     if (!job || rerunning !== null) return
     setRerunning(index)
     try {
@@ -431,7 +452,7 @@ export default function AllInOneJobPage() {
         setRerunning(null)
         return
       }
-      await aioApi.rerunRow(session.access_token, job.id, index)
+      await aioApi.rerunRow(session.access_token, job.id, index, scraperOverride)
       const poll = window.setInterval(async () => {
         try {
           const updated = await aioApi.getJob(session.access_token, job.id)
@@ -531,6 +552,8 @@ export default function AllInOneJobPage() {
     ? '1 row needs review; generated files remain available.'
     : `${reviewCount} rows need review; generated files remain available.`
   const hasDocx = results.some(row => row.docx_b64)
+  const selectedScrapeFailed = Boolean(selectedResult?.run_diagnostics?.scrape?.page_context_error)
+  const jobStartedWithFirecrawl = job.settings?.scrape_provider === 'firecrawl'
 
   return (
     <AppLayout title="All in One">
@@ -838,6 +861,11 @@ export default function AllInOneJobPage() {
                     <span>Row {selectedIndex + 1} of {results.length}</span>
                     <div>
                       {selectedResult.docx_b64 && <button type="button" className="btn-ghost text-xs" onClick={() => downloadDocx(selectedResult, selectedIndex)}><Download size={13} /> Download DOCX</button>}
+                      {selectedScrapeFailed && !jobStartedWithFirecrawl && firecrawlKeyConfigured ? (
+                        <button type="button" className="btn-ghost text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, 'firecrawl')}>
+                          <RefreshCw size={13} /> Rerun with Firecrawl
+                        </button>
+                      ) : null}
                       <button type="button" className="btn-primary text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex)}><RefreshCw size={13} className={rerunning === selectedIndex ? 'animate-spin' : ''} /> {rerunning === selectedIndex ? 'Rerunning...' : 'Rerun row'}</button>
                     </div>
                   </footer>

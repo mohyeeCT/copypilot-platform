@@ -8,6 +8,7 @@ import CustomSelect from '@/components/ui/CustomSelect'
 import ImportErrors from '@/components/ui/ImportErrors'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
 import NicheSelect from '@/components/ui/NicheSelect'
+import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperControls'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import Switch from '@/components/ui/Switch'
@@ -157,6 +158,9 @@ export default function NewJobPage() {
 
   // Options
   const [scrapePages, setScrapePages] = useState(true)
+  const [scrapeProvider, setScrapeProvider] = useState<ScrapeProvider>('jina')
+  const [firecrawlFallback, setFirecrawlFallback] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [includeAiOverviewContext, setIncludeAiOverviewContext] = useState(true)
   const [useGsc, setUseGsc] = useState(true)
   const [siteUrl, setSiteUrl] = useState('')
@@ -172,6 +176,7 @@ export default function NewJobPage() {
         if (creds?.dfs_login) setDfsLogin(creds.dfs_login)
         if (creds?.site_url) setSiteUrl(creds.site_url)
         if (creds?.brand_name) setBrandName(creds.brand_name)
+        setFirecrawlKeyConfigured(Boolean(creds?.has_firecrawl_key))
         const tmpl = await listTemplates(session.access_token, 'intro')
         if (Array.isArray(tmpl)) setTemplates(tmpl)
 
@@ -226,6 +231,10 @@ export default function NewJobPage() {
     if (s.branded_terms_input) setBrandedTermsInput(s.branded_terms_input as string)
     if (typeof s.use_gsc === 'boolean') setUseGsc(s.use_gsc)
     if (typeof s.scrape_pages === 'boolean') setScrapePages(s.scrape_pages)
+    setScrapeProvider(s.scrape_provider === 'firecrawl' ? 'firecrawl' : 'jina')
+    if (typeof s.firecrawl_fallback === 'boolean') {
+      setFirecrawlFallback(s.firecrawl_fallback && firecrawlKeyConfigured)
+    }
     if (typeof s.include_ai_overview_context === 'boolean') setIncludeAiOverviewContext(s.include_ai_overview_context)
     if (s.site_url) setSiteUrl(s.site_url as string)
     setShowTemplates(false)
@@ -236,6 +245,10 @@ export default function NewJobPage() {
     const validRows = rows.filter(r => r.url.trim())
     if (!validRows.length) { setError('Add at least one URL.'); return }
     if (!dfsLogin) { setError('DataForSEO login is required.'); return }
+    if (scrapePages && scrapeProvider === 'firecrawl' && !firecrawlKeyConfigured) {
+      setError('Add a Firecrawl API key in Settings before using Firecrawl as the primary scraper.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -269,6 +282,8 @@ export default function NewJobPage() {
           min_volume: minVolume,
           restricted_industry: restrictedIndustry,
           scrape_pages: scrapePages,
+          scrape_provider: scrapeProvider,
+          firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
           include_ai_overview_context: includeAiOverviewContext,
           use_gsc: useGsc,
           site_url: siteUrl,
@@ -306,7 +321,8 @@ export default function NewJobPage() {
                   { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
                 ]} /> },
                 { label: 'Context', value: <JobSummaryPills items={[
-                  { label: scrapePages ? 'Scrape' : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  { label: scrapePages ? (scrapeProvider === 'firecrawl' ? 'Firecrawl' : 'Jina') : 'No scrape', tone: scrapePages ? 'success' : 'muted' },
+                  ...(scrapePages && scrapeProvider === 'jina' && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                   ...(includeAiOverviewContext ? [{ label: 'AIO', tone: 'accent' as const }] : []),
                 ]} /> },
               ]}
@@ -377,6 +393,8 @@ export default function NewJobPage() {
                           include_brand: includeBrand, forbidden_phrases: forbiddenPhrases,
                           branded_terms_input: brandedTermsInput,
                           use_gsc: useGsc, scrape_pages: scrapePages,
+                          scrape_provider: scrapeProvider,
+                          firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
                           include_ai_overview_context: includeAiOverviewContext,
                           site_url: siteUrl,
                         }, 'intro')
@@ -683,10 +701,15 @@ export default function NewJobPage() {
                 </div>
                 <Switch ariaLabel="Restricted industry" checked={restrictedIndustry} onChange={setRestrictedIndustry} className="ml-3" />
               </label>
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-xs text-muted">Scrape pages (Jina)</span>
-                <Switch ariaLabel="Scrape pages" checked={scrapePages} onChange={setScrapePages} />
-              </label>
+              <ScraperControls
+                enabled={scrapePages}
+                onEnabledChange={setScrapePages}
+                provider={scrapeProvider}
+                onProviderChange={setScrapeProvider}
+                firecrawlFallback={firecrawlFallback}
+                onFirecrawlFallbackChange={setFirecrawlFallback}
+                firecrawlKeyConfigured={firecrawlKeyConfigured}
+              />
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <span className="text-xs text-muted">Use AI Overview context</span>

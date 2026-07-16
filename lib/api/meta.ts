@@ -12,10 +12,10 @@ export const metaApi = {
   getJob:    (token: string, id: string)      => f(`/api/jobs/${id}`, token),
   deleteJob: (token: string, id: string)      => f(`/api/jobs/${id}`, token, { method: 'DELETE' }),
 
-  rerunRow: (token: string, id: string, index: number, kwOverride?: string) =>
+  rerunRow: (token: string, id: string, index: number, kwOverride?: string, scraperOverride?: 'firecrawl') =>
     f(`/api/jobs/${id}/rerun-row/${index}`, token, {
       method: 'POST',
-      body: JSON.stringify({ keyword_override: kwOverride || '' }),
+      body: JSON.stringify({ keyword_override: kwOverride || '', scraper_override: scraperOverride || '' }),
     }),
 
   rerunRows: (token: string, id: string, indices: number[]) =>

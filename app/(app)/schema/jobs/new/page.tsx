@@ -7,6 +7,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import workspaceStyles from '@/components/meta/MetaCopyWorkspace.module.css'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { cleanModelLabel, cleanProviderLabel, JobLauncherShell, JobSection, JobSummaryBar, JobSummaryPills } from '@/components/ui/JobLauncher'
+import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperControls'
 import Switch from '@/components/ui/Switch'
 import { createClient } from '@/lib/supabase'
 import { schemaApi } from '@/lib/api/schema'
@@ -69,6 +70,9 @@ export default function NewSchemaJobPage() {
   const [scrapeTarget, setScrapeTarget] = useState(true)
   const [scrapeHomepage, setScrapeHomepage] = useState(true)
   const [deepScrape, setDeepScrape] = useState(false)
+  const [scrapeProvider, setScrapeProvider] = useState<ScrapeProvider>('jina')
+  const [firecrawlFallback, setFirecrawlFallback] = useState(false)
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [serpCheck, setSerpCheck] = useState(false)
   const [includeScriptTag, setIncludeScriptTag] = useState(true)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -84,6 +88,7 @@ export default function NewSchemaJobPage() {
         const creds = await getProviderMetadata(session.access_token).catch(() => null)
         if (creds?.provider === 'Claude') setProvider('Claude')
         if (creds?.dfs_login) setDfsLogin(creds.dfs_login)
+        setFirecrawlKeyConfigured(Boolean(creds?.has_firecrawl_key))
       } finally {
         setSettingsLoaded(true)
       }
@@ -98,6 +103,11 @@ export default function NewSchemaJobPage() {
 
   async function handleRun() {
     if (!url.trim().startsWith('http')) { setError('Add a valid URL starting with http'); return }
+    const scrapingEnabled = scrapeTarget || scrapeHomepage || deepScrape
+    if (scrapingEnabled && scrapeProvider === 'firecrawl' && !firecrawlKeyConfigured) {
+      setError('Add a Firecrawl API key in Settings before using Firecrawl as the primary scraper.')
+      return
+    }
     setError('')
     setRunning(true)
 
@@ -117,6 +127,8 @@ export default function NewSchemaJobPage() {
           scrape_target: scrapeTarget,
           scrape_homepage: scrapeHomepage,
           deep_scrape: deepScrape,
+          scrape_provider: scrapeProvider,
+          firecrawl_fallback: scrapingEnabled && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
           serp_check: serpCheck,
           include_script_tag: includeScriptTag,
         },
@@ -159,6 +171,8 @@ export default function NewSchemaJobPage() {
                 ]} /> },
                 { label: 'Context', value: <JobSummaryPills items={[
                   { label: scrapeTarget ? 'Page scrape' : 'No page scrape', tone: scrapeTarget ? 'success' : 'muted' },
+                  ...((scrapeTarget || scrapeHomepage || deepScrape) ? [{ label: scrapeProvider === 'firecrawl' ? 'Firecrawl' : 'Jina', tone: 'success' as const }] : []),
+                  ...((scrapeTarget || scrapeHomepage || deepScrape) && scrapeProvider === 'jina' && firecrawlFallback ? [{ label: 'Firecrawl fallback', tone: 'accent' as const }] : []),
                   ...(scrapeHomepage ? [{ label: 'Homepage', tone: 'success' as const }] : []),
                   ...(deepScrape ? [{ label: 'About/Contact', tone: 'accent' as const }] : []),
                   ...(serpCheck ? [{ label: 'SERP', tone: 'accent' as const }] : []),
@@ -228,6 +242,15 @@ export default function NewSchemaJobPage() {
                       <Switch ariaLabel={label} checked={value} onChange={setter} />
                     </label>
                   ))}
+                  <ScraperControls
+                    enabled={scrapeTarget || scrapeHomepage || deepScrape}
+                    provider={scrapeProvider}
+                    onProviderChange={setScrapeProvider}
+                    firecrawlFallback={firecrawlFallback}
+                    onFirecrawlFallbackChange={setFirecrawlFallback}
+                    firecrawlKeyConfigured={firecrawlKeyConfigured}
+                    showEnabledToggle={false}
+                  />
                 </div>
               </JobSection>
             </div>

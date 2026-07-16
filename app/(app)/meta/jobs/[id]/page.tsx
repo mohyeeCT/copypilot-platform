@@ -28,6 +28,7 @@ import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { metaApi } from '@/lib/api/meta'
+import { getProviderMetadata } from '@/lib/api/shared'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import { createClient } from '@/lib/supabase'
 
@@ -49,6 +50,7 @@ interface MetaResult {
   h1_length?: number
   h1_input?: string
   qa_flags?: string[]
+  scrape_status?: string
   status?: string
   error?: string
 }
@@ -137,6 +139,7 @@ export default function MetaJobPage() {
   const [resultQuery, setResultQuery] = useState('')
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [detailTab, setDetailTab] = useState<DetailTab>('copy')
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
   const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [editingKw, setEditingKw] = useState<number | null>(null)
@@ -165,6 +168,21 @@ export default function MetaJobPage() {
   }, [id, router])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    async function loadFirecrawlStatus() {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      try {
+        const metadata = await getProviderMetadata(session.access_token)
+        setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
+      } catch {
+        setFirecrawlKeyConfigured(false)
+      }
+    }
+    void loadFirecrawlStatus()
+  }, [])
 
   // Poll until running or cancellation reaches a terminal state.
   useEffect(() => {
@@ -287,7 +305,7 @@ export default function MetaJobPage() {
     }
   }
 
-  async function startRowRerun(index: number, keywordOverride?: string) {
+  async function startRowRerun(index: number, keywordOverride?: string, scraperOverride?: 'firecrawl') {
     if (!job || rerunning !== null) return
     setRerunning(index)
     try {
@@ -297,7 +315,7 @@ export default function MetaJobPage() {
         setRerunning(null)
         return
       }
-      await metaApi.rerunRow(session.access_token, job.id, index, keywordOverride)
+      await metaApi.rerunRow(session.access_token, job.id, index, keywordOverride, scraperOverride)
       const poll = window.setInterval(async () => {
         try {
           const updated = await metaApi.getJob(session.access_token, job.id)
@@ -355,6 +373,8 @@ export default function MetaJobPage() {
   const readyCount = results.filter(row => resultState(row) === 'ready').length
   const reviewCount = results.filter(row => resultState(row) === 'review').length
   const errorCount = results.filter(row => resultState(row) === 'error').length
+  const selectedScrapeFailed = selectedResult?.scrape_status?.toLowerCase().startsWith('failed:') ?? false
+  const jobStartedWithFirecrawl = job.settings?.scrape_provider === 'firecrawl'
   const gscLabels = Array.from(new Set(results.map(row => gscAuthLabel(row.gsc_auth_method)).filter(Boolean)))
   const gscSummary = gscLabels.length === 0 ? 'Manual' : gscLabels.length === 1 ? gscLabels[0] : 'Mixed'
 
@@ -684,6 +704,7 @@ export default function MetaJobPage() {
                       <div className={styles.sourceList}>
                         <div><span><Search size={14} /></span><div><strong>Search Console</strong><p>{gscAuthLabel(selectedResult.gsc_auth_method) || 'No GSC method was recorded for this row.'}</p></div></div>
                         <div><span><BarChart3 size={14} /></span><div><strong>Keyword data</strong><p>{selectedResult.keyword_source || 'No keyword source label was recorded.'}</p></div></div>
+                        <div><span><FileText size={14} /></span><div><strong>Page context</strong><p>{selectedResult.scrape_status || 'No page scrape status was recorded.'}</p></div></div>
                         <div><span><FileText size={14} /></span><div><strong>Target page</strong><p>{selectedResult.url}</p></div></div>
                       </div>
 
@@ -735,6 +756,11 @@ export default function MetaJobPage() {
                     <span>Row {selectedIndex + 1} of {results.length}</span>
                     <div>
                       <button type="button" className="btn-ghost text-xs" onClick={() => { setDetailTab('sources'); setEditingKw(selectedIndex) }}><Pencil size={13} /> Edit keyword</button>
+                      {selectedScrapeFailed && !jobStartedWithFirecrawl && firecrawlKeyConfigured ? (
+                        <button type="button" className="btn-ghost text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, selectedResult.selected_keyword, 'firecrawl')}>
+                          <RefreshCw size={13} /> Rerun with Firecrawl
+                        </button>
+                      ) : null}
                       <button type="button" className="btn-primary text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex)}>
                         <RefreshCw size={13} className={rerunning === selectedIndex ? 'animate-spin' : ''} /> {rerunning === selectedIndex ? 'Rerunning...' : 'Rerun row'}
                       </button>

@@ -25,6 +25,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import { introApi } from '@/lib/api/intro'
+import { getProviderMetadata } from '@/lib/api/shared'
 import { createClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -59,6 +60,7 @@ type Job = {
   results: RowResult[]
   created_at: string
   error: string | null
+  settings?: { scrape_provider?: 'jina' | 'firecrawl' }
 }
 
 type ResultFilter = 'all' | 'ready' | 'review' | 'error'
@@ -124,6 +126,7 @@ export default function JobPage() {
   const [resultQuery, setResultQuery] = useState('')
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [detailTab, setDetailTab] = useState<DetailTab>('copy')
+  const [firecrawlKeyConfigured, setFirecrawlKeyConfigured] = useState(false)
 
   useEffect(() => {
     const resetRateLimitedAction = () => {
@@ -145,6 +148,21 @@ export default function JobPage() {
   }, [id])
 
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    async function loadFirecrawlStatus() {
+      const sb = createClient()
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session) return
+      try {
+        const metadata = await getProviderMetadata(session.access_token)
+        setFirecrawlKeyConfigured(Boolean(metadata?.has_firecrawl_key))
+      } catch {
+        setFirecrawlKeyConfigured(false)
+      }
+    }
+    void loadFirecrawlStatus()
+  }, [])
 
   useEffect(() => {
     if (!job || (job.status !== 'running' && job.status !== 'cancelling')) return
@@ -269,7 +287,7 @@ export default function JobPage() {
     }
   }
 
-  async function startRowRerun(index: number, keywordOverride?: string) {
+  async function startRowRerun(index: number, keywordOverride?: string, scraperOverride?: 'firecrawl') {
     if (!job || rerunning !== null) return
     setRerunning(index)
     try {
@@ -279,7 +297,7 @@ export default function JobPage() {
         setRerunning(null)
         return
       }
-      await introApi.rerunRow(session.access_token, job.id, index, keywordOverride)
+      await introApi.rerunRow(session.access_token, job.id, index, keywordOverride, scraperOverride)
       const poll = window.setInterval(async () => {
         try {
           const updated = await introApi.getJob(session.access_token, job.id)
@@ -339,6 +357,8 @@ export default function JobPage() {
   const readyCount = results.filter(row => resultState(row) === 'ready').length
   const reviewCount = results.filter(row => resultState(row) === 'review').length
   const errorCount = results.filter(row => resultState(row) === 'error').length
+  const selectedScrapeFailed = selectedResult?.scrape_status?.toLowerCase().startsWith('failed:') ?? false
+  const jobStartedWithFirecrawl = job.settings?.scrape_provider === 'firecrawl'
 
   return (
     <AppLayout title="Page Intro">
@@ -607,6 +627,11 @@ export default function JobPage() {
                     <span>Row {selectedIndex + 1} of {results.length}</span>
                     <div>
                       <button type="button" className="btn-ghost text-xs" onClick={() => { setDetailTab('sources'); setEditingKeyword(selectedIndex) }}><Pencil size={13} /> Edit keyword</button>
+                      {selectedScrapeFailed && !jobStartedWithFirecrawl && firecrawlKeyConfigured ? (
+                        <button type="button" className="btn-ghost text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex, selectedResult.primary_keyword, 'firecrawl')}>
+                          <RefreshCw size={13} /> Rerun with Firecrawl
+                        </button>
+                      ) : null}
                       <button type="button" className="btn-primary text-xs" disabled={rerunning !== null} onClick={() => void startRowRerun(selectedIndex)}><RefreshCw size={13} className={rerunning === selectedIndex ? 'animate-spin' : ''} /> {rerunning === selectedIndex ? 'Rerunning...' : 'Rerun row'}</button>
                     </div>
                   </footer>
