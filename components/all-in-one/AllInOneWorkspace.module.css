@@ -231,11 +231,126 @@
   font-size: 0.67rem;
 }
 
+.scrapeFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.scrapeFacts > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-right: 1px solid var(--border);
+}
+
+.scrapeFacts > div:last-child {
+  border-right: 0;
+}
+
+.scrapeFacts span,
+.scrapeFacts strong,
+.scrapeFacts small {
+  display: block;
+}
+
+.scrapeFacts span,
+.scrapeFacts small {
+  color: var(--muted);
+  font-size: 0.67rem;
+}
+
+.scrapeFacts strong {
+  margin: 3px 0 1px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.sourceEvidence {
+  display: grid;
+  gap: 10px;
+}
+
+.evidenceBlock {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.evidenceHeader {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+}
+
+.evidenceHeader::-webkit-details-marker {
+  display: none;
+}
+
+.evidenceHeader > span,
+.evidenceMeta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.evidenceMeta {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.evidenceMeta small {
+  font-size: 0.65rem;
+  font-weight: 400;
+}
+
+.evidenceChevron {
+  transition: transform 120ms ease;
+}
+
+.evidenceBlock[open] .evidenceChevron {
+  transform: rotate(180deg);
+}
+
+.evidenceText {
+  max-height: 300px;
+  overflow: auto;
+  padding: 12px;
+  color: var(--muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.69rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 760px) {
   .outputGrid,
   .diagnosticsGrid,
-  .strategyGrid {
+  .strategyGrid,
+  .scrapeFacts {
     grid-template-columns: 1fr;
+  }
+
+  .scrapeFacts > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scrapeFacts > div:last-child {
+    border-bottom: 0;
   }
 
   .sectionRerun {

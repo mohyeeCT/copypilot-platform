@@ -59,6 +59,8 @@ interface PageCopyResult {
   strategy_brief?: Record<string, unknown>
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
   strategy_issues?: string[]
+  scrape_status?: string
+  page_context_preview?: string
   qa_flags?: QaFlag[]
   run_diagnostics?: {
     provider?: string
@@ -77,6 +79,11 @@ interface PageCopyResult {
       page_context_success?: boolean
       page_context_source?: string
       page_context_error?: string
+      requested_provider?: string
+      content_mode?: string
+      fallback_used?: boolean
+      raw_response_chars?: number
+      retained_context_chars?: number
     }
   }
   generated_title?: string
@@ -125,6 +132,27 @@ function gscAuthLabel(method?: PageCopyResult['gsc_auth_method']) {
   if (method === 'unavailable') return 'GSC unavailable'
   if (method === 'disabled') return 'GSC disabled'
   return ''
+}
+
+function scrapeSourceLabel(source?: string) {
+  if (source === 'live') return 'Jina live'
+  if (source === 'cached_fallback') return 'Jina cached fallback'
+  if (source === 'firecrawl') return 'Firecrawl'
+  return source || 'Not recorded'
+}
+
+function scrapeModeLabel(mode?: string) {
+  if (!mode) return 'Mode not recorded'
+  return mode === 'ecommerce_collection' ? 'Collection-aware' : 'Standard page'
+}
+
+function scrapeCount(value?: number) {
+  return value ?? '-'
+}
+
+function scrapeFallbackLabel(value?: boolean) {
+  if (value === undefined) return 'Not recorded'
+  return value ? 'Used' : 'Not used'
 }
 
 function gscErrorMessage(error?: string | null) {
@@ -848,9 +876,22 @@ export default function AllInOneJobPage() {
                         <div><span>Search Console</span><strong>{gscAuthLabel(row.gsc_auth_method) || 'Not recorded'}</strong><small>Connection used</small></div>
                       </section>
                       <div className={styles.sourceList}>
-                        <div><span><Database size={14} /></span><div><strong>Owned page</strong><p>{selectedResult.run_diagnostics?.scrape?.page_context_success ? `${selectedResult.run_diagnostics.input_signal_counts?.scraped_page_chars || 0} characters available` : 'Owned-page context was unavailable.'}</p></div></div>
+                        <div><span><Database size={14} /></span><div><strong>Owned page</strong><p>{selectedResult.scrape_status || 'Not recorded'} | {scrapeSourceLabel(selectedResult.run_diagnostics?.scrape?.page_context_source)} | {scrapeModeLabel(selectedResult.run_diagnostics?.scrape?.content_mode)}</p></div></div>
                         <div><span><Search size={14} /></span><div><strong>Search signals</strong><p>{selectedResult.run_diagnostics?.input_signal_counts?.paa_questions || 0} People Also Ask questions and {selectedResult.run_diagnostics?.input_signal_counts?.ai_overview_sections || 0} AI Overview sections.</p></div></div>
                         <div><span><Link2 size={14} /></span><div><strong>Competitor evidence</strong><p>{selectedResult.competitor_urls?.length || 0} competitor URLs recorded.</p></div></div>
+                      </div>
+                      <div className={aioStyles.scrapeFacts}>
+                        <div><span>Raw response</span><strong>{scrapeCount(selectedResult.run_diagnostics?.scrape?.raw_response_chars)}</strong><small>Characters returned by scraper</small></div>
+                        <div><span>Retained context</span><strong>{scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)}</strong><small>Characters passed into strategy</small></div>
+                        <div><span>Fallback</span><strong>{scrapeFallbackLabel(selectedResult.run_diagnostics?.scrape?.fallback_used)}</strong><small>Requested {selectedResult.run_diagnostics?.scrape?.requested_provider || 'provider not recorded'}</small></div>
+                      </div>
+                      <div className={aioStyles.sourceEvidence}>
+                        <EvidenceBlock
+                          title="Owned page context"
+                          detail={`${scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)} characters sent to strategy`}
+                          value={selectedResult.page_context_preview}
+                          initiallyOpen
+                        />
                       </div>
                       {selectedResult.competitor_urls?.length ? <div className={aioStyles.linkList}>{selectedResult.competitor_urls.map(url => <div key={url} className={aioStyles.linkItem}><a href={url} target="_blank" rel="noreferrer" className="font-mono text-xs text-accent hover:underline">{url}</a></div>)}</div> : null}
                       {selectedResult.content_gap_summary?.length ? <div><div className={aioStyles.sectionHeading}><span>Content gaps</span><p>Topics found in the research that may strengthen this page.</p></div><div className={aioStyles.gapList}>{selectedResult.content_gap_summary.map((gap, index) => <div key={`${gap.section}-${index}`} className={aioStyles.gapItem}><span>{gap.section}</span><p>{gap.summary || gap.missing_topics.join(', ')}</p></div>)}</div></div> : null}
@@ -876,5 +917,19 @@ export default function AllInOneJobPage() {
         )}
       </div>
     </AppLayout>
+  )
+}
+
+function EvidenceBlock({ title, detail, value, initiallyOpen = false }: { title: string; detail: string; value?: string; initiallyOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(initiallyOpen)
+
+  return (
+    <details className={aioStyles.evidenceBlock} open={isOpen} onToggle={event => setIsOpen(event.currentTarget.open)}>
+      <summary className={aioStyles.evidenceHeader}>
+        <span><Database size={13} /> {title}</span>
+        <span className={aioStyles.evidenceMeta}><small>{detail}</small><ChevronDown className={aioStyles.evidenceChevron} size={13} /></span>
+      </summary>
+      <div className={aioStyles.evidenceText}>{value?.trim() || 'No saved owned-page context was available for this row.'}</div>
+    </details>
   )
 }
