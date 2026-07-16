@@ -111,6 +111,7 @@ export type GscSettings = {
     has_indexing_scope?: boolean
     has_sheets_scope?: boolean
     has_docs_scope?: boolean
+    has_analytics_scope?: boolean
   }
   oauth_available: boolean
 }

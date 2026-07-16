@@ -3,6 +3,7 @@ import { apiFetch } from './shared'
 const BASE = (
   process.env.NEXT_PUBLIC_GEOPILOT_API_URL || 'https://geopilot-backend-production.up.railway.app'
 ).replace(/\/+$/, '')
+export const GEOPILOT_API_BASE = BASE
 
 const f = (path: string, token: string, options?: RequestInit) => apiFetch(BASE, path, token, options)
 
@@ -118,6 +119,124 @@ export type GeoPilotPromptPayload = {
   active: boolean
 }
 
+export type GeoPilotReportSections = {
+  overview: boolean
+  trends: boolean
+  surfaces: boolean
+  prompts: boolean
+  citations: boolean
+  opportunities: boolean
+  costs: boolean
+}
+
+export type GeoPilotReportLink = {
+  id: string
+  profile_id: string
+  name: string
+  period_days: number
+  sections: GeoPilotReportSections
+  collection_ids: string[]
+  surfaces: GeoPilotPrimarySurface[]
+  active: boolean
+  expires_at?: string | null
+  revoked_at?: string | null
+  access_count: number
+  last_accessed_at?: string | null
+  created_at?: string
+  passcode_protected: boolean
+  token_prefix: string
+}
+
+export type GeoPilotReportLinkPayload = {
+  name: string
+  period_days: number
+  sections: GeoPilotReportSections
+  collection_ids: string[]
+  surfaces: GeoPilotPrimarySurface[]
+  expires_in_days: number | null
+  passcode?: string
+}
+
+export type GeoPilotSourceMonitor = {
+  id: string
+  collection_id?: string | null
+  url: string
+  domain: string
+  citation_classification: 'owned' | 'competitor' | 'third_party'
+  citation_count: number
+  priority_score: number
+  status: string
+  frequency: string
+  last_event_at?: string | null
+  last_checked_at?: string | null
+  last_error?: string | null
+}
+
+export type GeoPilotSourceChange = {
+  id: string
+  monitor_id: string
+  detected_at: string
+  changed_output: Record<string, unknown>
+  previous_output: Record<string, unknown>
+  evidence_urls: string[]
+  status: string
+}
+
+export type GeoPilotContentGapBrief = {
+  id: string
+  collection_id?: string | null
+  source_type: 'weekly' | 'monitor_change'
+  status: string
+  brief: Record<string, unknown>
+  evidence: Record<string, unknown>
+  error?: string | null
+  generated_at?: string | null
+  created_at?: string
+}
+
+export type GeoPilotGoogleIntegration = {
+  id: string
+  profile_id: string
+  auth_method: 'google_oauth' | 'service_account'
+  gsc_site_url?: string | null
+  ga4_property_id?: string | null
+  ga4_property_name?: string | null
+  status: 'connected' | 'reconnect_required' | 'error' | 'disabled'
+  active: boolean
+  last_synced_at?: string | null
+  next_sync_at?: string | null
+  last_error?: string | null
+}
+
+export type GeoPilotGoogleProperties = {
+  connection_method: 'google_oauth' | 'service_account'
+  google_email?: string | null
+  search_console: Array<{ site_url: string; permission_level: string }>
+  analytics: Array<{ property_id: string; display_name: string; account_name: string }>
+  analytics_reconnect_required: boolean
+  analytics_error?: string | null
+}
+
+export type GeoPilotAttribution = {
+  integration: GeoPilotGoogleIntegration | null
+  period_days: number
+  totals: {
+    gsc_clicks: number
+    gsc_impressions: number
+    gsc_ctr: number | null
+    gsc_average_position: number | null
+    ga4_sessions: number
+    ga4_active_users: number
+    ga4_engaged_sessions: number
+    ga4_key_events: number
+    ga4_revenue: number
+    ai_referral_sessions: number
+  }
+  timeline: Array<Record<string, number | string>>
+  content_actions: Array<Record<string, unknown>>
+  methodology: string
+}
+
 export const geopilotApi = {
   capabilities: (token: string) => f('/api/geopilot/capabilities', token) as Promise<GeoPilotCapabilities>,
   listProfiles: (token: string) => f('/api/geopilot/profiles', token),
@@ -184,6 +303,58 @@ export const geopilotApi = {
       method: 'POST', body: JSON.stringify({ run_id: runId }),
     }),
   getAioRecommendation: (token: string, id: string) => f(`/api/geopilot/aio-recommendations/${id}`, token),
+  listReportLinks: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/report-links`, token) as Promise<{ report_links: GeoPilotReportLink[] }>,
+  createReportLink: (token: string, profileId: string, payload: GeoPilotReportLinkPayload) =>
+    f(`/api/geopilot/profiles/${profileId}/report-links`, token, {
+      method: 'POST', body: JSON.stringify(payload),
+    }) as Promise<{ report_link: GeoPilotReportLink; token: string }>,
+  revokeReportLink: (token: string, linkId: string) =>
+    f(`/api/geopilot/report-links/${linkId}/revoke`, token, { method: 'POST' }),
+  sourceMonitors: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/source-monitors`, token) as Promise<{ monitors: GeoPilotSourceMonitor[] }>,
+  sourceChanges: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/source-changes`, token) as Promise<{ changes: GeoPilotSourceChange[] }>,
+  contentGapBriefs: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/content-gap-briefs`, token) as Promise<{ briefs: GeoPilotContentGapBrief[] }>,
+  googleProperties: (token: string, method?: 'google_oauth' | 'service_account') =>
+    f(`/api/geopilot/google/properties${method ? `?method=${method}` : ''}`, token) as Promise<GeoPilotGoogleProperties>,
+  googleIntegration: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/google-integration`, token) as Promise<{ integration: GeoPilotGoogleIntegration | null }>,
+  saveGoogleIntegration: (
+    token: string,
+    profileId: string,
+    payload: {
+      auth_method: 'google_oauth' | 'service_account'
+      gsc_site_url: string | null
+      ga4_property_id: string | null
+      ga4_property_name: string | null
+      active: boolean
+    },
+  ) => f(`/api/geopilot/profiles/${profileId}/google-integration`, token, {
+    method: 'PUT', body: JSON.stringify(payload),
+  }) as Promise<{ integration: GeoPilotGoogleIntegration }>,
+  deleteGoogleIntegration: (token: string, profileId: string) =>
+    f(`/api/geopilot/profiles/${profileId}/google-integration`, token, { method: 'DELETE' }),
+  syncAttribution: (token: string, profileId: string, days: number) =>
+    f(`/api/geopilot/profiles/${profileId}/google-integration/sync`, token, {
+      method: 'POST', body: JSON.stringify({ days }),
+    }),
+  attribution: (token: string, profileId: string, days: number) =>
+    f(`/api/geopilot/profiles/${profileId}/attribution?days=${days}`, token) as Promise<GeoPilotAttribution>,
+  createContentAction: (token: string, profileId: string, payload: {
+    title: string
+    target_url: string
+    published_at: string
+    status: 'planned' | 'published'
+    notes: string
+    recommendation_id?: string
+    source_run_id?: string
+  }) => f(`/api/geopilot/profiles/${profileId}/content-actions`, token, {
+    method: 'POST', body: JSON.stringify(payload),
+  }),
+  archiveContentAction: (token: string, actionId: string) =>
+    f(`/api/geopilot/content-actions/${actionId}`, token, { method: 'DELETE' }),
   exportUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export.csv?days=${days}`,
   exportBundleUrl: (profileId: string, days: number) => `${BASE}/api/geopilot/profiles/${profileId}/export-bundle.json?days=${days}`,
   expandedExportUrl: (profileId: string, days: number, dataset: GeoPilotExportDataset) => dataset === 'all'

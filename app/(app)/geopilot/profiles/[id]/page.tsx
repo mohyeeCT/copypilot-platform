@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Share2,
   Sparkles,
   Square,
   Target,
@@ -34,6 +35,9 @@ import CustomSelect from '@/components/ui/CustomSelect'
 import ExportMenu from '@/components/ui/ExportMenu'
 import CollectionMethodSelector from '@/components/geopilot/CollectionMethodSelector'
 import RunSurfaceDialog, { type GeoPilotRunTarget } from '@/components/geopilot/RunSurfaceDialog'
+import ReportShareDialog from '@/components/geopilot/ReportShareDialog'
+import SourceMonitorPanel from '@/components/geopilot/SourceMonitorPanel'
+import AttributionPanel from '@/components/geopilot/AttributionPanel'
 import SurfaceSelector, { ALL_GEOPILOT_SURFACES, GEOPILOT_SURFACES } from '@/components/geopilot/SurfaceSelector'
 import { createClient } from '@/lib/supabase'
 import {
@@ -41,6 +45,7 @@ import {
   fetchGeoPilotExportBundle,
   geopilotApi,
   type GeoPilotCapabilities,
+  type GeoPilotAttribution,
   type GeoPilotCollectionMethod,
   type GeoPilotCollectionPayload,
   type GeoPilotCostSummary,
@@ -48,6 +53,9 @@ import {
   type GeoPilotMeasurementMethods,
   type GeoPilotPrimarySurface,
   type GeoPilotPromptPayload,
+  type GeoPilotContentGapBrief,
+  type GeoPilotSourceChange,
+  type GeoPilotSourceMonitor,
 } from '@/lib/api/geopilot'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import {
@@ -257,7 +265,7 @@ const SURFACES: Record<string, string> = {
   claude: 'Claude',
   chatgpt_calibration: 'ChatGPT calibration',
 }
-const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities'] as const
+const TABS = ['Overview', 'Prompts', 'Results', 'Opportunities', 'Attribution'] as const
 type ResultOutcome = '' | 'mentioned' | 'not_found' | 'failed'
 const EMPTY_CITATION_INTELLIGENCE: CitationIntelligence = {
   summary: { total_citations: 0, owned: 0, competitor: 0, third_party: 0, verified_gaps: 0 },
@@ -995,6 +1003,11 @@ export default function GeoPilotProfilePage() {
   const [insights, setInsights] = useState<Insight[]>([])
   const [citationIntelligence, setCitationIntelligence] = useState<CitationIntelligence>(EMPTY_CITATION_INTELLIGENCE)
   const [providerAlerts, setProviderAlerts] = useState<ProviderAlert[]>([])
+  const [sourceMonitors, setSourceMonitors] = useState<GeoPilotSourceMonitor[]>([])
+  const [sourceChanges, setSourceChanges] = useState<GeoPilotSourceChange[]>([])
+  const [contentGapBriefs, setContentGapBriefs] = useState<GeoPilotContentGapBrief[]>([])
+  const [attribution, setAttribution] = useState<GeoPilotAttribution | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview')
   const [days, setDays] = useState(30)
   const [surface, setSurface] = useState('')
@@ -1038,6 +1051,10 @@ export default function GeoPilotProfilePage() {
         citationData,
         alertsData,
         capabilityData,
+        monitorsData,
+        changesData,
+        briefsData,
+        attributionData,
       ] = await Promise.all([
         geopilotApi.getProfile(session.access_token, id),
         geopilotApi.dashboard(session.access_token, id, days),
@@ -1050,6 +1067,10 @@ export default function GeoPilotProfilePage() {
         geopilotApi.citationIntelligence(session.access_token, id, days).catch(() => EMPTY_CITATION_INTELLIGENCE),
         geopilotApi.providerAlerts(session.access_token, id, days).catch(() => ({ alerts: [] })),
         capabilityRequest,
+        geopilotApi.sourceMonitors(session.access_token, id).catch(() => ({ monitors: [] })),
+        geopilotApi.sourceChanges(session.access_token, id).catch(() => ({ changes: [] })),
+        geopilotApi.contentGapBriefs(session.access_token, id).catch(() => ({ briefs: [] })),
+        geopilotApi.attribution(session.access_token, id, days).catch(() => null),
       ])
       setProfile(profileData.profile)
       setDashboard(dashboardData)
@@ -1060,6 +1081,10 @@ export default function GeoPilotProfilePage() {
       setBatches(batchesData.batches || [])
       setCitationIntelligence(citationData)
       setProviderAlerts(alertsData.alerts || [])
+      setSourceMonitors(monitorsData.monitors || [])
+      setSourceChanges(changesData.changes || [])
+      setContentGapBriefs(briefsData.briefs || [])
+      setAttribution(attributionData)
       if (capabilityData) setCapabilities(capabilityData)
       setError('')
     } catch (loadError) {
@@ -1665,6 +1690,11 @@ export default function GeoPilotProfilePage() {
               <RefreshCw size={15} className={loading ? styles.spinning : undefined} /> Refresh
             </button>
             {accessToken && profile ? (
+              <button type="button" className={styles.secondaryButton} onClick={() => setShareOpen(true)}>
+                <Share2 size={15} /> Share report
+              </button>
+            ) : null}
+            {accessToken && profile ? (
               <ExportMenu
                 downloadActions={[
                   {
@@ -1729,7 +1759,15 @@ export default function GeoPilotProfilePage() {
 
         <nav className={styles.pageTabs} aria-label="GEOPilot profile views">
           {TABS.map(item => {
-            const count = item === 'Prompts' ? promptCount : item === 'Results' ? runs.length : item === 'Opportunities' ? insights.length : 0
+            const count = item === 'Prompts'
+              ? promptCount
+              : item === 'Results'
+                ? runs.length
+                : item === 'Opportunities'
+                  ? citationIntelligence.summary.verified_gaps + contentGapBriefs.length
+                  : item === 'Attribution'
+                    ? attribution?.content_actions.length || 0
+                    : 0
             return (
               <button
                 key={item}
@@ -2208,6 +2246,11 @@ export default function GeoPilotProfilePage() {
 
         {profile && tab === 'Opportunities' ? (
           <section className={styles.tabSection}>
+            <SourceMonitorPanel
+              monitors={sourceMonitors}
+              changes={sourceChanges}
+              briefs={contentGapBriefs}
+            />
             <div className={styles.sectionHeading}>
               <div><h2>Verified citation gaps</h2><p>Competitors were cited while the client was absent and no owned source appeared.</p></div>
               <span className={styles.opportunityCount}>{citationIntelligence.summary.verified_gaps}</span>
@@ -2293,6 +2336,26 @@ export default function GeoPilotProfilePage() {
               ) : null}
             </div>
           </section>
+        ) : null}
+
+        {profile && accessToken ? (
+          <ReportShareDialog
+            open={shareOpen}
+            token={accessToken}
+            profileId={id}
+            profileName={profile.name}
+            collections={(profile.collections || []).map(item => ({ id: item.id, name: item.name }))}
+            onClose={() => setShareOpen(false)}
+          />
+        ) : null}
+
+        {profile && tab === 'Attribution' ? (
+          <AttributionPanel
+            token={accessToken}
+            profileId={id}
+            data={attribution}
+            onRefresh={load}
+          />
         ) : null}
 
         {runTarget ? (

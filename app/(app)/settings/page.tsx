@@ -71,13 +71,15 @@ export default function SettingsPage() {
     const oauth = settings?.google_oauth
     if (!oauth?.configured) return 'Connect Google to use Search Console data.'
     const missingExports = oauth.has_sheets_scope === false || oauth.has_docs_scope === false
+    const missingAnalytics = oauth.has_analytics_scope === false
     if (oauth.status === 'connected' && oauth.has_indexing_scope === false && missingExports) {
       return 'Reconnect to enable Indexer submissions and Google exports.'
     }
     if (oauth.status === 'connected' && oauth.has_indexing_scope === false) return 'Reconnect to enable Indexer submissions.'
     if (oauth.status === 'connected' && missingExports) return 'Reconnect to enable Google Sheets and Docs exports.'
+    if (oauth.status === 'connected' && missingAnalytics) return 'Reconnect to enable GEOPilot Analytics attribution.'
     if (oauth.status === 'reconnect_required') return 'Reconnect to restore Search Console data.'
-    return 'Ready for Search Console keyword data and Indexer submissions, plus Google exports.'
+    return 'Ready for Search Console, Indexer, Google exports, and GEOPilot Analytics attribution.'
   }
 
   async function loadGscSettings(): Promise<boolean> {
@@ -297,7 +299,8 @@ export default function SettingsPage() {
       (
         settings.google_oauth.has_indexing_scope === false ||
         settings.google_oauth.has_sheets_scope === false ||
-        settings.google_oauth.has_docs_scope === false
+        settings.google_oauth.has_docs_scope === false ||
+        settings.google_oauth.has_analytics_scope === false
       )
     )
   }
@@ -487,7 +490,7 @@ export default function SettingsPage() {
         <div className={settingsStyles.primaryConnection}>
         <JobSection
           title="Google account"
-          description="Preferred for Search Console copy tools and Indexer submissions, plus Google exports."
+          description="Preferred for Search Console, Indexer submissions, Google exports, and GEOPilot Analytics attribution."
           kicker="Search Console"
         >
 

@@ -12,7 +12,7 @@ const sections = [
   },
   {
     title: 'Google access',
-    body: 'Google OAuth Search Console access is read-only, and Google Sheets or Docs access is used only to create exports when you request an export. CopyPilot may read accessible properties, permission levels, and query/page performance data for the connected Google account, and may create a new spreadsheet or document containing the rows or copy you export. You can disconnect Google access from CopyPilot settings, and you can also revoke access from your Google Account.',
+    body: 'Google OAuth Search Console and Analytics access is read-only, and Google Sheets or Docs access is used only to create exports when you request an export. CopyPilot may read accessible properties, permission levels, query and page performance, and selected GA4 landing-page metrics for GEOPilot attribution. It may create a new spreadsheet or document containing the rows or copy you export. You can disconnect Google access from CopyPilot settings, and you can also revoke access from your Google Account.',
   },
   {
     title: 'How we protect information',
