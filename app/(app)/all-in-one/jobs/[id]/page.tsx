@@ -43,6 +43,24 @@ interface QaFlag {
   details?: string[]
 }
 
+interface OwnedBlockAssignment {
+  id?: string
+  heading?: string
+  excerpt?: string
+}
+
+interface SectionGuidance {
+  section?: string
+  section_id?: string
+  planned_heading?: string
+  coverage_points?: string[]
+  owned_block_ids?: string[]
+  owned_blocks?: OwnedBlockAssignment[]
+  retain_points?: string[]
+  improve_points?: string[]
+  depth_policy?: string
+}
+
 interface PageCopyResult {
   url: string
   primary_keyword?: string
@@ -59,6 +77,16 @@ interface PageCopyResult {
   strategy_brief?: Record<string, unknown>
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
   strategy_issues?: string[]
+  page_quality_policy_version?: string
+  adaptive_policy_version?: string
+  owned_page_mapping_version?: string
+  page_copy_guidance?: {
+    id?: string
+    label?: string
+    version?: string
+  }
+  quality_diagnostics?: Record<string, unknown> | unknown[]
+  quality_findings?: Record<string, unknown> | unknown[]
   scrape_status?: string
   page_context_preview?: string
   qa_flags?: QaFlag[]
@@ -153,6 +181,43 @@ function scrapeCount(value?: number) {
 function scrapeFallbackLabel(value?: boolean) {
   if (value === undefined) return 'Not recorded'
   return value ? 'Used' : 'Not used'
+}
+
+function ownedPageMappingDiagnostics(brief?: Record<string, unknown>) {
+  const diagnostics = brief?.owned_page_mapping_diagnostics
+  if (!diagnostics || typeof diagnostics !== 'object' || Array.isArray(diagnostics)) return null
+  return diagnostics as Record<string, unknown>
+}
+
+function formatBoundedDiagnosticCount(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'Not recorded'
+  const maximumDisplayCount = Number.MAX_SAFE_INTEGER
+  const count = Math.min(Math.trunc(value), maximumDisplayCount)
+  return `${count.toLocaleString('en-US')}${value > maximumDisplayCount ? '+' : ''}`
+}
+
+function diagnosticBooleanLabel(value: unknown) {
+  if (value === true) return 'Yes'
+  if (value === false) return 'No'
+  return 'Not recorded'
+}
+
+const SAFE_RERUN_ERROR_PREFIXES = [
+  'Page-copy quality v1 reruns are temporarily unavailable.',
+  'This job was not rerun because its stored page-copy quality configuration is unavailable:',
+] as const
+const GENERIC_RERUN_START_ERROR = 'Could not start the rerun. Please try again.'
+const RERUN_STATUS_ERROR = 'The rerun started, but its latest status could not be loaded. Refresh this page to check the result.'
+
+function safeRerunStartError(error: unknown) {
+  const message = error instanceof Error
+    ? error.message.replace(/\s+/g, ' ').trim()
+    : ''
+  if (message === 'Rate limit displayed') return ''
+  if (SAFE_RERUN_ERROR_PREFIXES.some(prefix => message.startsWith(prefix))) {
+    return message.slice(0, 500)
+  }
+  return GENERIC_RERUN_START_ERROR
 }
 
 function gscErrorMessage(error?: string | null) {
@@ -256,6 +321,109 @@ function strategyBriefEntries(brief?: Record<string, unknown>) {
     .filter(entry => entry.lines.length > 0)
 }
 
+function stringList(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map(item => String(item || '').trim()).filter(Boolean)
+}
+
+function sectionGuidanceEntries(brief?: Record<string, unknown>): SectionGuidance[] {
+  const guidance = brief?.section_guidance
+  if (!Array.isArray(guidance)) return []
+  return guidance
+    .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+    .map(item => {
+      const record = item as Record<string, unknown>
+      const ownedBlocks = Array.isArray(record.owned_blocks)
+        ? record.owned_blocks
+            .filter(block => block && typeof block === 'object' && !Array.isArray(block))
+            .map(block => {
+              const ownedBlock = block as Record<string, unknown>
+              return {
+                id: String(ownedBlock.id || ownedBlock.block_id || '').trim(),
+                heading: String(ownedBlock.heading || '').trim(),
+                excerpt: String(ownedBlock.excerpt || '').trim(),
+              }
+            })
+        : []
+      return {
+        section: String(record.section || '').trim(),
+        section_id: String(record.section_id || '').trim(),
+        planned_heading: String(record.planned_heading || '').trim(),
+        coverage_points: stringList(record.coverage_points),
+        owned_block_ids: stringList(record.owned_block_ids),
+        owned_blocks: ownedBlocks,
+        retain_points: stringList(record.retain_points),
+        improve_points: stringList(record.improve_points),
+        depth_policy: String(record.depth_policy || '').trim(),
+      }
+    })
+}
+
+function findSectionGuidance(brief: Record<string, unknown> | undefined, sectionName: string) {
+  const target = sectionName.trim().toLowerCase()
+  return sectionGuidanceEntries(brief).find(item =>
+    [item.section, item.section_id].some(value => value?.trim().toLowerCase() === target),
+  )
+}
+
+function generatedSectionHeading(text: string) {
+  const firstContentLine = text.split(/\r?\n/).find(line => line.trim()) || ''
+  return firstContentLine.match(/^\s*#{1,3}\s+(.+?)\s*$/)?.[1]?.trim() || ''
+}
+
+function expectedSectionHeadingLevel(
+  diagnostics: PageCopyResult['quality_diagnostics'],
+  sectionName: string,
+) {
+  if (!diagnostics || Array.isArray(diagnostics)) return ''
+  const sections = diagnostics.sections
+  if (!Array.isArray(sections)) return ''
+  const target = sectionName.trim().toLowerCase()
+  const section = sections.find(item => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+    return String((item as Record<string, unknown>).section || '').trim().toLowerCase() === target
+  }) as Record<string, unknown> | undefined
+  return String(section?.expected_heading_level || '').trim().toLowerCase()
+}
+
+function diagnosticLines(value: unknown): string[] {
+  if (value == null) return []
+  if (Array.isArray(value)) return value.flatMap(diagnosticLines)
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const message = String(record.message || '').trim()
+    if (message) {
+      const section = String(record.section || record.section_id || '').trim()
+      return [section ? `${section}: ${message}` : message]
+    }
+    return Object.entries(record).flatMap(([key, nested]) => {
+      const lines = diagnosticLines(nested)
+      return lines.map(line => `${strategyLabel(key)}: ${line}`)
+    })
+  }
+  const text = String(value).trim()
+  return text ? [text] : []
+}
+
+function qualityDiagnosticEntries(diagnostics?: Record<string, unknown> | unknown[]) {
+  if (!diagnostics) return []
+  if (Array.isArray(diagnostics)) {
+    const lines = diagnosticLines(diagnostics)
+    return lines.length ? [{ key: 'findings', label: 'Findings', lines }] : []
+  }
+  const hiddenKeys = new Set([
+    'sections',
+    'guidance_profile',
+    'page_quality_policy_version',
+    'adaptive_policy_version',
+    'owned_page_mapping_version',
+  ])
+  return Object.entries(diagnostics)
+    .filter(([key]) => !hiddenKeys.has(key))
+    .map(([key, value]) => ({ key, label: strategyLabel(key), lines: diagnosticLines(value) }))
+    .filter(entry => entry.lines.length > 0)
+}
+
 export default function AllInOneJobPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -266,6 +434,7 @@ export default function AllInOneJobPage() {
   const [rerunningMulti, setRerunningMulti] = useState(false)
   const [newlyUpdated, setNewlyUpdated] = useState<Set<number>>(new Set())
   const [rerunningSections, setRerunningSections] = useState<Set<string>>(new Set())
+  const [rerunError, setRerunError] = useState('')
   const [reviewerInstruction, setReviewerInstruction] = useState<Record<string, string>>({})
   const [logsCollapsed, setLogsCollapsed] = useState(true)
   const [exportingDocs, setExportingDocs] = useState(false)
@@ -414,7 +583,17 @@ export default function AllInOneJobPage() {
       }
       if (row.section_results && Object.keys(row.section_results).length) {
         lines.push('', 'Page Copy')
-        Object.entries(row.section_results).forEach(([section, text]) => lines.push(section, text, ''))
+        Object.entries(row.section_results).forEach(([section, text]) => {
+          const isVersionedPageCopy = Boolean(row.page_quality_policy_version)
+          const generatedHeading = generatedSectionHeading(text)
+          const plannedHeading = findSectionGuidance(row.strategy_brief, section)?.planned_heading
+          const expectedHeadingLevel = expectedSectionHeadingLevel(row.quality_diagnostics, section)
+          const isVersionedHeadinglessSection = isVersionedPageCopy && expectedHeadingLevel === 'none'
+          if (isVersionedPageCopy && generatedHeading) lines.push(text, '')
+          else if (isVersionedPageCopy && plannedHeading) lines.push(plannedHeading, text, '')
+          else if (isVersionedHeadinglessSection) lines.push(text, '')
+          else lines.push(section, text, '')
+        })
       }
       if (row.competitor_urls?.length) {
         lines.push('Competitors referenced')
@@ -472,13 +651,13 @@ export default function AllInOneJobPage() {
 
   async function startRowRerun(index: number, scraperOverride?: 'firecrawl') {
     if (!job || rerunning !== null) return
+    setRerunError('')
     setRerunning(index)
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
       if (!session) {
-        setRerunning(null)
-        return
+        throw new Error('Session unavailable')
       }
       await aioApi.rerunRow(session.access_token, job.id, index, scraperOverride)
       const poll = window.setInterval(async () => {
@@ -493,30 +672,37 @@ export default function AllInOneJobPage() {
         } catch (error) {
           window.clearInterval(poll)
           setRerunning(null)
+          setRerunError(RERUN_STATUS_ERROR)
           console.error('Rerun polling failed:', error)
         }
       }, 3000)
     } catch (error) {
       setRerunning(null)
+      const message = safeRerunStartError(error)
+      if (message) setRerunError(message)
       console.error('Rerun request failed:', error)
     }
   }
 
   async function rerunSelectedRows() {
     if (!job || !selectedRows.size) return
+    setRerunError('')
     setRerunningMulti(true)
+    let rerunStarted = false
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
-      if (session) {
-        const indices = Array.from(selectedRows)
-        await aioApi.rerunRows(session.access_token, job.id, indices)
-        const refreshed = await aioApi.getJob(session.access_token, job.id)
-        markUpdated(indices, refreshed.results || [])
-        setSelectedRows(new Set())
-        setJob(refreshed)
-      }
+      if (!session) throw new Error('Session unavailable')
+      const indices = Array.from(selectedRows)
+      await aioApi.rerunRows(session.access_token, job.id, indices)
+      rerunStarted = true
+      const refreshed = await aioApi.getJob(session.access_token, job.id)
+      markUpdated(indices, refreshed.results || [])
+      setSelectedRows(new Set())
+      setJob(refreshed)
     } catch (error) {
+      const message = rerunStarted ? RERUN_STATUS_ERROR : safeRerunStartError(error)
+      if (message) setRerunError(message)
       console.error('Rerun request failed:', error)
     }
     setRerunningMulti(false)
@@ -525,16 +711,18 @@ export default function AllInOneJobPage() {
   async function rerunSection(rowIndex: number, name: string) {
     if (!job) return
     const sectionKey = `${rowIndex}-${name}`
+    setRerunError('')
     setRerunningSections(previous => new Set([...Array.from(previous), sectionKey]))
     try {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
-      if (!session) return
+      if (!session) throw new Error('Session unavailable')
       await aioApi.rerunSection(session.access_token, job.id, rowIndex, name, reviewerInstruction[sectionKey] || '')
       const poll = window.setInterval(async () => {
-        const updated = await aioApi.getJob(session.access_token, job.id)
-        const step: string = updated.current_step || ''
-        if (!step.startsWith(`Regenerating section '${name}'`)) {
+        try {
+          const updated = await aioApi.getJob(session.access_token, job.id)
+          const step: string = updated.current_step || ''
+          if (step.startsWith(`Regenerating section '${name}'`)) return
           window.clearInterval(poll)
           setRerunningSections(previous => {
             const next = new Set(previous)
@@ -543,9 +731,20 @@ export default function AllInOneJobPage() {
           })
           setReviewerInstruction(previous => ({ ...previous, [sectionKey]: '' }))
           setJob(updated)
+        } catch (error) {
+          window.clearInterval(poll)
+          setRerunningSections(previous => {
+            const next = new Set(previous)
+            next.delete(sectionKey)
+            return next
+          })
+          setRerunError(RERUN_STATUS_ERROR)
+          console.error('Section rerun polling failed:', error)
         }
       }, 3000)
     } catch (error) {
+      const message = safeRerunStartError(error)
+      if (message) setRerunError(message)
       console.error('Section rerun request failed:', error)
       setRerunningSections(previous => {
         const next = new Set(previous)
@@ -582,6 +781,9 @@ export default function AllInOneJobPage() {
   const hasDocx = results.some(row => row.docx_b64)
   const selectedScrapeFailed = Boolean(selectedResult?.run_diagnostics?.scrape?.page_context_error)
   const jobStartedWithFirecrawl = job.settings?.scrape_provider === 'firecrawl'
+  const selectedOwnedPageMappingDiagnostics = selectedResult?.page_quality_policy_version
+    ? ownedPageMappingDiagnostics(selectedResult.strategy_brief)
+    : null
 
   return (
     <AppLayout title="All in One">
@@ -625,6 +827,7 @@ export default function AllInOneJobPage() {
         )}
 
         {job.error && <div className={styles.errorNotice}>{gscErrorMessage(job.error)}</div>}
+        {rerunError && <div className={styles.errorNotice} role="alert">{rerunError}</div>}
 
         {results.length > 0 && (
           <>
@@ -830,9 +1033,29 @@ export default function AllInOneJobPage() {
                           {Object.entries(selectedResult.section_results || {}).map(([name, text]) => {
                             const sectionKey = `${selectedIndex}-${name}`
                             const isRegenerating = rerunningSections.has(sectionKey)
+                            const isVersionedPageCopy = Boolean(selectedResult.page_quality_policy_version)
+                            const sectionPlan = isVersionedPageCopy
+                              ? findSectionGuidance(selectedResult.strategy_brief, name)
+                              : undefined
+                            const actualHeading = isVersionedPageCopy
+                              ? generatedSectionHeading(text)
+                              : ''
                             return (
                               <section key={name} className={aioStyles.sectionItem}>
-                                <div className={aioStyles.sectionHeader}><strong>{name}</strong><span>{text.split(/\s+/).filter(Boolean).length} words</span></div>
+                                <div className={aioStyles.sectionHeader}>
+                                  <div className="min-w-0">
+                                    <strong className="block truncate">{sectionPlan?.planned_heading || actualHeading || name}</strong>
+                                    {(sectionPlan?.planned_heading || actualHeading) && (
+                                      <small className="mt-0.5 block font-mono text-[0.64rem] text-muted">Section ID: {name}</small>
+                                    )}
+                                  </div>
+                                  <span>{text.split(/\s+/).filter(Boolean).length} words</span>
+                                </div>
+                                <SectionPlanDetails
+                                  sectionName={name}
+                                  plan={sectionPlan}
+                                  actualHeading={actualHeading}
+                                />
                                 <div className={aioStyles.sectionRerun}>
                                   <input className="input-base text-xs" placeholder="Optional rerun note" value={reviewerInstruction[sectionKey] || ''} onChange={event => setReviewerInstruction(previous => ({ ...previous, [sectionKey]: event.target.value }))} />
                                   <button type="button" className="btn-ghost text-xs" disabled={isRegenerating} onClick={() => void rerunSection(selectedIndex, name)}><RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} /> {isRegenerating ? 'Rerunning...' : 'Rerun section'}</button>
@@ -857,6 +1080,36 @@ export default function AllInOneJobPage() {
                         <div><span>Strategy</span><strong>{selectedResult.strategy_status || 'Not recorded'}</strong><small>Brief status</small></div>
                         <div><span>Provider</span><strong>{selectedResult.run_diagnostics?.provider || '-'}</strong><small>{selectedResult.run_diagnostics?.model || 'Model not recorded'}</small></div>
                       </section>
+                      {(selectedResult.page_copy_guidance?.id || selectedResult.page_quality_policy_version || selectedResult.adaptive_policy_version || selectedResult.owned_page_mapping_version) && (
+                        <>
+                          <div className={aioStyles.sectionHeading}>
+                            <span>Generation policy</span>
+                            <p>Read-only versions used for this row. These diagnostics do not change its review status.</p>
+                          </div>
+                          <section className={styles.lengthChecks} aria-label="All in One generation policy">
+                            <div>
+                              <span>Writing guidance</span>
+                              <strong>{selectedResult.page_copy_guidance?.label || selectedResult.page_copy_guidance?.id || 'Not recorded'}</strong>
+                              <small>Version {selectedResult.page_copy_guidance?.version || 'not recorded'}</small>
+                            </div>
+                            <div>
+                              <span>Page quality</span>
+                              <strong>{selectedResult.page_quality_policy_version || 'Not recorded'}</strong>
+                              <small>Heading and coverage policy</small>
+                            </div>
+                            <div>
+                              <span>Adaptive depth</span>
+                              <strong>{selectedResult.adaptive_policy_version || 'Not recorded'}</strong>
+                              <small>Section depth policy</small>
+                            </div>
+                            <div>
+                              <span>Owned-page mapping</span>
+                              <strong>{selectedResult.owned_page_mapping_version || 'Not recorded'}</strong>
+                              <small>Retained-block assignment policy</small>
+                            </div>
+                          </section>
+                        </>
+                      )}
                       {selectedResult.qa_flags?.length ? (
                         <div className={styles.checkList}>
                           {selectedResult.qa_flags.map((flag, index) => {
@@ -865,6 +1118,38 @@ export default function AllInOneJobPage() {
                           })}
                         </div>
                       ) : null}
+                      {qualityDiagnosticEntries(selectedResult.quality_diagnostics).length > 0 && (
+                        <div>
+                          <div className={aioStyles.sectionHeading}>
+                            <span>Quality diagnostics</span>
+                            <p>Editorial and measurement signals. They are informational unless also listed as a QA flag.</p>
+                          </div>
+                          <div className={aioStyles.strategyGrid}>
+                            {qualityDiagnosticEntries(selectedResult.quality_diagnostics).map(entry => (
+                              <div key={entry.key} className={aioStyles.strategyItem}>
+                                <span>{entry.label}</span>
+                                {entry.lines.map((line, index) => <p key={`${entry.key}-${index}`}>{line}</p>)}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {qualityDiagnosticEntries(selectedResult.quality_findings).length > 0 && (
+                        <div>
+                          <div className={aioStyles.sectionHeading}>
+                            <span>Quality findings</span>
+                            <p>Additional read-only observations that do not alter the row status.</p>
+                          </div>
+                          <div className={aioStyles.strategyGrid}>
+                            {qualityDiagnosticEntries(selectedResult.quality_findings).map(entry => (
+                              <div key={entry.key} className={aioStyles.strategyItem}>
+                                <span>{entry.label}</span>
+                                {entry.lines.map((line, index) => <p key={`${entry.key}-${index}`}>{line}</p>)}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -882,13 +1167,43 @@ export default function AllInOneJobPage() {
                       </div>
                       <div className={aioStyles.scrapeFacts}>
                         <div><span>Raw response</span><strong>{scrapeCount(selectedResult.run_diagnostics?.scrape?.raw_response_chars)}</strong><small>Characters returned by scraper</small></div>
-                        <div><span>Retained context</span><strong>{scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)}</strong><small>Characters passed into strategy</small></div>
+                        <div><span>Retained scraped context</span><strong>{scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)}</strong><small>Cleaned characters retained after scraping</small></div>
                         <div><span>Fallback</span><strong>{scrapeFallbackLabel(selectedResult.run_diagnostics?.scrape?.fallback_used)}</strong><small>Requested {selectedResult.run_diagnostics?.scrape?.requested_provider || 'provider not recorded'}</small></div>
                       </div>
+                      {selectedOwnedPageMappingDiagnostics && (
+                        <div>
+                          <div className={aioStyles.sectionHeading}>
+                            <span>Owned-page mapping diagnostics</span>
+                            <p>Versioned, read-only counts from the bounded mapping stage. They do not change result status.</p>
+                          </div>
+                          <section className={styles.lengthChecks} aria-label="Owned-page mapping diagnostics">
+                            <div>
+                              <span>Source characters</span>
+                              <strong>{formatBoundedDiagnosticCount(selectedOwnedPageMappingDiagnostics.source_char_count)}</strong>
+                              <small>Cleaned owned-page source considered for mapping</small>
+                            </div>
+                            <div>
+                              <span>Retained characters</span>
+                              <strong>{formatBoundedDiagnosticCount(selectedOwnedPageMappingDiagnostics.retained_char_count)}</strong>
+                              <small>Characters retained in the bounded block registry</small>
+                            </div>
+                            <div>
+                              <span>Prompt characters</span>
+                              <strong>{formatBoundedDiagnosticCount(selectedOwnedPageMappingDiagnostics.prompt_char_count)}</strong>
+                              <small>Bounded mapping context used for strategy planning</small>
+                            </div>
+                            <div>
+                              <span>Prompt truncated</span>
+                              <strong>{diagnosticBooleanLabel(selectedOwnedPageMappingDiagnostics.prompt_truncated)}</strong>
+                              <small>Whether mapping context was shortened for the prompt budget</small>
+                            </div>
+                          </section>
+                        </div>
+                      )}
                       <div className={aioStyles.sourceEvidence}>
                         <EvidenceBlock
-                          title="Owned page context"
-                          detail={`${scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)} characters sent to strategy`}
+                          title="Cleaned owned-page scrape preview"
+                          detail={`${scrapeCount(selectedResult.run_diagnostics?.scrape?.retained_context_chars)} retained scraped characters; this saved preview is not the exact strategy payload`}
                           value={selectedResult.page_context_preview}
                           initiallyOpen
                         />
@@ -930,6 +1245,109 @@ function EvidenceBlock({ title, detail, value, initiallyOpen = false }: { title:
         <span className={aioStyles.evidenceMeta}><small>{detail}</small><ChevronDown className={aioStyles.evidenceChevron} size={13} /></span>
       </summary>
       <div className={aioStyles.evidenceText}>{value?.trim() || 'No saved owned-page context was available for this row.'}</div>
+    </details>
+  )
+}
+
+function SectionPlanDetails({
+  sectionName,
+  plan,
+  actualHeading,
+}: {
+  sectionName: string
+  plan?: SectionGuidance
+  actualHeading: string
+}) {
+  if (!plan) return null
+
+  const ownedBlocks = plan.owned_blocks || []
+  const ownedBlockIds = Array.from(new Set([
+    ...(plan.owned_block_ids || []),
+    ...ownedBlocks.map(block => block.id || '').filter(Boolean),
+  ]))
+  const hasEditorialDirection = Boolean(
+    plan.planned_heading ||
+    actualHeading ||
+    plan.coverage_points?.length ||
+    ownedBlockIds.length ||
+    plan.retain_points?.length ||
+    plan.improve_points?.length ||
+    plan.depth_policy,
+  )
+  if (!hasEditorialDirection) return null
+
+  return (
+    <details className="border-b border-border bg-surface-raised" open>
+      <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-text">
+        Section plan and owned-page reuse
+      </summary>
+      <div className="space-y-3 border-t border-border px-3 py-3">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Planned heading</span>
+            <strong className="mt-1 block text-xs text-text">{plan.planned_heading || 'Not recorded'}</strong>
+          </div>
+          <div>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Actual heading</span>
+            <strong className="mt-1 block text-xs text-text">{actualHeading || 'Not detected in generated copy'}</strong>
+          </div>
+          <div>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Depth policy</span>
+            <strong className="mt-1 block text-xs text-text">{plan.depth_policy || 'Not recorded'}</strong>
+          </div>
+        </div>
+
+        {plan.coverage_points?.length ? (
+          <div>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Coverage points</span>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-text">
+              {plan.coverage_points.map((point, index) => <li key={`${sectionName}-coverage-${index}`}>{point}</li>)}
+            </ul>
+          </div>
+        ) : null}
+
+        {ownedBlockIds.length ? (
+          <div>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Owned-page block assignment</span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {ownedBlockIds.map(blockId => (
+                <span key={blockId} className="rounded border border-border bg-surface px-2 py-1 font-mono text-[0.66rem] text-text">{blockId}</span>
+              ))}
+            </div>
+            {ownedBlocks.length ? (
+              <div className="mt-2 space-y-2">
+                {ownedBlocks.map((block, index) => (
+                  <div key={`${block.id || 'owned-block'}-${index}`} className="rounded border border-border bg-surface px-2.5 py-2">
+                    <strong className="block text-xs text-text">{block.id || `Block ${index + 1}`}{block.heading ? ` — ${block.heading}` : ''}</strong>
+                    {block.excerpt ? <p className="mt-1 text-[0.7rem] leading-relaxed text-muted">{previewText(block.excerpt, 240)}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {(plan.retain_points?.length || plan.improve_points?.length) ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {plan.retain_points?.length ? (
+              <div>
+                <span className="block text-[0.64rem] font-semibold uppercase text-muted">Retain</span>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-text">
+                  {plan.retain_points.map((point, index) => <li key={`${sectionName}-retain-${index}`}>{point}</li>)}
+                </ul>
+              </div>
+            ) : null}
+            {plan.improve_points?.length ? (
+              <div>
+                <span className="block text-[0.64rem] font-semibold uppercase text-muted">Improve</span>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-text">
+                  {plan.improve_points.map((point, index) => <li key={`${sectionName}-improve-${index}`}>{point}</li>)}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </details>
   )
 }

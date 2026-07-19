@@ -6,12 +6,28 @@ const BASE = (
 
 const f = (path: string, token: string, opts?: RequestInit) => apiFetch(BASE, path, token, opts)
 
+export interface AioPageCopyGuidanceProfile {
+  id: string
+  label: string
+  description: string
+  version: string
+}
+
+export interface AioPageCopyCapabilities {
+  enabled: boolean
+  profiles: AioPageCopyGuidanceProfile[]
+  default_profile_id: string
+  policy_versions?: Record<string, string>
+}
+
 export const aioApi = {
   runJob:       (token: string, payload: object) => f('/api/all-in-one/run', token, { method: 'POST', body: JSON.stringify(payload) }),
   listJobs:     (token: string, clientProfileId?: ClientJobFilter) => f(clientScopedJobsPath(clientProfileId), token),
   getJob:       (token: string, id: string)      => f(`/api/jobs/${id}`, token),
   deleteJob:    (token: string, id: string)      => f(`/api/jobs/${id}`, token, { method: 'DELETE' }),
   getTemplates: (token: string)                  => f('/api/all-in-one/templates', token),
+  getPageCopyCapabilities: (token: string)       =>
+    f('/api/all-in-one/page-copy-capabilities', token, { cache: 'no-store' }) as Promise<AioPageCopyCapabilities>,
   rerunRow:     (token: string, id: string, index: number, scraperOverride?: 'firecrawl') =>
     f(`/api/jobs/${id}/rerun-row/${index}`, token, {
       method: 'POST',

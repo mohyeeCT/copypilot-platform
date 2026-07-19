@@ -13,10 +13,11 @@ import ScraperControls, { type ScrapeProvider } from '@/components/ui/ScraperCon
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import Switch from '@/components/ui/Switch'
+import { applyAioOutputSelection, type AioOutputField } from '@/lib/all-in-one-output-selection'
 import { createCopyRowImportSchema, parseImportedRows, type ImportNotice, type RejectedImportRow } from '@/lib/import-rows'
 import { toDisplayOptions } from '@/lib/option-labels'
 import { createClient } from '@/lib/supabase'
-import { aioApi } from '@/lib/api/all-in-one'
+import { aioApi, type AioPageCopyCapabilities } from '@/lib/api/all-in-one'
 import { geopilotApi } from '@/lib/api/geopilot'
 import { getSettings, getProviderMetadata, listBrandProfiles } from '@/lib/api/shared'
 
@@ -111,6 +112,8 @@ export default function NewAIOJob() {
   const [templateMode, setTemplateMode] = useState<'predefined' | 'custom'>('predefined')
   const [jobName, setJobName]         = useState('')
   const [brandProfileId, setBrandProfileId] = useState('')
+  const [pageCopyCapabilities, setPageCopyCapabilities] = useState<AioPageCopyCapabilities | null>(null)
+  const [pageCopyGuidanceProfileId, setPageCopyGuidanceProfileId] = useState('balanced')
 
   // Output toggles (job-level defaults)
   const [genPageCopy, setGenPageCopy] = useState(true)
@@ -140,6 +143,7 @@ export default function NewAIOJob() {
   const [error, setError]             = useState('')
   const [handoffNotice, setHandoffNotice] = useState('')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const pageCopyRequestedByRows = rows.some(row => row.gen_page_copy)
 
   const load = useCallback(async () => {
     const sb = createClient()
@@ -153,11 +157,12 @@ export default function NewAIOJob() {
             .then(data => ({ data, error: '' }))
             .catch(loadError => ({ data: null, error: loadError instanceof Error ? loadError.message : 'Recommendation unavailable' }))
         : Promise.resolve({ data: null, error: '' })
-      const [s, metadata, bp, tmpl, recommendationResult] = await Promise.all([
+      const [s, metadata, bp, tmpl, pageCopyCapabilityResult, recommendationResult] = await Promise.all([
         getSettings(session.access_token),
         getProviderMetadata(session.access_token).catch(() => null),
         listBrandProfiles(session.access_token),
         aioApi.getTemplates(session.access_token),
+        aioApi.getPageCopyCapabilities(session.access_token).catch(() => null),
         recommendationRequest,
       ])
       if (s) {
@@ -190,6 +195,18 @@ export default function NewAIOJob() {
         if (profileFullBrandName) setFullBrand(profileFullBrandName)
       }
       if (tmpl && typeof tmpl === 'object') setTemplates(tmpl)
+      if (
+        pageCopyCapabilityResult?.enabled &&
+        Array.isArray(pageCopyCapabilityResult.profiles) &&
+        pageCopyCapabilityResult.profiles.length > 0
+      ) {
+        setPageCopyCapabilities(pageCopyCapabilityResult)
+        const requestedDefault = pageCopyCapabilityResult.default_profile_id || 'balanced'
+        const defaultProfile = pageCopyCapabilityResult.profiles.some(profile => profile.id === requestedDefault)
+          ? requestedDefault
+          : pageCopyCapabilityResult.profiles[0].id
+        setPageCopyGuidanceProfileId(defaultProfile)
+      }
       const draft = recommendationResult.data?.recommendation?.draft
       if (draft) {
         const recommendedPageType = PAGE_TYPES.includes(draft.page_type) ? draft.page_type : 'blog'
@@ -224,6 +241,13 @@ export default function NewAIOJob() {
     const r = [...rows]
     r[i] = { ...r[i], [field]: !r[i][field] }
     setRows(r)
+  }
+
+  function setOutputForAllRows(field: AioOutputField, enabled: boolean) {
+    if (field === 'gen_page_copy') setGenPageCopy(enabled)
+    if (field === 'gen_meta') setGenMeta(enabled)
+    if (field === 'gen_faqs') setGenFaqs(enabled)
+    setRows(currentRows => applyAioOutputSelection(currentRows, field, enabled))
   }
 
   function handleProviderChange(value: string) {
@@ -262,8 +286,12 @@ export default function NewAIOJob() {
 
   async function handleRun() {
     const validRows = rows.filter(r => r.url.startsWith('http'))
+    const validRowsRequestOutput = validRows.some(row =>
+      row.gen_page_copy || row.gen_meta || row.gen_faqs,
+    )
+    const validRowsRequestPageCopy = validRows.some(row => row.gen_page_copy)
     if (!validRows.length) { setError('Add at least one valid URL'); return }
-    if (!genPageCopy && !genMeta && !genFaqs) { setError('Enable at least one output type'); return }
+    if (!validRowsRequestOutput) { setError('Enable at least one output type'); return }
     setError('')
 
     const sb = createClient()
@@ -304,6 +332,9 @@ export default function NewAIOJob() {
         scrape_pages: scrapePages, scrape_provider: scrapeProvider,
         firecrawl_fallback: scrapePages && scrapeProvider === 'jina' && firecrawlFallback && firecrawlKeyConfigured,
         gen_page_copy: genPageCopy, gen_meta: genMeta, gen_faqs: genFaqs, num_faqs: numFaqs,
+        ...(pageCopyCapabilities?.enabled && validRowsRequestPageCopy
+          ? { page_copy_guidance_profile_id: pageCopyGuidanceProfileId }
+          : {}),
       },
     }
 
@@ -326,11 +357,12 @@ export default function NewAIOJob() {
     </AppLayout>
   )
 
-  const validUrlCount = rows.filter(r => r.url.startsWith('http')).length
+  const validRowsForSummary = rows.filter(row => row.url.startsWith('http'))
+  const validUrlCount = validRowsForSummary.length
   const enabledOutputs = [
-    genPageCopy ? 'Page Copy' : '',
-    genMeta ? 'Meta' : '',
-    genFaqs ? 'FAQs' : '',
+    validRowsForSummary.some(row => row.gen_page_copy) ? 'Page Copy' : '',
+    validRowsForSummary.some(row => row.gen_meta) ? 'Meta' : '',
+    validRowsForSummary.some(row => row.gen_faqs) ? 'FAQs' : '',
   ].filter(Boolean).join(', ') || 'None'
   const populatedRows = rows.filter(row => row.url.trim())
   const h1Coverage = populatedRows.filter(row => row.h1.trim()).length
@@ -409,11 +441,11 @@ export default function NewAIOJob() {
             <h2 className="font-semibold text-sm mb-4">What to generate</h2>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Page Copy', desc: 'Full page copy — sections, headings, body', value: genPageCopy, set: setGenPageCopy },
-                { label: 'Meta Copy', desc: 'Title tag, meta description, H1', value: genMeta, set: setGenMeta },
-                { label: 'FAQs', desc: 'FAQ section with Schema.org JSON-LD', value: genFaqs, set: setGenFaqs },
-              ].map(({ label, desc, value, set }) => (
-                <button key={label} type="button" aria-pressed={value} onClick={() => set(!value)}
+                { label: 'Page Copy', desc: 'Full page copy — sections, headings, body', value: genPageCopy, field: 'gen_page_copy' as const },
+                { label: 'Meta Copy', desc: 'Title tag, meta description, H1', value: genMeta, field: 'gen_meta' as const },
+                { label: 'FAQs', desc: 'FAQ section with Schema.org JSON-LD', value: genFaqs, field: 'gen_faqs' as const },
+              ].map(({ label, desc, value, field }) => (
+                <button key={label} type="button" aria-pressed={value} onClick={() => setOutputForAllRows(field, !value)}
                   className={`p-3 rounded-lg border text-left transition-colors ${value ? 'border-accent bg-accent/8' : 'border-border hover:border-accent/40'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${value ? 'bg-accent border-accent' : 'border-border'}`}>
@@ -434,9 +466,9 @@ export default function NewAIOJob() {
             <p className="text-xs text-muted mt-3">All outputs share a single DFS, SERP, and competitor scrape per URL — no redundant API calls.</p>
           </JobSection>
 
-          {/* Template (only if page copy enabled) */}
-          {genPageCopy && (
-            <JobSection title="Page copy plan" description="Template selection is only shown when page copy is enabled." className="space-y-4">
+          {/* Template (only if at least one row requests page copy) */}
+          {pageCopyRequestedByRows && (
+            <JobSection title="Page copy plan" description="Template selection is shown when at least one row requests page copy." className="space-y-4">
               <h2 className="font-semibold text-sm">Page Copy Template</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -467,6 +499,20 @@ export default function NewAIOJob() {
                 <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Custom Sections (Name | min-max words)</label>
                   <textarea className="input-base font-mono text-xs" rows={4} value={customTemplate} onChange={e => setCustomTemplate(e.target.value)} placeholder="Introduction | 100-160&#10;How It Works | 200-300&#10;FAQ | 150-250" />
+                </div>
+              )}
+              {pageCopyCapabilities?.enabled && pageCopyCapabilities.profiles.length > 0 && (
+                <div>
+                  <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Writing Guidance</label>
+                  <CustomSelect
+                    ariaLabel="Writing guidance"
+                    value={pageCopyGuidanceProfileId}
+                    onChange={setPageCopyGuidanceProfileId}
+                    options={pageCopyCapabilities.profiles.map(profile => ({ value: profile.id, label: profile.label }))}
+                  />
+                  <p className="text-xs text-muted mt-1.5">
+                    {pageCopyCapabilities.profiles.find(profile => profile.id === pageCopyGuidanceProfileId)?.description}
+                  </p>
                 </div>
               )}
             </JobSection>
