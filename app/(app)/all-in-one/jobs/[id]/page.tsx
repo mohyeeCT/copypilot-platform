@@ -28,6 +28,7 @@ import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { aioApi } from '@/lib/api/all-in-one'
 import { getProviderMetadata } from '@/lib/api/shared'
+import { selectPageCopySectionHeadings } from '@/lib/all-in-one-section-headings'
 import { exportRowsToGoogleDocs, googleDocsExportError } from '@/lib/export/googleDocs'
 import { exportRowsToGoogleSheets, googleSheetsExportError } from '@/lib/export/googleSheets'
 import { createClient } from '@/lib/supabase'
@@ -61,6 +62,12 @@ interface SectionGuidance {
   depth_policy?: string
 }
 
+interface AdaptiveSectionPlan {
+  section?: string
+  label?: string
+  evidence_sparse?: boolean
+}
+
 interface PageCopyResult {
   url: string
   primary_keyword?: string
@@ -79,6 +86,7 @@ interface PageCopyResult {
   strategy_issues?: string[]
   page_quality_policy_version?: string
   adaptive_policy_version?: string
+  adaptive_section_plan?: AdaptiveSectionPlan[]
   owned_page_mapping_version?: string
   page_copy_guidance?: {
     id?: string
@@ -366,6 +374,11 @@ function findSectionGuidance(brief: Record<string, unknown> | undefined, section
   )
 }
 
+function findAdaptiveSectionPlan(plan: AdaptiveSectionPlan[] | undefined, sectionName: string) {
+  const target = sectionName.trim().toLowerCase()
+  return plan?.find(item => item.section?.trim().toLowerCase() === target)
+}
+
 function generatedSectionHeading(text: string) {
   const firstContentLine = text.split(/\r?\n/).find(line => line.trim()) || ''
   return firstContentLine.match(/^\s*#{1,3}\s+(.+?)\s*$/)?.[1]?.trim() || ''
@@ -587,12 +600,20 @@ export default function AllInOneJobPage() {
           const isVersionedPageCopy = Boolean(row.page_quality_policy_version)
           const generatedHeading = generatedSectionHeading(text)
           const plannedHeading = findSectionGuidance(row.strategy_brief, section)?.planned_heading
+          const adaptiveSection = findAdaptiveSectionPlan(row.adaptive_section_plan, section)
+          const evidenceSparse = adaptiveSection?.evidence_sparse === true
           const expectedHeadingLevel = expectedSectionHeadingLevel(row.quality_diagnostics, section)
           const isVersionedHeadinglessSection = isVersionedPageCopy && expectedHeadingLevel === 'none'
-          if (isVersionedPageCopy && generatedHeading) lines.push(text, '')
-          else if (isVersionedPageCopy && plannedHeading) lines.push(plannedHeading, text, '')
-          else if (isVersionedHeadinglessSection) lines.push(text, '')
-          else lines.push(section, text, '')
+          const headingSelection = selectPageCopySectionHeadings({
+            isVersionedPageCopy,
+            generatedHeading,
+            plannedHeading,
+            safeFallbackHeading: evidenceSparse ? adaptiveSection?.label || section : section,
+            evidenceSparse,
+            headingless: isVersionedHeadinglessSection,
+          })
+          if (headingSelection.exportHeading) lines.push(headingSelection.exportHeading, text, '')
+          else lines.push(text, '')
         })
       }
       if (row.competitor_urls?.length) {
@@ -1040,12 +1061,24 @@ export default function AllInOneJobPage() {
                             const actualHeading = isVersionedPageCopy
                               ? generatedSectionHeading(text)
                               : ''
+                            const adaptiveSection = findAdaptiveSectionPlan(
+                              selectedResult.adaptive_section_plan,
+                              name,
+                            )
+                            const evidenceSparse = adaptiveSection?.evidence_sparse === true
+                            const headingSelection = selectPageCopySectionHeadings({
+                              isVersionedPageCopy,
+                              generatedHeading: actualHeading,
+                              plannedHeading: sectionPlan?.planned_heading,
+                              safeFallbackHeading: evidenceSparse ? adaptiveSection?.label || name : name,
+                              evidenceSparse,
+                            })
                             return (
                               <section key={name} className={aioStyles.sectionItem}>
                                 <div className={aioStyles.sectionHeader}>
                                   <div className="min-w-0">
-                                    <strong className="block truncate">{sectionPlan?.planned_heading || actualHeading || name}</strong>
-                                    {(sectionPlan?.planned_heading || actualHeading) && (
+                                    <strong className="block truncate">{headingSelection.displayHeading}</strong>
+                                    {headingSelection.displayHeading !== name && (
                                       <small className="mt-0.5 block font-mono text-[0.64rem] text-muted">Section ID: {name}</small>
                                     )}
                                   </div>
@@ -1055,6 +1088,7 @@ export default function AllInOneJobPage() {
                                   sectionName={name}
                                   plan={sectionPlan}
                                   actualHeading={actualHeading}
+                                  evidenceSparse={evidenceSparse}
                                 />
                                 <div className={aioStyles.sectionRerun}>
                                   <input className="input-base text-xs" placeholder="Optional rerun note" value={reviewerInstruction[sectionKey] || ''} onChange={event => setReviewerInstruction(previous => ({ ...previous, [sectionKey]: event.target.value }))} />
@@ -1253,10 +1287,12 @@ function SectionPlanDetails({
   sectionName,
   plan,
   actualHeading,
+  evidenceSparse,
 }: {
   sectionName: string
   plan?: SectionGuidance
   actualHeading: string
+  evidenceSparse: boolean
 }) {
   if (!plan) return null
 
@@ -1282,9 +1318,16 @@ function SectionPlanDetails({
         Section plan and owned-page reuse
       </summary>
       <div className="space-y-3 border-t border-border px-3 py-3">
+        {evidenceSparse ? (
+          <p className="rounded border border-border bg-surface px-2.5 py-2 text-xs leading-relaxed text-muted">
+            Evidence was limited, so the initial heading and coverage plan were not used. The generated heading and owned-page evidence take priority.
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Planned heading</span>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">
+              {evidenceSparse ? 'Initial heading (not used)' : 'Planned heading'}
+            </span>
             <strong className="mt-1 block text-xs text-text">{plan.planned_heading || 'Not recorded'}</strong>
           </div>
           <div>
@@ -1299,7 +1342,9 @@ function SectionPlanDetails({
 
         {plan.coverage_points?.length ? (
           <div>
-            <span className="block text-[0.64rem] font-semibold uppercase text-muted">Coverage points</span>
+            <span className="block text-[0.64rem] font-semibold uppercase text-muted">
+              {evidenceSparse ? 'Initial coverage points (not used)' : 'Coverage points'}
+            </span>
             <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-text">
               {plan.coverage_points.map((point, index) => <li key={`${sectionName}-coverage-${index}`}>{point}</li>)}
             </ul>
