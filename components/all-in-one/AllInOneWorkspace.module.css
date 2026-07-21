@@ -336,6 +336,12 @@
   word-break: break-word;
 }
 
+@media (min-width: 981px) {
+  .evidenceText {
+    overscroll-behavior-y: contain;
+  }
+}
+
 @media (max-width: 760px) {
   .outputGrid,
   .diagnosticsGrid,
