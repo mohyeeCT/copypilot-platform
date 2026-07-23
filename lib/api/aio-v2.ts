@@ -31,7 +31,7 @@ export type AioV2JobSummary = {
   depth_preference_version: 'standard-v1'
   improve_approach: 'preserve' | 'hybrid' | 'research_led' | null
   provider: 'anthropic' | 'openai'
-  model: 'claude-sonnet-5' | 'gpt-5.6-terra'
+  model: 'claude-haiku-4-5-20251001' | 'claude-sonnet-5' | 'gpt-5.6-terra'
   requested_outputs: AioV2RequestedOutputs
   created_at: string
   updated_at: string
@@ -53,7 +53,7 @@ export type AioV2Capabilities = {
   default_improve_approach: 'hybrid'
   provider_models: Array<{
     provider: 'anthropic' | 'openai'
-    model: 'claude-sonnet-5' | 'gpt-5.6-terra'
+    model: 'claude-haiku-4-5-20251001' | 'claude-sonnet-5' | 'gpt-5.6-terra'
     available: boolean
   }>
   provider_calls_enabled: boolean
@@ -80,7 +80,7 @@ export type AioV2JobCreate = {
   depth_preference_id: 'standard'
   improve_approach: 'preserve' | 'hybrid' | 'research_led' | null
   provider: 'anthropic' | 'openai'
-  model: 'claude-sonnet-5' | 'gpt-5.6-terra'
+  model: 'claude-haiku-4-5-20251001' | 'claude-sonnet-5' | 'gpt-5.6-terra'
 }
 
 export type AioV2JobCreated = {
