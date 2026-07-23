@@ -12,7 +12,9 @@ export function createClient() {
     return {
       auth: {
         getSession: async () => ({ data: { session: null }, error }),
+        setSession: async () => ({ data: { user: null, session: null }, error }),
         signInWithPassword: async () => ({ data: { user: null, session: null }, error }),
+        updateUser: async () => ({ data: { user: null }, error }),
         signOut: async () => ({ error: null }),
       },
     } as unknown as ReturnType<typeof createBrowserClient>
