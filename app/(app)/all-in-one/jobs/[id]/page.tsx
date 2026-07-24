@@ -68,6 +68,15 @@ interface AdaptiveSectionPlan {
   evidence_sparse?: boolean
 }
 
+interface SectionRerunOutcome {
+  status: 'applied' | 'partially_applied' | 'blocked'
+  message: string
+  requested_names?: string[]
+  missing_names?: string[]
+  matched_verified_fact_ids?: string[]
+  media_requested?: boolean
+}
+
 interface PageCopyResult {
   url: string
   primary_keyword?: string
@@ -80,6 +89,7 @@ interface PageCopyResult {
   docx_b64?: string
   full_page?: string
   section_results?: Record<string, string>
+  section_rerun_outcomes?: Record<string, SectionRerunOutcome>
   content_gap_summary?: { section: string; missing_topics: string[]; summary?: string }[]
   strategy_brief?: Record<string, unknown>
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
@@ -261,6 +271,12 @@ function resultStateLabel(state: ResultState) {
   if (state === 'review') return 'Needs review'
   if (state === 'error') return 'Error'
   return 'Ready'
+}
+
+function rerunOutcomeLabel(status: SectionRerunOutcome['status']) {
+  if (status === 'partially_applied') return 'Instruction partially applied'
+  if (status === 'blocked') return 'Instruction blocked'
+  return 'Instruction applied'
 }
 
 const STRATEGY_BRIEF_ORDER = [
@@ -1054,13 +1070,12 @@ export default function AllInOneJobPage() {
                           {Object.entries(selectedResult.section_results || {}).map(([name, text]) => {
                             const sectionKey = `${selectedIndex}-${name}`
                             const isRegenerating = rerunningSections.has(sectionKey)
+                            const rerunOutcome = selectedResult.section_rerun_outcomes?.[name]
                             const isVersionedPageCopy = Boolean(selectedResult.page_quality_policy_version)
                             const sectionPlan = isVersionedPageCopy
                               ? findSectionGuidance(selectedResult.strategy_brief, name)
                               : undefined
-                            const actualHeading = isVersionedPageCopy
-                              ? generatedSectionHeading(text)
-                              : ''
+                            const actualHeading = generatedSectionHeading(text)
                             const adaptiveSection = findAdaptiveSectionPlan(
                               selectedResult.adaptive_section_plan,
                               name,
@@ -1094,6 +1109,15 @@ export default function AllInOneJobPage() {
                                   <input className="input-base text-xs" placeholder="Optional rerun note" value={reviewerInstruction[sectionKey] || ''} onChange={event => setReviewerInstruction(previous => ({ ...previous, [sectionKey]: event.target.value }))} />
                                   <button type="button" className="btn-ghost text-xs" disabled={isRegenerating} onClick={() => void rerunSection(selectedIndex, name)}><RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} /> {isRegenerating ? 'Rerunning...' : 'Rerun section'}</button>
                                 </div>
+                                {rerunOutcome && (
+                                  <div className={aioStyles.rerunOutcome} data-status={rerunOutcome.status} role="status">
+                                    {rerunOutcome.status === 'applied' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+                                    <div>
+                                      <strong>{rerunOutcomeLabel(rerunOutcome.status)}</strong>
+                                      <p>{rerunOutcome.message}</p>
+                                    </div>
+                                  </div>
+                                )}
                                 <p>{text}</p>
                               </section>
                             )

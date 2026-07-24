@@ -26,7 +26,7 @@ export function selectPageCopySectionHeadings({
 
   if (!isVersionedPageCopy) {
     return {
-      displayHeading: fallback,
+      displayHeading: generated || fallback,
       exportHeading: fallback,
     }
   }
