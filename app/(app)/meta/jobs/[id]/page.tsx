@@ -246,14 +246,14 @@ export default function MetaJobPage() {
   }
 
   function buildExportRows() {
-    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimised H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
+    const headers = ['URL', 'Title Tag', 'Title Length', 'Meta Description', 'Description Length', 'Optimized H1', 'H1 Length', 'Keyword', 'Volume', 'Difficulty', 'Keyword Source', 'Runner Up', 'Status', 'QA Flags']
     const rows = results.map(row => ({
       URL: row.url || '',
       'Title Tag': row.generated_title || '',
       'Title Length': row.title_length || '',
       'Meta Description': row.generated_description || '',
       'Description Length': row.description_length || '',
-      'Optimised H1': row.optimised_h1 || '',
+      'Optimized H1': row.optimised_h1 || '',
       'H1 Length': row.h1_length || '',
       Keyword: row.selected_keyword || '',
       Volume: row.kw_volume ?? '',
@@ -646,7 +646,7 @@ export default function MetaJobPage() {
                           )}
                           {selectedResult.optimised_h1 && (
                             <CopyBlock
-                              label="Optimised H1"
+                              label="Optimized H1"
                               value={selectedResult.optimised_h1}
                               count={characterCount(selectedResult.optimised_h1, selectedResult.h1_length)}
                               max={70}

@@ -1,0 +1,32 @@
+.panel { margin-bottom: 14px; border: 1px solid var(--border); background: var(--surface-raised); box-shadow: var(--shadow-xs); }
+.topline { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 9px 14px; border-bottom: 1px solid var(--border-subtle); background: var(--surface); }
+.topline > a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: .61rem; text-decoration: none; }
+.topline > div { display: flex; align-items: center; gap: 6px; }
+.topline span, .topline strong, .topline em { padding: 3px 6px; border: 1px solid var(--border-subtle); color: var(--muted); font-size: .54rem; font-style: normal; font-weight: 700; text-transform: uppercase; }
+.topline strong[data-state="complete"], .topline strong[data-state="plan_ready"] { background: var(--accent-subtle); color: var(--accent); }
+.topline strong[data-state="failed"] { color: var(--error); }
+.summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px; }
+.summary h2 { overflow-wrap: anywhere; font-family: var(--font-mono), monospace; font-size: .72rem; }
+.summary p { margin-top: 4px; color: var(--muted); font-size: .58rem; }
+.actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.actions button, .activeOperations button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: .58rem; cursor: pointer; }
+.actions button:disabled, .activeOperations button:disabled { cursor: not-allowed; opacity: .45; }
+.error, .notice { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border-subtle); font-size: .62rem; }
+.error { color: var(--error); }
+.notice { background: var(--accent-subtle); color: var(--accent); }
+.activeOperations { display: grid; gap: 5px; padding: 9px 14px; border-top: 1px solid var(--border-subtle); }
+.activeOperations > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.activeOperations span { display: flex; align-items: center; gap: 6px; font-size: .59rem; }
+.activeOperations small { color: var(--muted); }
+.ledger { border-top: 1px solid var(--border-subtle); }
+.ledger summary { padding: 8px 14px; color: var(--muted); font-size: .58rem; cursor: pointer; }
+.ledgerGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 14px 14px; }
+.ledgerGrid section { padding: 9px; border: 1px solid var(--border-subtle); background: var(--surface); }
+.ledgerGrid h3 { margin-bottom: 6px; font-size: .62rem; }
+.ledgerGrid article { padding: 6px 0; border-top: 1px solid var(--border-subtle); }
+.ledgerGrid article > div { display: flex; justify-content: space-between; gap: 8px; }
+.ledgerGrid strong, .ledgerGrid span { font-size: .57rem; }
+.ledgerGrid span, .ledgerGrid small, .ledgerGrid p { color: var(--muted); }
+.ledgerGrid small, .ledgerGrid p { display: block; margin-top: 2px; font-size: .52rem; }
+@media (max-width: 720px) { .summary, .topline { align-items: flex-start; flex-direction: column; } .actions { justify-content: flex-start; } .ledgerGrid { grid-template-columns: 1fr; } }
+
