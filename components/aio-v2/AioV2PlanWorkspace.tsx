@@ -698,7 +698,7 @@ function WorkspaceLoading() {
 }
 
 function WorkspaceLocked() {
-  return <div className={styles.stateCard}><Lock size={24} /><h1>AIO v2 is not enabled for this account</h1><p>This private workspace stays hidden until a named beta entitlement is granted.</p></div>
+  return <div className={styles.stateCard}><Lock size={24} /><h1>AIO v2 is not enabled for this account</h1><p>Your account cannot access AIO v2 right now. Contact an administrator for help.</p></div>
 }
 
 function WorkspaceEmpty({ job, onRetry }: { job: AioV2JobDetail | null; onRetry: () => void }) {

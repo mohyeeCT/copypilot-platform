@@ -150,7 +150,7 @@ export default function AioV2NewJobWorkspace() {
       <div className={styles.page}>
         <Link href="/all-in-one-v2/jobs" className={styles.backLink}><ArrowLeft size={14} /> AIO v2 jobs</Link>
         {loadState === 'loading' ? <section className={styles.stateCard}><h2>Opening the AIO v2 launcher</h2><p>Checking entitlement and safe capabilities first.</p></section> : null}
-        {loadState === 'locked' ? <section className={styles.stateCard}><Lock size={22} /><h2>AIO v2 is not enabled</h2><p>This launcher remains hidden without a named beta entitlement.</p></section> : null}
+        {loadState === 'locked' ? <section className={styles.stateCard}><Lock size={22} /><h2>AIO v2 is not enabled</h2><p>Your account cannot access AIO v2 right now. Contact an administrator for help.</p></section> : null}
         {loadState === 'error' ? <section className={styles.stateCard}><AlertTriangle size={22} /><h2>The launcher is unavailable</h2><p>{error}</p><button type="button" className="btn-ghost" onClick={() => void load()}>Try again</button></section> : null}
 
         {loadState === 'ready' && capabilities ? (
@@ -161,7 +161,7 @@ export default function AioV2NewJobWorkspace() {
             </header>
 
             {error ? <div className={styles.error} role="alert"><AlertTriangle size={15} /> {error}</div> : null}
-            {!providerReady ? <div className={styles.activationNotice}><ShieldCheck size={17} /><div><strong>Provider activation is still closed</strong><p>The complete job contract is ready, but creation remains disabled until the controlled-beta provider, cost ceiling, and infrastructure approvals are applied. No provider fallback will occur.</p></div></div> : null}
+            {!providerReady ? <div className={styles.activationNotice}><ShieldCheck size={17} /><div><strong>Provider calls are unavailable</strong><p>Creation remains disabled until provider availability and cost controls are configured. No provider fallback will occur.</p></div></div> : null}
 
             <section className={styles.formSection}>
               <div><span>1</span><h2>Workflow</h2><p>These are separate provenance paths, not a hidden automatic choice.</p></div>
@@ -200,4 +200,3 @@ export default function AioV2NewJobWorkspace() {
     </AppLayout>
   )
 }
-

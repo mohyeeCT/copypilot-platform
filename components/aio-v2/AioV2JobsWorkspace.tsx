@@ -109,7 +109,7 @@ export default function AioV2JobsWorkspace() {
       <div className={styles.page}>
         <header className={styles.hero}>
           <div>
-            <span>Private beta workspace</span>
+            <span>All in One v2</span>
             <h1>AIO v2 jobs</h1>
             <p>Create or refresh a page through an explicit plan, approval, generation, and export trail.</p>
           </div>
@@ -118,7 +118,7 @@ export default function AioV2JobsWorkspace() {
 
         {error ? <div className={styles.error} role="alert"><AlertTriangle size={15} /> {error}</div> : null}
         {loadState === 'loading' ? <StateCard title="Loading AIO v2 history" text="Checking access before requesting job data." /> : null}
-        {loadState === 'locked' ? <StateCard icon={<Lock size={22} />} title="AIO v2 is not enabled" text="This route remains hidden and unavailable without a named beta entitlement." /> : null}
+        {loadState === 'locked' ? <StateCard icon={<Lock size={22} />} title="AIO v2 is not enabled" text="Your account cannot access AIO v2 right now. Contact an administrator for help." /> : null}
         {loadState === 'error' ? <StateCard icon={<AlertTriangle size={22} />} title="Job history is unavailable" text={error} action={<button type="button" className="btn-ghost" onClick={() => void load()}><RefreshCw size={14} /> Try again</button>} /> : null}
 
         {loadState === 'ready' ? (
