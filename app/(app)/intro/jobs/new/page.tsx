@@ -318,7 +318,7 @@ export default function NewJobPage() {
         <JobLauncherShell
           eyebrow="Intro"
           title="New intro job"
-          description="Generate SEO-optimized intro paragraphs at scale while keeping template, word count, and context controls in view."
+          description="Generate SEO-optimised intro paragraphs at scale while keeping template, word count, and context controls in view."
           summary={
             <JobSummaryBar
               summaryItems={[

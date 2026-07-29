@@ -19,7 +19,7 @@ const tools = [
   {
     name: 'Meta Copy',
     slug: 'meta',
-    description: 'Title tags, meta descriptions, and optimized H1s at scale using keyword scoring and business context.',
+    description: 'Title tags, meta descriptions, and optimised H1s at scale using keyword scoring and business context.',
     status: 'soon',
     href: null,
     icon: '🏷️',

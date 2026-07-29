@@ -1050,7 +1050,7 @@ export default function AllInOneJobPage() {
                     <div className={styles.detailBody}>
                       {row.generated_title && <section className={styles.copyBlock}><div className={styles.blockHeader}><div><span>Title tag</span><span className={`${styles.meter} ${row.title_length > 90 ? 'text-warning' : ''}`}>{row.title_length}/90</span></div></div><p>{row.generated_title}</p></section>}
                       {row.generated_description && <section className={styles.copyBlock}><div className={styles.blockHeader}><div><span>Meta description</span><span className={`${styles.meter} ${row.description_length > 200 ? 'text-warning' : ''}`}>{row.description_length}/200</span></div></div><p>{row.generated_description}</p></section>}
-                      {selectedResult.optimised_h1 && <section className={styles.copyBlock}><div className={styles.blockHeader}><div><span>Optimized H1</span></div></div><p className={styles.h1Value}>{selectedResult.optimised_h1}</p></section>}
+                      {selectedResult.optimised_h1 && <section className={styles.copyBlock}><div className={styles.blockHeader}><div><span>Optimised H1</span></div></div><p className={styles.h1Value}>{selectedResult.optimised_h1}</p></section>}
                       {!selectedResult.generated_title && !selectedResult.generated_description && !selectedResult.optimised_h1 && <div className={styles.emptyResults}><FileText size={22} /><strong>No meta copy saved</strong><p>This output was not requested or did not generate.</p></div>}
                     </div>
                   )}
