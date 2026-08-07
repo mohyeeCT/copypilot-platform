@@ -31,7 +31,8 @@ const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
   ],
   'OpenAI': [
-    { label: 'GPT-5.5 (latest)', value: 'gpt-5.5' },
+    { label: 'GPT-5.5', value: 'gpt-5.5' },
+    { label: 'GPT-5.6 Sol (premium)', value: 'gpt-5.6-sol' },
     { label: 'GPT-5.4', value: 'gpt-5.4' },
     { label: 'GPT-5.4 mini', value: 'gpt-5.4-mini' },
     { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },

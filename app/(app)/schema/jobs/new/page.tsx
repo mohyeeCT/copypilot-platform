@@ -50,12 +50,15 @@ const SCHEMA_TYPES = [
   { value: 'VideoObject', label: 'Video', group: 'Technical' },
 ]
 
-const PROVIDERS = ['Claude']
+const PROVIDERS = ['Claude', 'OpenAI']
 const PROVIDER_MODELS: Record<string, { label: string; value: string }[]> = {
   Claude: [
     { label: 'Claude Sonnet 5 (default)', value: 'claude-sonnet-5' },
     { label: 'Claude Sonnet 4.6', value: 'claude-sonnet-4-6' },
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
+  ],
+  OpenAI: [
+    { label: 'GPT-5.6 Sol (premium)', value: 'gpt-5.6-sol' },
   ],
 }
 
