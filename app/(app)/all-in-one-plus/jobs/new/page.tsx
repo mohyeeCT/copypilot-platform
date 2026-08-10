@@ -81,6 +81,7 @@ function createAioRowImportSchema(defaultPageType: string) {
 }
 
 interface Row { url: string; keyword: string; page_type: string; h1: string; gen_page_copy: boolean; gen_meta: boolean; gen_faqs: boolean }
+type PageApproach = 'rebuild' | 'improve_existing'
 
 type BrandProfile = {
   id: string
@@ -108,6 +109,7 @@ export default function NewAIOJob() {
   const [minVolume, setMinVolume]     = useState(10)
   const [clientBrief, setClientBrief] = useState('')
   const [pageType, setPageType]       = useState('service')
+  const [pageApproach, setPageApproach] = useState<PageApproach>('rebuild')
   const [templateKey, setTemplateKey] = useState('service_page')
   const [customTemplate, setCustomTemplate] = useState('')
   const [templateMode, setTemplateMode] = useState<'predefined' | 'custom'>('predefined')
@@ -293,6 +295,10 @@ export default function NewAIOJob() {
     const validRowsRequestPageCopy = validRows.some(row => row.gen_page_copy)
     if (!validRows.length) { setError('Add at least one valid URL'); return }
     if (!validRowsRequestOutput) { setError('Enable at least one output type'); return }
+    if (pageApproach === 'improve_existing' && validRowsRequestPageCopy && !scrapePages) {
+      setError('Improve Existing requires current-page scraping. Enable page scraping, or choose Create / Rebuild.')
+      return
+    }
     setError('')
 
     const sb = createClient()
@@ -327,6 +333,7 @@ export default function NewAIOJob() {
         branded_terms_input: brandTerms, include_brand: includeBrand,
         forbidden_phrases: forbiddenPhrases, location_code: locationCode, min_volume: minVolume,
         client_brief: clientBrief, page_type: pageType,
+        page_approach: pageApproach,
         template_key: templateMode === 'predefined' ? templateKey : '',
         custom_template_text: templateMode === 'custom' ? customTemplate : '',
         use_gsc: useGsc, site_url: siteUrl, brand_profile_id: brandProfileId,
@@ -411,6 +418,7 @@ export default function NewAIOJob() {
               summaryItems={[
                 { label: 'URLs', value: validUrlCount },
                 { label: 'Outputs', value: enabledOutputs },
+                { label: 'Approach', value: pageApproach === 'improve_existing' ? 'Improve existing' : 'Create / Rebuild' },
                 { label: 'AI', value: <JobSummaryPills items={[
                   { label: cleanProviderLabel(provider), tone: 'accent' },
                   { label: cleanModelLabel(model, PROVIDER_MODELS[provider], provider) },
@@ -469,7 +477,35 @@ export default function NewAIOJob() {
 
           {/* Template (only if at least one row requests page copy) */}
           {pageCopyRequestedByRows && (
-            <JobSection title="Page copy plan" description="Template selection is shown when at least one row requests page copy." className="space-y-4">
+            <JobSection title="Page copy plan" description="Choose whether AIO+ should rebuild the page or improve its current structure in place." className="space-y-4">
+              <div>
+                <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Page approach</label>
+                <SegmentedControl
+                  value={pageApproach}
+                  onChange={value => {
+                    setPageApproach(value)
+                    if (value === 'improve_existing') {
+                      setScrapePages(true)
+                      setTemplateMode('predefined')
+                    }
+                  }}
+                  ariaLabel="AIO+ page approach"
+                  options={[
+                    { value: 'rebuild', label: 'Create / Rebuild' },
+                    { value: 'improve_existing', label: 'Improve Existing' },
+                  ]}
+                />
+                <p className="text-xs text-muted mt-1.5">
+                  {pageApproach === 'improve_existing'
+                    ? 'Keeps the current page order and useful content, improves sections in place, and may add up to two evidence-supported SEO sections.'
+                    : 'Uses the selected template to create or rebuild the page with the current AIO+ flow.'}
+                </p>
+              </div>
+              {pageApproach === 'improve_existing' && (
+                <div className="rounded-lg border border-accent/25 bg-accent/5 px-3 py-2 text-xs text-muted">
+                  If the complete current page cannot be captured safely, the row stops instead of silently switching to Create / Rebuild.
+                </div>
+              )}
               <h2 className="font-semibold text-sm">Page Copy Template</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -477,16 +513,16 @@ export default function NewAIOJob() {
                   <CustomSelect value={pageType} onChange={setPageType}
                     options={PAGE_TYPES.map(pt => ({ value: pt, label: PAGE_LABELS[pt] || pt }))} />
                 </div>
-                <div>
+                {pageApproach === 'rebuild' && <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Template Mode</label>
                   <CustomSelect value={templateMode} onChange={value => setTemplateMode(value as 'predefined' | 'custom')}
                     options={[
                       { value: 'predefined', label: 'Predefined' },
                       { value: 'custom', label: 'Custom sections' },
                     ]} />
-                </div>
+                </div>}
               </div>
-              {templateMode === 'predefined' && availableTemplates.length > 0 && (
+              {pageApproach === 'rebuild' && templateMode === 'predefined' && availableTemplates.length > 0 && (
                 <div className="space-y-2">
                   {availableTemplates.map(t => (
                     <label key={t.key} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${templateKey === t.key ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'}`}>
@@ -496,7 +532,7 @@ export default function NewAIOJob() {
                   ))}
                 </div>
               )}
-              {templateMode === 'custom' && (
+              {pageApproach === 'rebuild' && templateMode === 'custom' && (
                 <div>
                   <label className="block text-xs text-muted mb-1.5 uppercase tracking-wider">Custom Sections (Name | min-max words)</label>
                   <textarea className="input-base font-mono text-xs" rows={4} value={customTemplate} onChange={e => setCustomTemplate(e.target.value)} placeholder="Introduction | 100-160&#10;How It Works | 200-300&#10;FAQ | 150-250" />

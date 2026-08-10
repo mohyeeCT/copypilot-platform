@@ -77,6 +77,18 @@ interface SectionRerunOutcome {
   media_requested?: boolean
 }
 
+interface ImproveExistingSummary {
+  kept?: number
+  improved?: number
+  expanded?: number
+  added?: number
+  source_sections?: number
+  source_blocks?: number
+  added_sections?: string[]
+  structure_preserved?: boolean
+  version?: string
+}
+
 interface PageCopyResult {
   url: string
   primary_keyword?: string
@@ -94,6 +106,8 @@ interface PageCopyResult {
   strategy_brief?: Record<string, unknown>
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
   strategy_issues?: string[]
+  page_approach?: 'rebuild' | 'improve_existing'
+  improve_existing_summary?: ImproveExistingSummary
   page_quality_policy_version?: string
   adaptive_policy_version?: string
   adaptive_section_plan?: AdaptiveSectionPlan[]
@@ -395,9 +409,12 @@ function findAdaptiveSectionPlan(plan: AdaptiveSectionPlan[] | undefined, sectio
   return plan?.find(item => item.section?.trim().toLowerCase() === target)
 }
 
-function generatedSectionHeading(text: string) {
+function generatedSectionHeading(text: string, includeDeepHeadings = false) {
   const firstContentLine = text.split(/\r?\n/).find(line => line.trim()) || ''
-  return firstContentLine.match(/^\s*#{1,3}\s+(.+?)\s*$/)?.[1]?.trim() || ''
+  const pattern = includeDeepHeadings
+    ? /^\s*#{1,6}\s+(.+?)\s*$/
+    : /^\s*#{1,3}\s+(.+?)\s*$/
+  return firstContentLine.match(pattern)?.[1]?.trim() || ''
 }
 
 function expectedSectionHeadingLevel(
@@ -614,7 +631,10 @@ export default function AllInOneJobPage() {
         lines.push('', 'Page Copy')
         Object.entries(row.section_results).forEach(([section, text]) => {
           const isVersionedPageCopy = Boolean(row.page_quality_policy_version)
-          const generatedHeading = generatedSectionHeading(text)
+          const generatedHeading = generatedSectionHeading(
+            text,
+            row.page_approach === 'improve_existing',
+          )
           const plannedHeading = findSectionGuidance(row.strategy_brief, section)?.planned_heading
           const adaptiveSection = findAdaptiveSectionPlan(row.adaptive_section_plan, section)
           const evidenceSparse = adaptiveSection?.evidence_sparse === true
@@ -1035,6 +1055,23 @@ export default function AllInOneJobPage() {
                   {detailTab === 'strategy' && (
                     <div className={styles.detailBody}>
                       <div className={aioStyles.sectionHeading}><span>Strategy Brief</span><p>Read-only direction shared across this row&apos;s generated outputs.</p></div>
+                      {selectedResult.page_approach === 'improve_existing' && selectedResult.improve_existing_summary && (
+                        <>
+                          <div className={aioStyles.notice}><CheckCircle2 size={13} /><span>Existing page structure preserved. Sections were improved in place, with no more than two useful SEO additions.</span></div>
+                          <div className={aioStyles.outputGrid}>
+                            <div className={aioStyles.outputCard}><span>Kept</span><strong>{selectedResult.improve_existing_summary.kept || 0}</strong><small>Existing sections retained as written</small></div>
+                            <div className={aioStyles.outputCard}><span>Improved</span><strong>{selectedResult.improve_existing_summary.improved || 0}</strong><small>Existing sections refined in place</small></div>
+                            <div className={aioStyles.outputCard}><span>Expanded</span><strong>{selectedResult.improve_existing_summary.expanded || 0}</strong><small>Existing sections given useful depth</small></div>
+                            <div className={aioStyles.outputCard}><span>Added</span><strong>{selectedResult.improve_existing_summary.added || 0}</strong><small>New evidence-supported SEO sections</small></div>
+                          </div>
+                          {!!selectedResult.improve_existing_summary.added_sections?.length && (
+                            <div className={aioStyles.strategyItem}>
+                              <span>New SEO sections</span>
+                              {selectedResult.improve_existing_summary.added_sections.map((heading, index) => <p key={`${heading}-${index}`}>{heading}</p>)}
+                            </div>
+                          )}
+                        </>
+                      )}
                       {selectedResult.strategy_issues?.map((issue, index) => <div key={`${issue}-${index}`} className={aioStyles.notice}><AlertTriangle size={13} /><span>{issue}</span></div>)}
                       {strategyBriefEntries(selectedResult.strategy_brief).length ? (
                         <div className={aioStyles.strategyGrid}>
@@ -1075,7 +1112,10 @@ export default function AllInOneJobPage() {
                             const sectionPlan = isVersionedPageCopy
                               ? findSectionGuidance(selectedResult.strategy_brief, name)
                               : undefined
-                            const actualHeading = generatedSectionHeading(text)
+                            const actualHeading = generatedSectionHeading(
+                              text,
+                              selectedResult.page_approach === 'improve_existing',
+                            )
                             const adaptiveSection = findAdaptiveSectionPlan(
                               selectedResult.adaptive_section_plan,
                               name,
