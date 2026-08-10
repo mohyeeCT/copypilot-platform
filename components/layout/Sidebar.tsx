@@ -53,6 +53,7 @@ const NAV_GROUPS: Array<{ label: string; items: Tool[] }> = [
       { href: '/intro/jobs', label: 'Page Intro', icon: FileText },
       { href: '/meta/jobs', label: 'Meta Copy', icon: Tag },
       { href: '/all-in-one/jobs', label: 'All in One', icon: Layers3 },
+      { href: '/all-in-one-plus/jobs', label: 'AIO+', icon: Plus },
       { href: '/all-in-one-v2/jobs', label: 'All in One v2', icon: Sparkles },
     ],
   },
