@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -19,6 +19,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+
+  useEffect(() => {
+    const fragment = new URLSearchParams(window.location.hash.slice(1))
+    if (fragment.get('type') !== 'invite') return
+    if (!fragment.get('access_token') || !fragment.get('refresh_token')) return
+
+    window.location.replace(`/accept-invite${window.location.hash}`)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
