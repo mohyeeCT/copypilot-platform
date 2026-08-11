@@ -84,7 +84,7 @@ export default function AcceptInvitePage() {
       setError('Your password could not be saved. Request a new invitation.')
       return
     }
-    router.replace('/all-in-one-v2/jobs')
+    router.replace('/faq/jobs')
   }
 
   return (
