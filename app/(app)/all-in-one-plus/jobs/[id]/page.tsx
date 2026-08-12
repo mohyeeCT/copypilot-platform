@@ -27,6 +27,12 @@ import ExportMenu from '@/components/ui/ExportMenu'
 import RunningJobPanel from '@/components/ui/RunningJobPanel'
 import StyledCheckbox from '@/components/ui/StyledCheckbox'
 import { aioPlusApi } from '@/lib/api/all-in-one-plus'
+import {
+  buildAioPlusImplementationMapLines,
+  normaliseAioPlusExportText,
+  selectAioPlusPageCopyEntries,
+  type AioPlusImproveExistingPlan,
+} from '@/lib/all-in-one-plus-export'
 import { getProviderMetadata } from '@/lib/api/shared'
 import { selectPageCopySectionHeadings } from '@/lib/all-in-one-plus-section-headings'
 import { exportRowsToGoogleDocs, googleDocsExportError } from '@/lib/export/googleDocs'
@@ -107,6 +113,7 @@ interface PageCopyResult {
   strategy_status?: 'ready' | 'needs_review' | 'unavailable' | 'not_requested'
   strategy_issues?: string[]
   page_approach?: 'rebuild' | 'improve_existing'
+  improve_existing_plan?: AioPlusImproveExistingPlan
   improve_existing_summary?: ImproveExistingSummary
   page_quality_policy_version?: string
   adaptive_policy_version?: string
@@ -628,8 +635,18 @@ export default function AllInOneJobPage() {
         row.faq_items.forEach((faq, faqIndex) => lines.push(`${faqIndex + 1}. ${faq.question}`, faq.answer))
       }
       if (row.section_results && Object.keys(row.section_results).length) {
-        lines.push('', 'Page Copy')
-        Object.entries(row.section_results).forEach(([section, text]) => {
+        const implementationMap = row.page_approach === 'improve_existing'
+          ? buildAioPlusImplementationMapLines(row.improve_existing_plan)
+          : []
+        lines.push(
+          '',
+          ...implementationMap,
+          ...(implementationMap.length ? ['', 'Final Page Copy (Current Page Order)'] : ['Page Copy']),
+        )
+        selectAioPlusPageCopyEntries(
+          row.section_results,
+          row.improve_existing_plan,
+        ).forEach(([section, text]) => {
           const isVersionedPageCopy = Boolean(row.page_quality_policy_version)
           const generatedHeading = generatedSectionHeading(
             text,
@@ -648,8 +665,9 @@ export default function AllInOneJobPage() {
             evidenceSparse,
             headingless: isVersionedHeadinglessSection,
           })
-          if (headingSelection.exportHeading) lines.push(headingSelection.exportHeading, text, '')
-          else lines.push(text, '')
+          const exportText = normaliseAioPlusExportText(text)
+          if (headingSelection.exportHeading) lines.push(headingSelection.exportHeading, exportText, '')
+          else lines.push(exportText, '')
         })
       }
       if (row.competitor_urls?.length) {
@@ -1104,7 +1122,10 @@ export default function AllInOneJobPage() {
                     <div className={styles.detailBody}>
                       {Object.keys(selectedResult.section_results || {}).length ? (
                         <div className={aioStyles.sectionStack}>
-                          {Object.entries(selectedResult.section_results || {}).map(([name, text]) => {
+                          {selectAioPlusPageCopyEntries(
+                            selectedResult.section_results || {},
+                            selectedResult.improve_existing_plan,
+                          ).map(([name, text]) => {
                             const sectionKey = `${selectedIndex}-${name}`
                             const isRegenerating = rerunningSections.has(sectionKey)
                             const rerunOutcome = selectedResult.section_rerun_outcomes?.[name]
@@ -1128,6 +1149,16 @@ export default function AllInOneJobPage() {
                               safeFallbackHeading: evidenceSparse ? adaptiveSection?.label || name : name,
                               evidenceSparse,
                             })
+                            const improvementSection = selectedResult.improve_existing_plan?.sections?.find(
+                              section => section.name === name,
+                            )
+                            const structureLabel = improvementSection
+                              ? [
+                                  `Page position ${improvementSection.source_order || '-'}`,
+                                  (improvementSection.preservation_action || 'keep').replace(/_/g, ' '),
+                                  (improvementSection.structure_role || 'content').replace(/_/g, ' '),
+                                ].join(' / ')
+                              : ''
                             return (
                               <section key={name} className={aioStyles.sectionItem}>
                                 <div className={aioStyles.sectionHeader}>
@@ -1135,6 +1166,9 @@ export default function AllInOneJobPage() {
                                     <strong className="block truncate">{headingSelection.displayHeading}</strong>
                                     {headingSelection.displayHeading !== name && (
                                       <small className="mt-0.5 block font-mono text-[0.64rem] text-muted">Section ID: {name}</small>
+                                    )}
+                                    {structureLabel && (
+                                      <small className="mt-0.5 block text-[0.68rem] capitalize text-muted">{structureLabel}</small>
                                     )}
                                   </div>
                                   <span>{text.split(/\s+/).filter(Boolean).length} words</span>
